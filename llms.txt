@@ -1,0 +1,32 @@
+# tutti
+
+> An open audio project format: a project is a plain folder holding one JSON document, the audio
+> it plays, the plugin states it uses and a short README. Start a project in one program, open it
+> in another, including programs that don't exist yet. MIT, pre-alpha, version 1.0 in draft.
+
+Read `docs/agents.md` first: how to read and write a project, the time model and the model in a
+paragraph each, the smallest valid document, common tasks and pitfalls.
+
+## Normative
+
+- [The format](spec/1.0/tutti.md): the folder, the document, identity, time, the model,
+  devices and states, extensions and versions, robustness.
+- [Conformance](spec/1.0/conformance.md): what every reader and writer must do; Levels 0, 1
+  and 2 and their fixtures.
+- [Extensions](spec/1.0/extensions.md): namespaces, used and required, the registry, adoption
+  into the core.
+- [The JSON Schema](schema/1.0/tutti.schema.json): what an agent's structured output
+  validates against.
+
+## Guides
+
+- [For agents and implementers](docs/agents.md)
+- [The README every project folder carries](spec/1.0/README.template.md)
+- [The research the format was designed from](docs/research.md)
+- [Why each choice was made](NOTES.md)
+
+## Code
+
+- `crates/tutti`: the reference implementation, no file IO, builds for WebAssembly.
+- `crates/tutti-cli`: `tutti check`, `tutti inspect`, `tutti deps`, `tutti archive`.
+- `examples/`: example projects and the conformance fixtures.

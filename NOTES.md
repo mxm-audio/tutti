@@ -81,5 +81,6 @@ designed from is `docs/research.md`.
 
 ## History
 
-- 2026-10-20: the repository created in the workspace (stage 1 of the plan), the research and the
-  spec's draft to follow.
+- 2026-10-20: the repository created in the workspace (stage 1 of the plan); the spec's draft, its
+  conformance and extension texts, the folder README template, the research write-up, the agent
+  guide and `llms.txt` written (stage 2).
