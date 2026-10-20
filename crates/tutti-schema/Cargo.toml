@@ -1,0 +1,14 @@
+[package]
+name = "tutti-schema"
+description = "The tests that hold tutti's schema, examples, docs and types together, and the field-reference generator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+tutti.workspace = true
+serde_json.workspace = true

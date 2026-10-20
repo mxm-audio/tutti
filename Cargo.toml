@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/tutti",
+    "crates/tutti-schema",
+    "crates/tutti-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87"        # the core's floor, compiled against; a crate that needs more says so
+license = "MIT"
+authors = ["mxm"]
+repository = "https://github.com/mxm-audio/tutti"
+
+[workspace.dependencies]
+# Pinned exactly, as in every MXM repository; Cargo.lock is committed.
+# rc: a note's audio piece is shared (`Arc`) in a host's model, so copying a note copies a pointer.
+serde = { version = "=1.0.229", features = ["derive", "rc"] }
+# float_roundtrip: parsing gives back exactly the float that was written.
+serde_json = { version = "=1.0.145", features = ["float_roundtrip"] }
+sha2 = "=0.10.9"
+
+tutti = { path = "crates/tutti" }
