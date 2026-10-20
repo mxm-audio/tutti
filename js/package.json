@@ -1,0 +1,26 @@
+{
+  "name": "@mxm-audio/tutti",
+  "version": "0.1.0",
+  "description": "tutti, an open audio project format: read, write, validate and place in time, from JavaScript (the Rust core compiled to WebAssembly)",
+  "license": "MIT",
+  "private": true,
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": ["index.js", "index.d.ts", "schema.d.ts", "api.d.ts", "pkg/"],
+  "scripts": {
+    "build": "wasm-pack build ../crates/tutti-wasm --target nodejs --out-dir ../../js/pkg --out-name tutti --no-pack",
+    "types": "json2ts ../schema/1.0/tutti.schema.json -o schema.d.ts --bannerComment \"/* Generated from schema/1.0/tutti.schema.json by npm run types; do not edit. */\"",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "16.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mxm-audio/tutti.git",
+    "directory": "js"
+  }
+}

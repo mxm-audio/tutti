@@ -22,7 +22,8 @@ Pre-alpha: nothing is released, there are no tags, and the spec's first version 
 # Ownership
 
 Root owns `Cargo.toml`, `Cargo.lock`, `LICENSE`, `README.md`, `CONTRIBUTING.md`, `NOTES.md`,
-`llms.txt` and `.github/`. Each folder with an `AGENTS.md` owns its contents; the index is below.
+`llms.txt`, `.gitattributes` and `.github/`. Each folder with an `AGENTS.md` owns its contents;
+the index is below.
 
 # Local Contracts
 
@@ -94,4 +95,6 @@ build.
 | [`docs/AGENTS.md`](docs/AGENTS.md) | The research, the implementers' guide, the agent guide, the generated field reference |
 | [`crates/tutti/AGENTS.md`](crates/tutti/AGENTS.md) | The reference implementation: model, read, write, validate, the time arithmetic; no file IO |
 | [`crates/tutti-schema/AGENTS.md`](crates/tutti-schema/AGENTS.md) | The tests that hold spec, schema, examples, docs and code together; the field-reference generator |
-| [`crates/tutti-cli/AGENTS.md`](crates/tutti-cli/AGENTS.md) | The `tutti` command: check, inspect, deps, archive; the one place with file IO |
+| [`crates/tutti-cli/AGENTS.md`](crates/tutti-cli/AGENTS.md) | The `tutti` command: check, inspect, deps, archive, fmt; the one place with file IO |
+| [`crates/tutti-wasm/AGENTS.md`](crates/tutti-wasm/AGENTS.md) | The core for JavaScript: wasm-bindgen functions, strings in and out, no file IO |
+| [`js/AGENTS.md`](js/AGENTS.md) | `@mxm-audio/tutti`, the npm package: the wasm build, the wrapper, the generated document types, the Node tests over the examples |

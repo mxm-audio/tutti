@@ -27,3 +27,16 @@ jobs:
       - run: cargo test --workspace --locked
       # The core has no file IO and no platform code: it must keep building for the web.
       - run: cargo build -p tutti --locked --target wasm32-unknown-unknown
+      # The npm package: the wasm build, the generated document types current, the Node tests.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cargo install wasm-pack@0.15.0 --locked
+      - run: npm ci
+        working-directory: js
+      - run: npm run build
+        working-directory: js
+      - run: npm run types && git diff --exit-code -- schema.d.ts
+        working-directory: js
+      - run: npm test
+        working-directory: js

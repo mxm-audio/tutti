@@ -29,4 +29,5 @@ paragraph each, the smallest valid document, common tasks and pitfalls.
 
 - `crates/tutti`: the reference implementation, no file IO, builds for WebAssembly.
 - `crates/tutti-cli`: `tutti check`, `tutti inspect`, `tutti deps`, `tutti archive`.
+- `js/`: `@mxm-audio/tutti`, the npm package (the core compiled to WebAssembly).
 - `examples/`: example projects and the conformance fixtures.

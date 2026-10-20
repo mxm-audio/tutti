@@ -30,6 +30,7 @@ still change in every detail. The first program to read and write it is
 | `crates/tutti` | The model, canonical reading and writing, validation, the time arithmetic |
 | `crates/tutti-schema` | The tests that hold the schema, the examples and the types together |
 | `crates/tutti-cli` | `tutti check`, `tutti inspect`, `tutti deps`, `tutti archive`, `tutti fmt` |
+| `crates/tutti-wasm`, `js/` | The core for JavaScript, and `@mxm-audio/tutti`, the npm package around it |
 
 ## Licence
 
