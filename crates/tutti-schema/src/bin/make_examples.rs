@@ -33,6 +33,25 @@ fn main() {
             &format!("{}\n", serde_json::to_string_pretty(&expected).unwrap()),
         );
     }
+    let hostile_dir = examples.join("conformance/hostile");
+    let _ = fs::remove_dir_all(&hostile_dir);
+    for case in hostile(&mut ids) {
+        let folder = hostile_dir.join(case.name);
+        fs::create_dir_all(&folder).unwrap();
+        for (reference, bytes) in &case.files {
+            let path = folder.join(reference);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, bytes).unwrap();
+        }
+        write_text(
+            &folder.join("expected.json"),
+            &format!(
+                "{}\n",
+                serde_json::to_string_pretty(&json!({"what": case.what, "error": case.error}))
+                    .unwrap()
+            ),
+        );
+    }
     println!("examples written under {}", examples.display());
 }
 
@@ -581,6 +600,20 @@ fn every_feature(ids: &mut Ids) -> Project {
         unknown: Unknown::new(),
     });
     d.r#loop.as_mut().unwrap().enabled = true;
+    d.private = vec!["notes/".to_owned()];
+    d.metadata.album = Some("Examples".to_owned());
+    d.metadata.year = Some("2026".to_owned());
+    d.metadata.genre = Some("test".to_owned());
+    d.metadata.comment = Some("Every feature of the format, once.".to_owned());
+    d.metadata.copyright = Some("MIT".to_owned());
+    d.dependencies[0].commit = Some("0000000000000000000000000000000000000000".to_owned());
+    if let Some(chords) = d.tracks.iter_mut().find(|t| t.name == "Chords") {
+        chords.channel.solo = true;
+        if let Some(Event::Chord(c)) = chords.patterns[0].events.first_mut() {
+            c.bass = Some(4);
+            c.symbol = Some("Am/E".to_owned());
+        }
+    }
     d.extensions_used.push("dk.mxm.newdawn".to_owned());
     d.extensions_used.push("org.example.lyrics".to_owned());
     d.extensions_required.push("org.example.lyrics".to_owned());
@@ -733,6 +766,23 @@ fn every_feature(ids: &mut Ids) -> Project {
         }),
         unknown: Unknown::new(),
     });
+    if let Some(Event::Note(n)) = bass.patterns[0].events.first_mut() {
+        n.release = 0.6;
+        if let Some(x) = &mut n.expressions {
+            x.timbre.push(Point {
+                at: 0,
+                value: 0.3,
+                curve: Curve::Hold,
+                unknown: Unknown::new(),
+            });
+            x.volume.push(Point {
+                at: 0,
+                value: 0.9,
+                curve: Curve::Linear,
+                unknown: Unknown::new(),
+            });
+        }
+    }
     let mut folder = Track::new(ids.next("trk"), "Rhythm");
     folder.color = Some("#777777".to_owned());
     folder.channel.gain = 0.9;
@@ -1095,5 +1145,213 @@ fn fixtures(ids: &mut Ids) -> Vec<(&'static str, Project, Value)> {
     p.document.tracks.push(t);
     out.push(("preserve", p, json!({"what": "read, write, and compare by JCS after defaults: equal; and these survive", "must_survive": ["/future_top_level_key", "/extensions/org.example.view", "/tracks/0/future_track_key", "/tracks/0/extensions/dk.mxm.newdawn", "/tracks/0/patterns/0/events/0/future_note_key", "/tracks/0/patterns/0/events/1 (type glide)"]})));
 
+    out
+}
+
+// --- the hostile fixtures ---------------------------------------------------------------------
+
+/// A folder a reader must refuse, with the refusal it must give (`conformance.md` 4).
+struct Hostile {
+    name: &'static str,
+    what: &'static str,
+    /// What the first refusal must contain, in the words of `read`, `validate` or `check_files`.
+    error: &'static str,
+    /// Reference to bytes; the document among them.
+    files: Vec<(String, Vec<u8>)>,
+}
+
+fn hostile_document(ids: &mut Ids, mutate: impl FnOnce(&mut Document, &mut Ids)) -> Vec<u8> {
+    let mut p = Project::new(generator());
+    let mut t = Track::new(ids.next("trk"), "Track");
+    let first_note = note(ids, 0, 960, 60, 0.8);
+    let pat = pattern(ids, "P", 960, vec![first_note]);
+    let pat_id = pat.id.clone();
+    t.patterns.push(pat);
+    t.parts.push(part(ids, &pat_id, 0, 960));
+    p.document.tracks.push(t);
+    mutate(&mut p.document, ids);
+    write(&p.document).into_bytes()
+}
+
+fn hostile(ids: &mut Ids) -> Vec<Hostile> {
+    let hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let piece = |file: &str| AudioPiece {
+        file: file.to_owned(),
+        sha256: hash.to_owned(),
+        sample_rate: RATE,
+        channels: 1,
+        frames: 100,
+        name: None,
+        from: 0,
+        to: 100,
+        map: vec![MapPoint {
+            frame: 0,
+            tick: 0,
+            unknown: Unknown::new(),
+        }],
+        bpm: Some(120.0),
+        gain: 1.0,
+        polarity: false,
+        channel_mode: "as_recorded".to_owned(),
+        fade_in: None,
+        fade_out: None,
+        reverse: false,
+        extensions: Extensions::new(),
+        unknown: Unknown::new(),
+    };
+    let doc_name = "Hostile.tutti".to_owned();
+    let mut out = Vec::new();
+
+    out.push(Hostile {
+        name: "dup-id",
+        what: "two tracks with one id",
+        error: "error /tracks/1/id",
+        files: vec![(
+            doc_name.clone(),
+            hostile_document(ids, |d, _| {
+                let mut twin = d.tracks[0].clone();
+                twin.patterns.clear();
+                twin.parts.clear();
+                d.tracks.push(twin);
+            }),
+        )],
+    });
+    out.push(Hostile {
+        name: "send-cycle",
+        what: "a send to a track whose destination is the sender",
+        error: "error /tracks: routing is not acyclic",
+        files: vec![(
+            doc_name.clone(),
+            hostile_document(ids, |d, ids| {
+                let mut b = Track::new(ids.next("trk"), "B");
+                b.channel.destination = Some(d.tracks[0].id.clone());
+                d.tracks[0].channel.sends.push(Send {
+                    to: b.id.clone(),
+                    gain: 1.0,
+                    pre_fader: false,
+                    enabled: true,
+                    unknown: Unknown::new(),
+                });
+                d.tracks.push(b);
+            }),
+        )],
+    });
+    out.push(Hostile {
+        name: "huge-tick",
+        what: "a marker beyond 2^40 ticks",
+        error: "error /markers/0/at",
+        files: vec![(
+            doc_name.clone(),
+            hostile_document(ids, |d, ids| {
+                d.markers.push(Marker {
+                    id: ids.next("mrk"),
+                    at: time::TICK_MAX + 1,
+                    name: "Far".to_owned(),
+                    kind: "marker".to_owned(),
+                    length: None,
+                    extensions: Extensions::new(),
+                    unknown: Unknown::new(),
+                });
+            }),
+        )],
+    });
+    out.push(Hostile {
+        name: "map-unordered",
+        what: "an audio map whose second point goes back in time",
+        error: "error /tracks/0/patterns/0/events/0/audio/map",
+        files: vec![(
+            doc_name.clone(),
+            hostile_document(ids, |d, _| {
+                if let Event::Note(n) = &mut d.tracks[0].patterns[0].events[0] {
+                    let mut a = piece("audio/x.wav");
+                    a.map.push(MapPoint {
+                        frame: 50,
+                        tick: -10,
+                        unknown: Unknown::new(),
+                    });
+                    n.audio = Some(a);
+                }
+            }),
+        )],
+    });
+    out.push(Hostile {
+        name: "path-escape",
+        what: "an audio reference that leaves the folder",
+        error: "error /tracks/0/patterns/0/events/0/audio/file",
+        files: vec![(
+            doc_name.clone(),
+            hostile_document(ids, |d, _| {
+                if let Event::Note(n) = &mut d.tracks[0].patterns[0].events[0] {
+                    n.audio = Some(piece("audio/../../secret.wav"));
+                }
+            }),
+        )],
+    });
+    let (tone, _) = sine(440.0, 0.1, 0.5, RATE);
+    let tone_bytes = wav(1, RATE, &tone);
+    let tone_hash = sha256_hex(&tone_bytes);
+    out.push(Hostile {
+        name: "size-lie",
+        what: "the files index claims a length the file does not have",
+        error: "error /files/0/bytes",
+        files: vec![
+            (
+                doc_name.clone(),
+                hostile_document(ids, |d, _| {
+                    d.files.push(FileEntry {
+                        path: "audio/Tone.wav".to_owned(),
+                        sha256: tone_hash.clone(),
+                        bytes: 4_000_000_000,
+                        unknown: Unknown::new(),
+                    });
+                }),
+            ),
+            ("audio/Tone.wav".to_owned(), tone_bytes.clone()),
+        ],
+    });
+    out.push(Hostile {
+        name: "two-documents",
+        what: "two .tutti files at the top of one folder",
+        error: "2 documents",
+        files: {
+            let first = hostile_document(ids, |_, _| {});
+            let second = hostile_document(ids, |_, _| {});
+            vec![
+                (doc_name.clone(), first),
+                ("Other.tutti".to_owned(), second),
+            ]
+        },
+    });
+    out.push(Hostile {
+        name: "higher-major",
+        what: "a document of a major version this reader does not know",
+        error: "tutti 2.0 is newer",
+        files: vec![(
+            doc_name.clone(),
+            hostile_document(ids, |d, _| {
+                d.version = "2.0".to_owned();
+            }),
+        )],
+    });
+    out.push(Hostile {
+        name: "nan-token",
+        what: "a number that is not a number",
+        error: "not a tutti document",
+        files: vec![(
+            doc_name.clone(),
+            br#"{"format": "tutti", "version": "1.0", "generator": {"name": "x"}, "ppq": 960,
+  "tempo": [{"at": 0, "bpm": NaN}], "meter": [{"at": 0, "numerator": 4, "denominator": 4}]}
+"#
+            .to_vec(),
+        )],
+    });
+    out.push(Hostile {
+        name: "duplicate-key",
+        what: "the same key twice in one object",
+        error: "duplicate key at /tempo/0/bpm",
+        files: vec![(doc_name, br#"{"format": "tutti", "version": "1.0", "generator": {"name": "x"}, "ppq": 960,
+  "tempo": [{"at": 0, "bpm": 120, "bpm": 130}], "meter": [{"at": 0, "numerator": 4, "denominator": 4}]}
+"#.to_vec())],
+    });
     out
 }

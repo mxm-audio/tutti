@@ -1,0 +1,42 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SG61B9D0000000000061",
+      "name": "Track",
+      "patterns": [
+        {
+          "id": "pat_01K742SG63B9D0000000000063",
+          "name": "P",
+          "length": 960,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG62B9D0000000000062", "at": 0, "length": 960, "pitch": 60, "velocity": 0.8}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG64B9D0000000000064", "pattern": "pat_01K742SG63B9D0000000000063", "at": 0, "length": 960}
+      ]
+    },
+    {
+      "id": "trk_01K742SG61B9D0000000000061",
+      "name": "Track"
+    }
+  ]
+}

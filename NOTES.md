@@ -85,4 +85,6 @@ designed from is `docs/research.md`.
   conformance and extension texts, the folder README template, the research write-up, the agent
   guide and `llms.txt` written (stage 2); the core crate (the model, the two canonical forms,
   reading, validation, the time arithmetic, the render fingerprint, the folder trait and the
-  feature list), the generated example projects and the Level 0 fixtures (stage 3).
+  feature list), the generated example projects and the Level 0 fixtures (stage 3); the JSON
+  Schema, the hostile fixtures, the tests that hold spec, schema, examples, docs and code
+  together, and the generated field reference (stage 4).

@@ -1,0 +1,488 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/mxm-audio/tutti/main/schema/1.0/tutti.schema.json",
+  "title": "tutti 1.0",
+  "description": "An open audio project: one JSON document in a plain folder. The normative text is spec/1.0/tutti.md; this schema holds its types, bounds and forms. Every object is open: a key the schema does not name is kept and written back by every reader (spec 8.2). What the schema cannot say (ids unique, references resolving, routing acyclic) is validate's.",
+  "type": "object",
+  "required": ["format", "version", "generator", "ppq", "tempo", "meter"],
+  "properties": {
+    "format": { "const": "tutti", "description": "Always \"tutti\"." },
+    "version": { "$ref": "#/$defs/version", "description": "The spec version the document follows, major.minor." },
+    "min_version": { "$ref": "#/$defs/version", "description": "The lowest minor of this major that plays the document correctly (spec 8.3). Default: the major's .0." },
+    "about": { "type": "string", "description": "One sentence for a stranger (spec 3.3)." },
+    "spec": { "type": "string", "format": "uri", "description": "Where this version's normative text is." },
+    "schema": { "type": "string", "format": "uri", "description": "Where this version's JSON Schema is." },
+    "generator": { "$ref": "#/$defs/generator" },
+    "extensions_used": { "type": "array", "items": { "$ref": "#/$defs/namespace" }, "uniqueItems": true, "default": [], "description": "Every extension namespace that appears anywhere in the document (spec 8.1)." },
+    "extensions_required": { "type": "array", "items": { "$ref": "#/$defs/namespace" }, "uniqueItems": true, "default": [], "description": "The subset without which the project does not sound right (spec 8.1)." },
+    "private": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/?$" }, "default": [], "description": "Paths at the top of the folder that are the writer's own (spec 2.3)." },
+    "files": { "type": "array", "items": { "$ref": "#/$defs/file_entry" }, "default": [], "description": "The index of files the project refers to, sorted by path (spec 3.4)." },
+    "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependency" }, "default": [], "description": "What the project needs beyond its folder, sorted by id (spec 3.5)." },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "ppq": { "type": "integer", "minimum": 1, "maximum": 1048576, "description": "Ticks per quarter note; 960 recommended (spec 5.2)." },
+    "tempo": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/tempo_point" }, "description": "The tempo map, strictly increasing in at, the first point at 0 (spec 5.2)." },
+    "meter": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/meter_point" }, "description": "The meter map, strictly increasing in at, the first point at 0 (spec 5.3)." },
+    "key": { "type": "array", "items": { "$ref": "#/$defs/key_point" }, "default": [], "description": "The key map (spec 5.4)." },
+    "markers": { "type": "array", "items": { "$ref": "#/$defs/marker" }, "default": [], "description": "Named points and sections, sorted by id (spec 6.9)." },
+    "loop": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/loop" } ], "default": null, "description": "The loop range (spec 3.6)." },
+    "master": { "$ref": "#/$defs/master" },
+    "tracks": { "type": "array", "items": { "$ref": "#/$defs/track" }, "default": [], "description": "The top-level tracks in display order (spec 6.1)." },
+    "scenes": { "type": "array", "items": { "$ref": "#/$defs/scene" }, "default": [], "description": "The clip launcher's scenes, in order (spec 6.10)." },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$", "description": "An opaque id, unique across the document (spec 5.1)." },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "namespace": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$", "description": "A reverse-DNS extension namespace (spec 8.1)." },
+    "ticks": { "type": "integer", "minimum": 0, "maximum": 1099511627776, "description": "A position or length in ticks (spec 5.2)." },
+    "signed_ticks": { "type": "integer", "minimum": -1099511627776, "maximum": 1099511627776 },
+    "unit_interval": { "type": "number", "minimum": 0, "maximum": 1 },
+    "gain": { "type": "number", "minimum": 0, "maximum": 1000, "description": "Linear; 1 is 0 dB (spec 6.2)." },
+    "pan": { "type": "number", "minimum": -1, "maximum": 1 },
+    "bpm": { "type": "number", "exclusiveMinimum": 0, "maximum": 1000 },
+    "pitch": { "type": "integer", "minimum": 0, "maximum": 127, "description": "A MIDI note number; 60 is middle C." },
+    "pitch_class": { "type": "integer", "minimum": 0, "maximum": 11, "description": "0 is C." },
+    "curve": { "type": "string", "description": "hold or linear; an unknown name reads as linear (spec 5.2, 6.8)." },
+    "extensions": { "type": "object", "propertyNames": { "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$" }, "default": {}, "description": "Vendor data by reverse-DNS namespace (spec 8.1)." },
+    "reference": { "type": "string", "pattern": "^(audio|plugins/states|renders)/[A-Za-z0-9_-]{1,120}\\.[A-Za-z0-9]{1,8}$", "description": "A bare file name in a fixed folder (spec 2.2)." },
+
+    "generator": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "description": "The last program that wrote the document." },
+        "version": { "type": "string" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "file_entry": {
+      "type": "object",
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "$ref": "#/$defs/reference" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["id", "kind", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "The plugin id in scheme form (spec 7.2)." },
+        "kind": { "type": "string", "description": "plugin; content is reserved." },
+        "name": { "type": "string" },
+        "vendor": { "type": "string" },
+        "version": { "type": "string", "description": "The plugin version the project was saved with." },
+        "url": { "type": "string", "format": "uri", "description": "Where to get it, as the plugin declares it." },
+        "repository": { "type": "string", "description": "A git URL, so a future program can rebuild the plugin." },
+        "commit": { "type": "string" },
+        "license": { "type": "string", "description": "An SPDX identifier." },
+        "formats": { "type": "array", "items": { "type": "string" }, "description": "clap, vst3, au, lv2, vst2." },
+        "platforms": { "type": "array", "items": { "type": "string" }, "description": "windows, macos, linux, web." }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "default": {},
+      "properties": {
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "album": { "type": "string" },
+        "year": { "type": "string" },
+        "genre": { "type": "string" },
+        "comment": { "type": "string" },
+        "copyright": { "type": "string" },
+        "created": { "type": "string", "description": "An ISO 8601 date, set once." }
+      }
+    },
+    "tempo_point": {
+      "type": "object",
+      "required": ["at", "bpm"],
+      "properties": {
+        "at": { "$ref": "#/$defs/ticks" },
+        "bpm": { "$ref": "#/$defs/bpm" },
+        "curve": { "$ref": "#/$defs/curve", "default": "hold", "description": "How the tempo runs to the next point: hold (the default) or linear in ticks." }
+      }
+    },
+    "meter_point": {
+      "type": "object",
+      "required": ["at", "numerator", "denominator"],
+      "properties": {
+        "at": { "$ref": "#/$defs/ticks" },
+        "numerator": { "type": "integer", "minimum": 1, "maximum": 99 },
+        "denominator": { "type": "integer", "enum": [1, 2, 4, 8, 16, 32, 64, 128] }
+      }
+    },
+    "scale": {
+      "oneOf": [
+        { "type": "string", "description": "major, minor, harmonic_minor, melodic_minor, dorian, phrygian, lydian, mixolydian, locrian, major_pentatonic, minor_pentatonic, blues, chromatic; an unknown name reads as chromatic." },
+        { "type": "object", "required": ["custom"], "properties": { "custom": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/pitch_class" }, "description": "Semitones above the tonic, ascending, 0 first." } } }
+      ]
+    },
+    "key_point": {
+      "type": "object",
+      "required": ["at", "tonic", "scale"],
+      "properties": {
+        "at": { "$ref": "#/$defs/ticks" },
+        "tonic": { "$ref": "#/$defs/pitch_class" },
+        "scale": { "$ref": "#/$defs/scale" }
+      }
+    },
+    "pattern_key": {
+      "type": "object",
+      "required": ["tonic", "scale"],
+      "properties": {
+        "tonic": { "$ref": "#/$defs/pitch_class" },
+        "scale": { "$ref": "#/$defs/scale" }
+      }
+    },
+    "marker": {
+      "type": "object",
+      "required": ["id", "at"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "at": { "$ref": "#/$defs/ticks" },
+        "name": { "type": "string", "default": "" },
+        "kind": { "type": "string", "default": "marker", "description": "marker (a point) or section (a range with a length); an unknown kind reads as marker." },
+        "length": { "$ref": "#/$defs/ticks", "description": "A section's length, required for a section." },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "loop": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/ticks" },
+        "end": { "$ref": "#/$defs/ticks" },
+        "enabled": { "type": "boolean", "default": false }
+      }
+    },
+    "master": {
+      "type": "object",
+      "description": "The master channel (spec 6.3); its id is the reserved master.",
+      "properties": {
+        "gain": { "$ref": "#/$defs/gain", "default": 1 },
+        "pan": { "$ref": "#/$defs/pan", "default": 0 },
+        "mute": { "type": "boolean", "default": false },
+        "devices": { "type": "array", "items": { "$ref": "#/$defs/device" }, "default": [] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "track": {
+      "type": "object",
+      "required": ["id"],
+      "description": "A track and its channel (spec 6.1); a track with children is a folder.",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "default": "" },
+        "color": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/track" }, "default": [] },
+        "channel": { "$ref": "#/$defs/channel" },
+        "devices": { "type": "array", "items": { "$ref": "#/$defs/device" }, "default": [], "description": "The chain in signal order (spec 7.1)." },
+        "parameters": { "type": "array", "items": { "$ref": "#/$defs/promoted" }, "default": [], "description": "Promoted parameters (spec 6.8)." },
+        "drum_map": { "oneOf": [ { "type": "null" }, { "type": "array", "items": { "$ref": "#/$defs/lane" } } ], "default": null, "description": "A lane per drum in display order (spec 6.11)." },
+        "patterns": { "type": "array", "items": { "$ref": "#/$defs/pattern" }, "default": [], "description": "The track's own patterns, sorted by id." },
+        "parts": { "type": "array", "items": { "$ref": "#/$defs/part" }, "default": [], "description": "Where its patterns play, sorted by id." },
+        "automation": { "type": "array", "items": { "$ref": "#/$defs/automation_lane" }, "default": [], "description": "Automation lanes, sorted by id (spec 6.8)." },
+        "renders": { "type": "array", "items": { "$ref": "#/$defs/render" }, "default": [], "description": "Bounces of this track's chain, sorted by file (spec 7.7)." },
+        "slots": { "type": "array", "items": { "$ref": "#/$defs/slot" }, "default": [], "description": "Clip-launcher slots (spec 6.10)." },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "description": "The mixer strip (spec 6.2).",
+      "properties": {
+        "gain": { "$ref": "#/$defs/gain", "default": 1 },
+        "pan": { "$ref": "#/$defs/pan", "default": 0 },
+        "mute": { "type": "boolean", "default": false },
+        "solo": { "type": "boolean", "default": false },
+        "channels": { "type": "integer", "enum": [1, 2], "default": 2 },
+        "destination": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/id" } ], "default": null, "description": "null: the parent folder's channel, or master at the top; a track id; or master." },
+        "sends": { "type": "array", "items": { "$ref": "#/$defs/send" }, "default": [], "description": "At most one per destination, sorted by to." }
+      }
+    },
+    "send": {
+      "type": "object",
+      "required": ["to"],
+      "properties": {
+        "to": { "$ref": "#/$defs/id" },
+        "gain": { "$ref": "#/$defs/gain", "default": 1 },
+        "pre_fader": { "type": "boolean", "default": false },
+        "enabled": { "type": "boolean", "default": true }
+      }
+    },
+    "promoted": {
+      "type": "object",
+      "required": ["name", "device", "param"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "description": "The short name patterns and automation use." },
+        "device": { "$ref": "#/$defs/id" },
+        "param": { "type": "string", "minLength": 1, "description": "The device parameter's id (spec 7.3)." }
+      }
+    },
+    "lane": {
+      "type": "object",
+      "required": ["pitch"],
+      "properties": {
+        "pitch": { "$ref": "#/$defs/pitch" },
+        "name": { "type": "string", "default": "" }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["id", "role", "plugin"],
+      "description": "A device in a chain (spec 7.1).",
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "role": { "type": "string", "description": "instrument, note_effect, audio_effect or analyzer; an unknown role reads as audio_effect, bypassed." },
+        "name": { "type": "string", "default": "" },
+        "plugin": { "type": "string", "minLength": 1, "description": "The plugin id in scheme form: clap:, vst3:, au:, lv2:, vst2:, builtin: (spec 7.2)." },
+        "aliases": { "type": "array", "items": { "$ref": "#/$defs/alias" }, "default": [] },
+        "state": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/state_ref" } ], "default": null },
+        "params": { "type": "array", "items": { "$ref": "#/$defs/param" }, "default": [], "description": "The parameter snapshot, sorted by id (spec 7.3)." },
+        "overrides": { "type": "array", "items": { "$ref": "#/$defs/override" }, "default": [], "description": "Values applied after the state, sorted by param (spec 7.5)." },
+        "enabled": { "type": "boolean", "default": true },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "alias": {
+      "type": "object",
+      "required": ["plugin"],
+      "properties": {
+        "plugin": { "type": "string", "minLength": 1 },
+        "state_compatible": { "type": "boolean", "default": false, "description": "Whether the state bytes are the same through this alias." }
+      }
+    },
+    "state_ref": {
+      "type": "object",
+      "required": ["sha256", "kind"],
+      "description": "The sidecar plugins/states/<sha256>.<kind> (spec 7.4).",
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "kind": { "type": "string", "pattern": "^[A-Za-z0-9]{1,8}$", "description": "clap, vstpreset, fxp, aupreset or lv2." }
+      }
+    },
+    "param": {
+      "type": "object",
+      "required": ["id", "value"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "value": { "type": "number", "description": "The plain value, authoritative." },
+        "normalized": { "$ref": "#/$defs/unit_interval", "description": "An independent fallback for a host that only takes normalized values." },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "unit": { "type": "string", "description": "linear, normalized, percent, decibel, hertz, semitones, seconds, beats, bpm, bool, enum, other." },
+        "text": { "type": "string" }
+      }
+    },
+    "override": {
+      "type": "object",
+      "required": ["param", "value"],
+      "properties": {
+        "param": { "type": "string", "minLength": 1 },
+        "value": { "type": "number" },
+        "normalized": { "$ref": "#/$defs/unit_interval" }
+      }
+    },
+    "render": {
+      "type": "object",
+      "required": ["file", "sha256", "from", "to", "fingerprint"],
+      "properties": {
+        "file": { "$ref": "#/$defs/reference" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "from": { "$ref": "#/$defs/ticks" },
+        "to": { "$ref": "#/$defs/ticks" },
+        "fingerprint": { "$ref": "#/$defs/sha256", "description": "The SHA-256 of the JCS bytes of the descriptor the spec defines (7.7)." }
+      }
+    },
+    "pattern": {
+      "type": "object",
+      "required": ["id", "length"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "default": "" },
+        "length": { "type": "integer", "minimum": 1, "maximum": 1099511627776 },
+        "key": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/pattern_key" } ], "default": null },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/event" }, "default": [], "description": "Sorted by id." },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "part": {
+      "type": "object",
+      "required": ["id", "pattern", "at", "length"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "pattern": { "$ref": "#/$defs/id", "description": "A pattern of the same track." },
+        "at": { "$ref": "#/$defs/ticks" },
+        "length": { "type": "integer", "minimum": 1, "maximum": 1099511627776 },
+        "offset": { "$ref": "#/$defs/ticks", "default": 0 },
+        "loop": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/loop_range" } ], "default": null },
+        "mute": { "type": "boolean", "default": false },
+        "name": { "oneOf": [ { "type": "null" }, { "type": "string" } ], "default": null },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "loop_range": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/ticks" },
+        "end": { "$ref": "#/$defs/ticks" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "required": ["type", "id", "at"],
+      "description": "A note, a chord or a param (spec 6.7); an unknown type is kept whole and plays nothing.",
+      "properties": {
+        "type": { "type": "string" },
+        "id": { "$ref": "#/$defs/id" },
+        "at": { "$ref": "#/$defs/ticks" }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "note" } } }, "then": { "$ref": "#/$defs/note" } },
+        { "if": { "properties": { "type": { "const": "chord" } } }, "then": { "$ref": "#/$defs/chord" } },
+        { "if": { "properties": { "type": { "const": "param" } } }, "then": { "$ref": "#/$defs/param_event" } }
+      ]
+    },
+    "note": {
+      "type": "object",
+      "required": ["length", "pitch", "velocity"],
+      "properties": {
+        "length": { "type": "integer", "minimum": 1, "maximum": 1099511627776 },
+        "pitch": { "$ref": "#/$defs/pitch" },
+        "velocity": { "$ref": "#/$defs/unit_interval" },
+        "release": { "$ref": "#/$defs/unit_interval", "default": 0.5 },
+        "expressions": { "$ref": "#/$defs/expressions" },
+        "audio": { "$ref": "#/$defs/audio_piece" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "expressions": {
+      "type": "object",
+      "description": "Per-note curves, at relative to the note's start (spec 6.7).",
+      "properties": {
+        "pitch": { "type": "array", "items": { "$ref": "#/$defs/point" }, "default": [], "description": "Semitones, any sign." },
+        "pressure": { "type": "array", "items": { "$ref": "#/$defs/point" }, "default": [] },
+        "timbre": { "type": "array", "items": { "$ref": "#/$defs/point" }, "default": [] },
+        "volume": { "type": "array", "items": { "$ref": "#/$defs/point" }, "default": [] },
+        "pan": { "type": "array", "items": { "$ref": "#/$defs/point" }, "default": [] }
+      }
+    },
+    "point": {
+      "type": "object",
+      "required": ["at", "value"],
+      "properties": {
+        "at": { "$ref": "#/$defs/ticks" },
+        "value": { "type": "number" },
+        "curve": { "$ref": "#/$defs/curve", "default": "linear" }
+      }
+    },
+    "audio_piece": {
+      "type": "object",
+      "required": ["file", "sha256", "sample_rate", "channels", "frames", "from", "to", "map", "bpm"],
+      "description": "Frames of a file placed in a pattern (spec 5.5, 6.7).",
+      "properties": {
+        "file": { "$ref": "#/$defs/reference" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sample_rate": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "channels": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "frames": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string", "description": "The name it was imported with; default the file name." },
+        "from": { "type": "integer", "minimum": 0 },
+        "to": { "type": "integer", "minimum": 1 },
+        "map": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/map_point" }, "description": "Strictly increasing in both frame and tick." },
+        "bpm": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/bpm" } ], "description": "The tempo the material plays at its own speed at; null (one point only) is unwarped." },
+        "gain": { "$ref": "#/$defs/gain", "default": 1 },
+        "polarity": { "type": "boolean", "default": false },
+        "channel_mode": { "type": "string", "default": "as_recorded", "description": "as_recorded, swap, mono, left, right." },
+        "fade_in": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/fade" } ], "default": null },
+        "fade_out": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/fade" } ], "default": null },
+        "reverse": { "type": "boolean", "default": false },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "map_point": {
+      "type": "object",
+      "required": ["frame", "tick"],
+      "properties": {
+        "frame": { "type": "integer", "minimum": 0 },
+        "tick": { "$ref": "#/$defs/signed_ticks" }
+      }
+    },
+    "fade": {
+      "type": "object",
+      "required": ["length"],
+      "properties": {
+        "length": { "$ref": "#/$defs/ticks" },
+        "outside": { "$ref": "#/$defs/ticks", "default": 0, "description": "How much of the fade lies past the piece's edge, in the file beyond the cut." },
+        "shape": { "type": "string", "default": "linear", "description": "linear, equal_power, s_curve." }
+      }
+    },
+    "chord": {
+      "type": "object",
+      "required": ["length", "root", "quality", "notes"],
+      "properties": {
+        "length": { "type": "integer", "minimum": 1, "maximum": 1099511627776 },
+        "root": { "$ref": "#/$defs/pitch_class" },
+        "quality": { "type": "string", "description": "maj, min, dim, aug, maj7, min7, 7, min7b5, dim7, sus2, sus4, 6, min6, 9, maj9, min9, add9, 11, 13, 5; an unknown quality plays its notes." },
+        "bass": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/pitch_class" } ], "default": null },
+        "symbol": { "type": "string" },
+        "notes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/pitch" }, "description": "The voicing to play." },
+        "velocity": { "$ref": "#/$defs/unit_interval", "default": 0.8 },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "param_event": {
+      "type": "object",
+      "required": ["param", "value"],
+      "properties": {
+        "param": { "type": "string", "minLength": 1, "description": "A promoted parameter's name on the track." },
+        "value": { "$ref": "#/$defs/unit_interval" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "automation_lane": {
+      "type": "object",
+      "required": ["id", "target"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "target": { "$ref": "#/$defs/target" },
+        "points": { "type": "array", "items": { "$ref": "#/$defs/point" }, "default": [], "description": "Strictly increasing in at, absolute ticks on the track." },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "description": "Exactly one of: device and param; channel (gain, pan, mute, or send with to); parameter (spec 6.8).",
+      "properties": {
+        "device": { "$ref": "#/$defs/id" },
+        "param": { "type": "string" },
+        "channel": { "type": "string" },
+        "to": { "$ref": "#/$defs/id" },
+        "parameter": { "type": "string" }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "default": "" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "slot": {
+      "type": "object",
+      "required": ["scene", "pattern"],
+      "properties": {
+        "scene": { "$ref": "#/$defs/id" },
+        "pattern": { "$ref": "#/$defs/id", "description": "A pattern of the same track." },
+        "loop": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/loop_range" } ], "default": null }
+      }
+    }
+  }
+}

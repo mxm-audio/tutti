@@ -14,8 +14,12 @@ fingerprints and the time arithmetic the fixtures' expected values come from.
 
 # Local Contracts
 
-- **The validator is a dev-dependency only**, so its toolchain floor never reaches a program that
-  takes `tutti`.
+- **The validator is a dev-dependency only** (`jsonschema`, pinned, no default features: the
+  schema refers to nothing outside itself), so its toolchain floor never reaches a program that
+  takes `tutti`; this crate's own floor is the validator's, not the core's.
+- `src/bin/fields.rs` prints `docs/field-reference.md` from the schema; `src/lib.rs` holds what
+  the tests and the generators share: the schema as a value, the repository's root, the
+  field-reference generator.
 - The tests: every example valid, parsed, written back byte-identical, `validate` passing; every
   invalid fixture failing at its pointer; the every-feature example walked against the schema
   both ways (no key the schema lacks, no property the example never uses); the spec's version,

@@ -1,0 +1,4 @@
+{
+  "what": "the same key twice in one object",
+  "error": "duplicate key at /tempo/0/bpm"
+}

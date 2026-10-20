@@ -1,0 +1,4 @@
+{
+  "what": "a send to a track whose destination is the sender",
+  "error": "error /tracks: routing is not acyclic"
+}

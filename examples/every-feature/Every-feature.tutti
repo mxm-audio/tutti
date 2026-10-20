@@ -11,6 +11,7 @@
   },
   "extensions_used": ["dk.mxm.newdawn", "org.example.lyrics"],
   "extensions_required": ["org.example.lyrics"],
+  "private": ["notes/"],
   "files": [
     {"path": "audio/Click-loop_95.wav", "sha256": "577b3812879b547705ccf885d90d3213f8104a1ad772dfdb09ddfef8e6086bfb", "bytes": 445686},
     {"path": "audio/Pad-220.wav", "sha256": "1bb532bc8670e2f49644c119afa82f6197270d40c6245aa8958622aa09849593", "bytes": 132344},
@@ -18,11 +19,16 @@
     {"path": "renders/Loop_000.wav", "sha256": "3a9800d7d549eb3211fd922d8aab53d9e8e6873618e3e32f6471b6db4c61be24", "bytes": 176444}
   ],
   "dependencies": [
-    {"id": "clap:dk.mxm.mxm-mono-01", "kind": "plugin", "name": "mxm-mono-01", "vendor": "MXM", "version": "0.1.1", "url": "https://github.com/mxm-audio/mxm-mono-01", "repository": "https://github.com/mxm-audio/mxm-mono-01.git", "license": "GPL-3.0-or-later", "formats": ["clap", "vst3"], "platforms": ["windows", "macos", "linux"]}
+    {"id": "clap:dk.mxm.mxm-mono-01", "kind": "plugin", "name": "mxm-mono-01", "vendor": "MXM", "version": "0.1.1", "url": "https://github.com/mxm-audio/mxm-mono-01", "repository": "https://github.com/mxm-audio/mxm-mono-01.git", "commit": "0000000000000000000000000000000000000000", "license": "GPL-3.0-or-later", "formats": ["clap", "vst3"], "platforms": ["windows", "macos", "linux"]}
   ],
   "metadata": {
     "title": "Every feature",
     "artist": "tutti",
+    "album": "Examples",
+    "year": "2026",
+    "genre": "test",
+    "comment": "Every feature of the format, once.",
+    "copyright": "MIT",
     "created": "2026-10-20"
   },
   "ppq": 960,
@@ -172,7 +178,7 @@
               "name": "Verse bass",
               "length": 3840,
               "events": [
-                {"type": "note", "id": "evt_01K742SG2VB9D000000000002V", "at": 0, "length": 420, "pitch": 45, "velocity": 0.8, "expressions": {"pitch": [{"at": 0, "value": -0.5}, {"at": 240, "value": 0, "curve": "hold"}], "pressure": [{"at": 0, "value": 0.6, "curve": "hold"}]}},
+                {"type": "note", "id": "evt_01K742SG2VB9D000000000002V", "at": 0, "length": 420, "pitch": 45, "velocity": 0.8, "release": 0.6, "expressions": {"pitch": [{"at": 0, "value": -0.5}, {"at": 240, "value": 0, "curve": "hold"}], "pressure": [{"at": 0, "value": 0.6, "curve": "hold"}], "timbre": [{"at": 0, "value": 0.3, "curve": "hold"}], "volume": [{"at": 0, "value": 0.9}]}},
                 {"type": "note", "id": "evt_01K742SG2WB9D000000000002W", "at": 480, "length": 420, "pitch": 45, "velocity": 0.8},
                 {"type": "note", "id": "evt_01K742SG2XB9D000000000002X", "at": 960, "length": 420, "pitch": 52, "velocity": 0.8},
                 {"type": "note", "id": "evt_01K742SG2YB9D000000000002Y", "at": 1440, "length": 420, "pitch": 48, "velocity": 0.8},
@@ -307,6 +313,7 @@
       "id": "trk_01K742SG3JB9D000000000003J",
       "name": "Chords",
       "channel": {
+        "solo": true,
         "sends": [
           {"to": "trk_01K742SG3VB9D000000000003V", "gain": 0.3}
         ]
@@ -325,7 +332,7 @@
           "name": "Progression",
           "length": 15360,
           "events": [
-            {"type": "chord", "id": "evt_01K742SG3MB9D000000000003M", "at": 0, "length": 3840, "root": 9, "quality": "min", "symbol": "Am", "notes": [57, 60, 64], "velocity": 0.7},
+            {"type": "chord", "id": "evt_01K742SG3MB9D000000000003M", "at": 0, "length": 3840, "root": 9, "quality": "min", "bass": 4, "symbol": "Am/E", "notes": [57, 60, 64], "velocity": 0.7},
             {"type": "chord", "id": "evt_01K742SG3NB9D000000000003N", "at": 3840, "length": 3840, "root": 5, "quality": "maj", "symbol": "F", "notes": [53, 57, 60], "velocity": 0.7},
             {"type": "chord", "id": "evt_01K742SG3PB9D000000000003P", "at": 7680, "length": 3840, "root": 0, "quality": "maj", "symbol": "C", "notes": [48, 52, 55], "velocity": 0.7},
             {"type": "chord", "id": "evt_01K742SG3QB9D000000000003Q", "at": 11520, "length": 3840, "root": 7, "quality": "maj", "symbol": "G", "notes": [55, 59, 62], "velocity": 0.7}

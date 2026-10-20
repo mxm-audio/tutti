@@ -79,7 +79,7 @@ fn is_empty_string(s: &str) -> bool {
 pub struct Document {
     pub format: String,
     pub version: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "is_default_min_version")]
     pub min_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub about: Option<String>,
@@ -193,6 +193,14 @@ impl Document {
         let mut out = Vec::new();
         walk(&self.tracks, &mut out);
         out
+    }
+}
+
+/// A `min_version` of `<major>.0` is the default (spec 3.2) and is left out when written.
+fn is_default_min_version(min: &Option<String>) -> bool {
+    match min {
+        None => true,
+        Some(v) => version_parts(v).is_some_and(|(_, minor)| minor == 0),
     }
 }
 
