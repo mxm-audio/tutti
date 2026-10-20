@@ -1,31 +1,307 @@
 //! The `tutti` command: the one place in the repository with file IO. Arguments are read by
 //! hand, as newDAWn's command line does: no argument-parsing dependency.
+//!
+//! Exit codes: 0 valid, 1 invalid (the reasons on stderr, one per line, with a JSON pointer
+//! where one applies), 2 usage.
 
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USAGE: &str = "\
-tutti: an open audio project format
+use tutti::features::{features, level_needed};
+use tutti::folder::check_files;
+use tutti::validate::{Severity, validate};
+use tutti::{Document, Event};
+use tutti_cli::{DirFolder, Installed, archive, document_in, find_installed};
 
-    tutti check <folder>      validate a project folder and say which features it uses
-    tutti inspect <folder>    list its tracks, patterns, devices and extensions
+const USAGE: &str = "\
+tutti: an open audio project format (version 1.0)
+
+    tutti check <folder>      validate a project folder: the document, its files, the
+                              features it uses and the level a reader needs
+    tutti inspect <folder>    list its tracks, devices, patterns, markers and extensions
     tutti deps <folder>       list what it depends on, and whether each plugin is installed
-    tutti archive <folder>    copy the spec, schema and agent guide into the folder
+    tutti archive <folder>    copy the spec, schema and agent guide into the folder's spec/
+    tutti fmt <folder>        rewrite the document in the pretty form (keys in order,
+                              defaults left out, ids and unknown data kept)
 ";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.first().map(String::as_str) {
-        Some("check" | "inspect" | "deps" | "archive") => {
-            eprintln!(
-                "tutti {}: not built yet (the format's version is {})",
-                args[0],
-                tutti::VERSION
-            );
-            ExitCode::from(2)
-        }
+    let (command, folder) = match (args.first().map(String::as_str), args.get(1)) {
+        (Some(c), Some(f)) if args.len() == 2 => (c, PathBuf::from(f)),
         _ => {
             eprint!("{USAGE}");
-            ExitCode::from(2)
+            return ExitCode::from(2);
+        }
+    };
+    let result = match command {
+        "check" => check(&folder),
+        "inspect" => inspect(&folder),
+        "deps" => deps(&folder),
+        "archive" => archive_command(&folder),
+        "fmt" => fmt(&folder),
+        _ => {
+            eprint!("{USAGE}");
+            return ExitCode::from(2);
+        }
+    };
+    match result {
+        Ok(true) => ExitCode::SUCCESS,
+        Ok(false) => ExitCode::from(1),
+        Err(message) => {
+            eprintln!("{message}");
+            ExitCode::from(1)
         }
     }
+}
+
+/// The document of a folder, read: refusals are errors with their reason.
+fn open(folder: &Path) -> Result<(PathBuf, Document), String> {
+    let path = document_in(folder)?;
+    let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let doc = tutti::read(&bytes).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok((path, doc))
+}
+
+fn check(folder: &Path) -> Result<bool, String> {
+    let (path, doc) = open(folder)?;
+    let report = validate(&doc);
+    let mut issues = report.issues.clone();
+    issues.extend(check_files(&doc, &DirFolder::new(folder)));
+    let errors = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Error)
+        .count();
+    let warnings = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Warning)
+        .count();
+    for issue in &issues {
+        eprintln!("{issue}");
+    }
+    if tutti::is_read_only(&doc) {
+        println!(
+            "read-only on this version: min_version {}",
+            doc.min_version.as_deref().unwrap_or("?")
+        );
+    }
+    let used = features(&doc);
+    let level = level_needed(&doc);
+    println!(
+        "{}: {} ({} error{}, {} warning{})",
+        path.display(),
+        if errors == 0 { "valid" } else { "invalid" },
+        errors,
+        if errors == 1 { "" } else { "s" },
+        warnings,
+        if warnings == 1 { "" } else { "s" }
+    );
+    if used.is_empty() {
+        println!("features: none; any reader plays it");
+    } else {
+        let names: Vec<String> = used
+            .iter()
+            .map(|f| format!("{} (L{})", f.name, f.level))
+            .collect();
+        println!("features: {}", names.join(", "));
+        println!("a reader needs Level {level} to play it in full");
+    }
+    Ok(errors == 0)
+}
+
+fn inspect(folder: &Path) -> Result<bool, String> {
+    let (path, doc) = open(folder)?;
+    println!("{}", path.display());
+    println!(
+        "tutti {} written by {}{}",
+        doc.version,
+        doc.generator.name,
+        doc.generator
+            .version
+            .as_ref()
+            .map(|v| format!(" {v}"))
+            .unwrap_or_default()
+    );
+    if let Some(title) = &doc.metadata.title {
+        println!("title: {title}");
+    }
+    println!(
+        "ppq {}, tempo {}{}, meter {}/{}{}",
+        doc.ppq,
+        doc.tempo.first().map(|t| t.bpm).unwrap_or(0.0),
+        if doc.tempo.len() > 1 {
+            format!(" and {} more point(s)", doc.tempo.len() - 1)
+        } else {
+            String::new()
+        },
+        doc.meter.first().map(|m| m.numerator).unwrap_or(0),
+        doc.meter.first().map(|m| m.denominator).unwrap_or(0),
+        if doc.meter.len() > 1 {
+            format!(" and {} more point(s)", doc.meter.len() - 1)
+        } else {
+            String::new()
+        },
+    );
+    if !doc.markers.is_empty() {
+        println!("markers:");
+        for m in &doc.markers {
+            match m.length {
+                Some(len) => println!("  {} {} at {} for {}", m.kind, m.name, m.at, len),
+                None => println!("  {} {} at {}", m.kind, m.name, m.at),
+            }
+        }
+    }
+    if !doc.master.devices.is_empty() {
+        println!(
+            "master: {}",
+            doc.master
+                .devices
+                .iter()
+                .map(|d| d.name.clone())
+                .collect::<Vec<_>>()
+                .join(" > ")
+        );
+    }
+    println!("tracks:");
+    for t in &doc.tracks {
+        print_track(t, 1);
+    }
+    if !doc.scenes.is_empty() {
+        println!(
+            "scenes: {}",
+            doc.scenes
+                .iter()
+                .map(|s| s.name.clone())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    if !doc.extensions_used.is_empty() {
+        println!("extensions used: {}", doc.extensions_used.join(", "));
+    }
+    if !doc.extensions_required.is_empty() {
+        println!(
+            "extensions required: {}",
+            doc.extensions_required.join(", ")
+        );
+    }
+    Ok(true)
+}
+
+fn print_track(t: &tutti::Track, depth: usize) {
+    let indent = "  ".repeat(depth);
+    let notes: usize = t
+        .patterns
+        .iter()
+        .map(|p| {
+            p.events
+                .iter()
+                .filter(|e| matches!(e, Event::Note(_)))
+                .count()
+        })
+        .sum();
+    let audio: usize = t
+        .patterns
+        .iter()
+        .map(|p| {
+            p.events
+                .iter()
+                .filter(|e| matches!(e, Event::Note(n) if n.audio.is_some()))
+                .count()
+        })
+        .sum();
+    let mut what = Vec::new();
+    if !t.devices.is_empty() {
+        what.push(
+            t.devices
+                .iter()
+                .map(|d| format!("{} [{}]", d.name, d.plugin))
+                .collect::<Vec<_>>()
+                .join(" > "),
+        );
+    }
+    what.push(format!(
+        "{} pattern(s), {} part(s), {} note(s), {} of them audio",
+        t.patterns.len(),
+        t.parts.len(),
+        notes,
+        audio
+    ));
+    if !t.channel.sends.is_empty() {
+        what.push(format!("{} send(s)", t.channel.sends.len()));
+    }
+    if !t.automation.is_empty() {
+        what.push(format!("{} automation lane(s)", t.automation.len()));
+    }
+    if !t.renders.is_empty() {
+        what.push(format!("{} render(s)", t.renders.len()));
+    }
+    println!("{indent}{} ({}): {}", t.name, t.id, what.join("; "));
+    for child in &t.children {
+        print_track(child, depth + 1);
+    }
+}
+
+fn deps(folder: &Path) -> Result<bool, String> {
+    let (_, doc) = open(folder)?;
+    if doc.dependencies.is_empty() {
+        println!("no dependencies: the project needs nothing beyond its folder");
+        return Ok(true);
+    }
+    for d in &doc.dependencies {
+        let found = find_installed(&d.id);
+        let status = match &found {
+            Installed::Exact(p) => format!("installed: {}", p.display()),
+            Installed::Likely(p) => format!("likely installed: {}", p.display()),
+            Installed::NotFound => "not found in the standard plugin folders".to_owned(),
+        };
+        println!(
+            "{} {}{} ({}): {}",
+            d.name,
+            d.vendor.as_deref().unwrap_or(""),
+            d.version
+                .as_ref()
+                .map(|v| format!(" {v}"))
+                .unwrap_or_default(),
+            d.id,
+            status
+        );
+        if let Some(url) = &d.url {
+            println!("  from: {url}");
+        }
+        if let Some(repo) = &d.repository {
+            println!(
+                "  source: {repo}{}",
+                d.commit
+                    .as_ref()
+                    .map(|c| format!(" at {c}"))
+                    .unwrap_or_default()
+            );
+        }
+        if let Some(license) = &d.license {
+            println!("  licence: {license}");
+        }
+    }
+    Ok(true)
+}
+
+fn archive_command(folder: &Path) -> Result<bool, String> {
+    document_in(folder)?;
+    let written = archive(folder).map_err(|e| format!("{}: {e}", folder.display()))?;
+    for path in written {
+        println!("{}", path.display());
+    }
+    Ok(true)
+}
+
+fn fmt(folder: &Path) -> Result<bool, String> {
+    let (path, doc) = open(folder)?;
+    let pretty = tutti::write(&doc);
+    let temporary = path.with_extension("tutti.tmp");
+    fs::write(&temporary, pretty.as_bytes())
+        .map_err(|e| format!("{}: {e}", temporary.display()))?;
+    fs::rename(&temporary, &path).map_err(|e| format!("{}: {e}", path.display()))?;
+    println!("{}: the pretty form", path.display());
+    Ok(true)
 }

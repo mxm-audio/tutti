@@ -56,7 +56,8 @@ Root owns `Cargo.toml`, `Cargo.lock`, `LICENSE`, `README.md`, `CONTRIBUTING.md`,
   program, open or closed, can read and write the format. No trademark on the name.
 - **Dependencies are pinned exactly and `Cargo.lock` is committed.** The core (`crates/tutti`)
   takes serde, serde_json and sha2 and nothing else; it has no file IO and no platform code, and
-  builds for `wasm32-unknown-unknown` (CI proves it). File IO lives in `crates/tutti-cli` alone.
+  builds for `wasm32-unknown-unknown` (CI proves it). File IO lives in `crates/tutti-cli` (the
+  command and the folder on disk it lends the tests) and the test crate's generators, nowhere else.
 - **MSRV is per crate, compiled against**: the core at 1.87 (`cargo +1.87.0 test -p tutti` when its
   language use changes); a crate that needs more says so in its `Cargo.toml` and `AGENTS.md`.
 - **Windows, macOS and Linux, and the web.** Work and verify on Windows; the other platforms are

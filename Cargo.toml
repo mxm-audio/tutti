@@ -24,3 +24,4 @@ serde_json = { version = "=1.0.145", features = ["float_roundtrip", "preserve_or
 sha2 = "=0.10.9"
 
 tutti = { path = "crates/tutti" }
+tutti-cli = { path = "crates/tutti-cli" }

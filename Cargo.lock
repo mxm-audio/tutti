@@ -690,6 +690,7 @@ dependencies = [
  "jsonschema",
  "serde_json",
  "tutti",
+ "tutti-cli",
 ]
 
 [[package]]

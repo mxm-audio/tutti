@@ -1,13 +1,12 @@
 //! The tests that hold the schema, the examples, the docs and the types together, and the
 //! generator of `docs/field-reference.md`. Nothing here ships in a program: the validator it
-//! uses is a dev-dependency, so its toolchain floor never reaches a DAW. The one file IO besides
-//! the command's: `DirFolder`, a project folder on disk for the tests and the generators.
+//! uses is a dev-dependency, so its toolchain floor never reaches a DAW. A project folder on disk
+//! is the command's `DirFolder` (`tutti-cli`), which the tests take as a dev-dependency.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde_json::Value;
-use tutti::folder::{Folder, FolderError};
 
 /// The repository's root, from this crate's manifest.
 pub fn repository_root() -> PathBuf {
@@ -22,69 +21,6 @@ pub fn schema() -> Value {
         .join("tutti.schema.json");
     let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
     serde_json::from_str(&text).expect("the schema is JSON")
-}
-
-/// A project folder on disk: references resolved inside it, links refused (spec 9).
-pub struct DirFolder {
-    pub root: PathBuf,
-}
-
-impl DirFolder {
-    pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
-    }
-
-    fn path_of(&self, reference: &str) -> Result<PathBuf, FolderError> {
-        let mut path = self.root.clone();
-        for part in reference.split('/') {
-            if part.is_empty() || part == "." || part == ".." || part.contains('\\') {
-                return Err(FolderError::Other(format!("{reference}: not a reference")));
-            }
-            path.push(part);
-            let meta = fs::symlink_metadata(&path).map_err(|_| FolderError::Missing)?;
-            if meta.file_type().is_symlink() {
-                return Err(FolderError::Link);
-            }
-        }
-        Ok(path)
-    }
-}
-
-impl Folder for DirFolder {
-    fn read(&self, reference: &str) -> Result<Vec<u8>, FolderError> {
-        fs::read(self.path_of(reference)?).map_err(|e| FolderError::Other(e.to_string()))
-    }
-
-    fn size(&self, reference: &str) -> Result<u64, FolderError> {
-        fs::metadata(self.path_of(reference)?)
-            .map(|m| m.len())
-            .map_err(|e| FolderError::Other(e.to_string()))
-    }
-}
-
-/// The one `.tutti` document in a folder: its path, or why not.
-pub fn document_in(folder: &Path) -> Result<PathBuf, String> {
-    let mut found: Vec<PathBuf> = fs::read_dir(folder)
-        .map_err(|e| format!("{}: {e}", folder.display()))?
-        .filter_map(|entry| entry.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|x| x == "tutti"))
-        .collect();
-    found.sort();
-    match found.len() {
-        1 => Ok(found.remove(0)),
-        0 => Err(format!("{}: no .tutti document", folder.display())),
-        _ => Err(format!(
-            "{}: {} documents ({})",
-            folder.display(),
-            found.len(),
-            found
-                .iter()
-                .filter_map(|p| p.file_name())
-                .map(|n| n.to_string_lossy().into_owned())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )),
-    }
 }
 
 /// `docs/field-reference.md` from the schema: the document's keys, then every object under

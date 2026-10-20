@@ -29,7 +29,7 @@ still change in every detail. The first program to read and write it is
 | `docs/` | The research behind the format, the implementers' guide, the agent guide |
 | `crates/tutti` | The model, canonical reading and writing, validation, the time arithmetic |
 | `crates/tutti-schema` | The tests that hold the schema, the examples and the types together |
-| `crates/tutti-cli` | `tutti check`, `tutti inspect`, `tutti deps`, `tutti archive` |
+| `crates/tutti-cli` | `tutti check`, `tutti inspect`, `tutti deps`, `tutti archive`, `tutti fmt` |
 
 ## Licence
 

@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 use tutti::folder::check_files;
 use tutti::validate::{self, Severity};
-use tutti_schema::{DirFolder, document_in, field_reference, repository_root, schema};
+use tutti_cli::{DirFolder, document_in};
+use tutti_schema::{field_reference, repository_root, schema};
 
 /// Every example project folder: the three examples and the conformance fixtures.
 fn example_folders() -> Vec<PathBuf> {
