@@ -1,3 +1,8 @@
-# The shipped keymaps are embedded with include_str!, so their bytes must not depend on the
-# checkout: LF everywhere, core.autocrlf or not.
-*.keymap text eol=lf
+# The spec fixes LF for documents and the pretty form is byte-identical by test, so every text
+# file checks out as LF whatever core.autocrlf says; audio and states are bytes.
+* text=auto eol=lf
+*.wav binary
+*.clap binary
+*.vstpreset binary
+*.fxp binary
+*.aupreset binary
