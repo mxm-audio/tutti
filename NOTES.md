@@ -31,6 +31,16 @@ designed from is `docs/research.md`.
   donwloaded? (I imagine most of them are open source in the future.)" The document carries a
   `dependencies` list (id, name, vendor, version, url, repository, licence, formats), filled from
   what CLAP descriptors and VST3 factories declare; the format declares, a program resolves.
+- **2026-10-20:** **The repository's front page leads with the why and lists the features.**
+  Reason: the owner, on the first README, "The github page needs more info. I told you the
+  motivation for the making it a universal tool. That need to be obvious from the start of the
+  page. And the It needs a list of features too. It is imperative that people should know why
+  they must chose this format instead of making their own." So `README.md` opens with the
+  premise (everybody writing their own programs, humans and agents on one project, the format
+  as the common denominator), then *Why not make your own* (the problems a format hides: ids,
+  time, audio under tempo, plugin state, the unknown, dependencies, each answered), a short
+  word on DAWproject, the feature list by area, the folder and manifest in short, how to use
+  it, and only then the repository table, status and licence.
 
 ## Design choices and what they were weighed against
 
@@ -90,3 +100,5 @@ designed from is `docs/research.md`.
   together, and the generated field reference (stage 4); the `tutti` command (stage 5); the
   wasm bridge and the npm package `@mxm-audio/tutti` with its Node tests (stage 7; `tutti` on npm
   is someone else's, hence the scope).
+- 2026-10-20: the README rewritten to lead with the motivation and list the features, on the
+  owner's word (the ruling above).
