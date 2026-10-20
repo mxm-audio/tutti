@@ -16,7 +16,11 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("check" | "inspect" | "deps" | "archive") => {
-            eprintln!("tutti {}: not built yet (the format's version is {})", args[0], tutti::VERSION);
+            eprintln!(
+                "tutti {}: not built yet (the format's version is {})",
+                args[0],
+                tutti::VERSION
+            );
             ExitCode::from(2)
         }
         _ => {

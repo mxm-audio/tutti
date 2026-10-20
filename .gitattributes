@@ -1,0 +1,3 @@
+# The shipped keymaps are embedded with include_str!, so their bytes must not depend on the
+# checkout: LF everywhere, core.autocrlf or not.
+*.keymap text eol=lf
