@@ -1,0 +1,30 @@
+{
+  "what": "each track soloed in turn: the RMS of its first second per output channel, within 0.5 dB",
+  "tolerance_db": 0.5,
+  "tracks": [
+    {
+      "track": "trk_01K742SG53B9D0000000000053",
+      "name": "Centre",
+      "rms_left": 0.25,
+      "rms_right": 0.25
+    },
+    {
+      "track": "trk_01K742SG57B9D0000000000057",
+      "name": "Half left",
+      "rms_left": 0.17677669529663687,
+      "rms_right": 0.0
+    },
+    {
+      "track": "trk_01K742SG5BB9D000000000005B",
+      "name": "Muted",
+      "rms_left": 0.0,
+      "rms_right": 0.0
+    },
+    {
+      "track": "trk_01K742SG5FB9D000000000005F",
+      "name": "Right",
+      "rms_left": 2.164890140588733e-17,
+      "rms_right": 0.35355339059327373
+    }
+  ]
+}

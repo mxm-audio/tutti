@@ -1,0 +1,54 @@
+{
+  "what": "eight clicks recorded at 95 bpm play in an 87 bpm project at these seconds, stretched by 95/87, pitch kept",
+  "stretch": 1.0919540229885059,
+  "clicks": [
+    {
+      "click": 0,
+      "source_frame": 0,
+      "tick": 0.0,
+      "seconds": 0.0
+    },
+    {
+      "click": 1,
+      "source_frame": 27853,
+      "tick": 960.0126984126983,
+      "seconds": 0.6896642948367085
+    },
+    {
+      "click": 2,
+      "source_frame": 55705,
+      "tick": 1919.9909297052154,
+      "seconds": 1.379303828811218
+    },
+    {
+      "click": 3,
+      "source_frame": 83558,
+      "tick": 2880.0036281179136,
+      "seconds": 2.0689681236479265
+    },
+    {
+      "click": 4,
+      "source_frame": 111411,
+      "tick": 3840.016326530612,
+      "seconds": 2.758632418484635
+    },
+    {
+      "click": 5,
+      "source_frame": 139263,
+      "tick": 4799.994557823129,
+      "seconds": 3.4482719524591445
+    },
+    {
+      "click": 6,
+      "source_frame": 167116,
+      "tick": 5760.007256235827,
+      "seconds": 4.137936247295853
+    },
+    {
+      "click": 7,
+      "source_frame": 194968,
+      "tick": 6719.9854875283445,
+      "seconds": 4.827575781270363
+    }
+  ]
+}

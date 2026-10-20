@@ -1,0 +1,46 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "metadata": {
+    "title": "Ramp"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120, "curve": "linear"},
+    {"at": 3840, "bpm": 60}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SG4QB9D000000000004Q",
+      "name": "Ramp",
+      "patterns": [
+        {
+          "id": "pat_01K742SG4XB9D000000000004X",
+          "name": "Beats",
+          "length": 5760,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG4RB9D000000000004R", "at": 960, "length": 240, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SG4SB9D000000000004S", "at": 1920, "length": 240, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SG4TB9D000000000004T", "at": 2880, "length": 240, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SG4VB9D000000000004V", "at": 3840, "length": 240, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SG4WB9D000000000004W", "at": 4800, "length": 240, "pitch": 69, "velocity": 0.8}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG4YB9D000000000004Y", "pattern": "pat_01K742SG4XB9D000000000004X", "at": 0, "length": 5760}
+      ]
+    }
+  ]
+}

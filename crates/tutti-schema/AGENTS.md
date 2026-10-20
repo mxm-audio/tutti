@@ -7,7 +7,10 @@ generator of `docs/field-reference.md`. Not a library anyone ships.
 
 # Ownership
 
-Owns `Cargo.toml`, `src/` and `tests/`.
+Owns `Cargo.toml`, `src/` and `tests/`. `src/bin/make_examples.rs` is the generator of
+`examples/` (every example project and the Level 0 fixtures with their `expected.json`), the one
+place with file IO besides the command: it uses the core for ids, the pretty form, hashes,
+fingerprints and the time arithmetic the fixtures' expected values come from.
 
 # Local Contracts
 

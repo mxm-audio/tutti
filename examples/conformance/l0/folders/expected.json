@@ -1,0 +1,14 @@
+{
+  "what": "each child soloed in turn: the child through the folder arrives at 0.25 of the tone, the sibling routed to the master at 0.5; RMS per channel within 0.5 dB",
+  "tolerance_db": 0.5,
+  "tracks": [
+    {
+      "track": "trk_01K742SG5KB9D000000000005K",
+      "rms_each_channel": 0.0625
+    },
+    {
+      "track": "trk_01K742SG5QB9D000000000005Q",
+      "rms_each_channel": 0.125
+    }
+  ]
+}

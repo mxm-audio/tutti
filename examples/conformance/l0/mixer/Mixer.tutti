@@ -1,0 +1,105 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "bytes": 88244}
+  ],
+  "metadata": {
+    "title": "Mixer"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SG53B9D0000000000053",
+      "name": "Centre",
+      "patterns": [
+        {
+          "id": "pat_01K742SG55B9D0000000000055",
+          "name": "Centre",
+          "length": 1920,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG54B9D0000000000054", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG56B9D0000000000056", "pattern": "pat_01K742SG55B9D0000000000055", "at": 0, "length": 1920}
+      ]
+    },
+    {
+      "id": "trk_01K742SG57B9D0000000000057",
+      "name": "Half left",
+      "channel": {
+        "gain": 0.5,
+        "pan": -1
+      },
+      "patterns": [
+        {
+          "id": "pat_01K742SG59B9D0000000000059",
+          "name": "Half left",
+          "length": 1920,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG58B9D0000000000058", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG5AB9D000000000005A", "pattern": "pat_01K742SG59B9D0000000000059", "at": 0, "length": 1920}
+      ]
+    },
+    {
+      "id": "trk_01K742SG5BB9D000000000005B",
+      "name": "Muted",
+      "channel": {
+        "mute": true
+      },
+      "patterns": [
+        {
+          "id": "pat_01K742SG5DB9D000000000005D",
+          "name": "Muted",
+          "length": 1920,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG5CB9D000000000005C", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG5EB9D000000000005E", "pattern": "pat_01K742SG5DB9D000000000005D", "at": 0, "length": 1920}
+      ]
+    },
+    {
+      "id": "trk_01K742SG5FB9D000000000005F",
+      "name": "Right",
+      "channel": {
+        "pan": 1
+      },
+      "patterns": [
+        {
+          "id": "pat_01K742SG5HB9D000000000005H",
+          "name": "Right",
+          "length": 1920,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG5GB9D000000000005G", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG5JB9D000000000005J", "pattern": "pat_01K742SG5HB9D000000000005H", "at": 0, "length": 1920}
+      ]
+    }
+  ]
+}

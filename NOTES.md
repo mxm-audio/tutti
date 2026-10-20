@@ -83,4 +83,6 @@ designed from is `docs/research.md`.
 
 - 2026-10-20: the repository created in the workspace (stage 1 of the plan); the spec's draft, its
   conformance and extension texts, the folder README template, the research write-up, the agent
-  guide and `llms.txt` written (stage 2).
+  guide and `llms.txt` written (stage 2); the core crate (the model, the two canonical forms,
+  reading, validation, the time arithmetic, the render fingerprint, the folder trait and the
+  feature list), the generated example projects and the Level 0 fixtures (stage 3).

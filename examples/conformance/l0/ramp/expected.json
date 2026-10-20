@@ -1,0 +1,36 @@
+{
+  "what": "120 to 60 bpm linear over four beats, then 60: the notes fall on these samples (hold segments exact, linear within one sample)",
+  "rate": 48000,
+  "beats": [
+    {
+      "beat": 1,
+      "tick": 960,
+      "seconds": 0.5341255704980905,
+      "sample_48000": 25638
+    },
+    {
+      "beat": 2,
+      "tick": 1920,
+      "seconds": 1.1507282898071236,
+      "sample_48000": 55235
+    },
+    {
+      "beat": 3,
+      "tick": 2880,
+      "seconds": 1.8800145169829423,
+      "sample_48000": 90241
+    },
+    {
+      "beat": 4,
+      "tick": 3840,
+      "seconds": 2.772588722239781,
+      "sample_48000": 133084
+    },
+    {
+      "beat": 5,
+      "tick": 4800,
+      "seconds": 3.772588722239781,
+      "sample_48000": 181084
+    }
+  ]
+}

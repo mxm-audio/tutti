@@ -100,8 +100,9 @@ fixture is made (a sine, a click, noise), never taken from anywhere.
 
 Under `examples/conformance/hostile/<case>/`, each must be refused with the named error, and a
 canary file one level above the project must stay untouched: `path-escape`, `symlink-audio`,
-`size-lie`, `dup-id`, `tree-cycle`, `send-cycle`, `nan-token`, `huge-tick`, `map-unordered`,
-`two-documents`, `higher-major`.
+`size-lie`, `dup-id`, `send-cycle`, `nan-token`, `huge-tick`, `map-unordered`, `two-documents`,
+`higher-major`. (A cycle in the track tree cannot be written: the tree is nested, so a track is
+in one place; a track listed twice is `dup-id`.)
 
 ## 5. What a program may say
 

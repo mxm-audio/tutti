@@ -1,0 +1,11 @@
+{
+  "what": "read, write, and compare by JCS after defaults: equal; and these survive",
+  "must_survive": [
+    "/future_top_level_key",
+    "/extensions/org.example.view",
+    "/tracks/0/future_track_key",
+    "/tracks/0/extensions/dk.mxm.newdawn",
+    "/tracks/0/patterns/0/events/0/future_note_key",
+    "/tracks/0/patterns/0/events/1 (type glide)"
+  ]
+}

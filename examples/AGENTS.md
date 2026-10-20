@@ -8,7 +8,10 @@ Example projects and the conformance fixtures: `minimal/`, `typical/` and `every
 
 # Ownership
 
-Owns every folder here.
+Owns every folder here. **Every project here is generated**, never edited by hand: `cargo run -p
+tutti-schema --bin make-examples` writes them all from the crate itself (deterministic ids, audio
+from closed forms, hashes and fingerprints real), so a change to the format is a change to the
+generator, then a run.
 
 # Local Contracts
 
