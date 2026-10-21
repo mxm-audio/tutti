@@ -94,8 +94,11 @@ test('a save refuses a missing or changed file, and verified records cross sessi
   project.document = doc;
   project.save(generator);
 
+  // Changed behind the project's back: kept in the index as it was, and said so.
   store.put('audio/Loop.wav', new TextEncoder().encode('RIFX'));
-  assert.throws(() => project.save(generator), /audio\/Loop\.wav: expected/);
+  const changed = project.save(generator);
+  assert.ok(changed.warnings.some((w) => w.message.startsWith('audio/Loop.wav: not the file')), JSON.stringify(changed));
+  assert.throws(() => project.saveVerified(generator), /expected/);
   store.put('audio/Loop.wav', new TextEncoder().encode('RIFF'));
   project.save(generator);
   // A forged change, the time put back: not seen by save, seen by check.
@@ -104,7 +107,9 @@ test('a save refuses a missing or changed file, and verified records cross sessi
   assert.ok(project.check().some((i) => i.severity === 'error'));
   assert.throws(() => project.saveVerified(generator), /expected/);
   store.remove('audio/Loop.wav');
-  assert.throws(() => project.save(generator), /audio\/Loop\.wav: missing/);
+  const gone = project.save(generator);
+  assert.ok(gone.warnings.some((w) => w.message.startsWith('audio/Loop.wav: missing')), JSON.stringify(gone));
+  assert.throws(() => project.saveVerified(generator), /audio\/Loop\.wav: missing/);
 
   // Records kept between sessions.
   store.put('audio/Loop.wav', new TextEncoder().encode('RIFF'));

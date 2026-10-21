@@ -3,24 +3,29 @@
 //! so the disk (`tutti-fs`), a test's memory and a JavaScript host all run the same one and no
 //! program writes file-system code against the spec.
 //!
-//! What [`Project::save`] guarantees, exactly: every file the document refers to is there; the
-//! files index names each of them with its length as read at this save and its SHA-256 as
-//! verified when the file was last seen to change: a file's length and modification time are
-//! read at every save and compared with the record of its last verification, and a file
-//! whose either differs is hashed again (a file the crate wrote itself is known; a store
-//! without modification times is trusted by length within the session; a program keeps the
-//! records between sessions with [`Project::verified`] and [`Project::trust`]);
-//! an entry of the index that no known field claims stays, verified the same way, as long as
-//! the document mentions the file anywhere else (its path, its name or its hash: an unknown
-//! extension's sidecar), and goes when nothing does; a disagreement refuses the save by
-//! reference before the document is touched; the document is valid; `README.md` is current;
-//! the document is written to a temporary name and renamed over the old one, so a crash
-//! leaves the old document or the new, never a torn one, and a failure after that rename is
-//! reported as [`ProjectError::Unconfirmed`], the save being on disk. A file changed behind
-//! the project's back at the same length with its modification time put back, which is
-//! forgery and a breach of the folder's rules (spec 1), is not seen by `save`: `check` finds
-//! it, and a reader plays silence and warns (spec 9), which is what the hash rule is for. [`Project::save_verified`] rehashes everything and refuses a mismatch; it is
-//! what an exporting program's guarantee (conformance 4) rests on.
+//! What [`Project::save`] guarantees, exactly: every file the document newly refers to is
+//! there, else the save is refused by reference before the document is touched; the files index
+//! names each referenced file with its length as read at this save and its SHA-256 as verified
+//! when the file was last seen to change: a file's length and modification time are read at
+//! every save and compared with the record of its last verification, and a file whose either
+//! differs is hashed again (a file the crate wrote itself is known; a store without modification
+//! times is trusted by length within the session; a program keeps the records between sessions
+//! with [`Project::verified`] and [`Project::trust`]). **A save never leaves a project less
+//! complete than it found it, and never blesses a change**: a file the index already listed
+//! that has gone missing or changed behind the project's back keeps its entry as it was, and
+//! the save goes on and says so ([`Saved::warnings`]); `check` reports it, and a reader plays
+//! silence for it and warns (spec 9). An entry of the index that no known field claims stays
+//! as long as the document mentions the file anywhere else (its path, its name or its hash:
+//! an unknown extension's sidecar), and goes when nothing does or the program forgets it on
+//! purpose ([`Project::forget_file`]); a device's own files are what its folder holds. The
+//! document is valid; `README.md` is current; the document is written to a temporary name
+//! and renamed over the old one, so a crash leaves the old document or the new, never a torn
+//! one, and a failure after that rename is reported as [`ProjectError::Unconfirmed`], the save
+//! being on disk. A file changed at the same length with its modification time put back, which
+//! is forgery and a breach of the folder's rules (spec 1), is not seen by `save`.
+//! [`Project::save_verified`] hashes everything again and refuses any file that is missing or
+//! not what the index says; it is what an exporting program's guarantee (conformance 4) rests
+//! on.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
@@ -499,7 +504,8 @@ impl<S: Store> Project<S> {
         }
         self.document.generator = generator.clone();
         self.bring_manifest();
-        self.document.files = self.index(rehash)?;
+        let (files, kept) = self.index(rehash)?;
+        self.document.files = files;
         let mut used: BTreeSet<String> = self.document.extensions_used.iter().cloned().collect();
         used.extend(used_namespaces(&self.document));
         self.document.extensions_used = used.into_iter().collect();
@@ -510,8 +516,10 @@ impl<S: Store> Project<S> {
         }
         let readme_written = self.write_readme()?;
         let document_hash = self.write_document()?;
+        let mut warnings: Vec<Issue> = report.warnings().cloned().collect();
+        warnings.extend(kept);
         Ok(Saved {
-            warnings: report.warnings().cloned().collect(),
+            warnings,
             readme_written,
             document_hash,
         })
@@ -814,7 +822,8 @@ impl<S: Store> Project<S> {
     /// The files index: what the known references name, each verified, then the entries the
     /// index held that no known field claims but the document mentions (a device's own file is
     /// claimed by its device, spec 7.8), verified as they stand; one nothing mentions goes.
-    fn index(&self, rehash: bool) -> Result<Vec<FileEntry>, ProjectError> {
+    fn index(&self, rehash: bool) -> Result<(Vec<FileEntry>, Vec<Issue>), ProjectError> {
+        let mut kept: Vec<Issue> = Vec::new();
         let mentions = mentions(&self.document);
         let devices: HashSet<String> = self
             .document
@@ -839,14 +848,15 @@ impl<S: Store> Project<S> {
         let mut done: HashSet<String> = HashSet::new();
         for (reference, claimed) in claims(&self.document) {
             let was = existing.get(reference.as_str()).copied();
-            let (sha256, bytes) =
-                self.verify(&reference, &claimed, was.map(|f| f.bytes), rehash)?;
-            entries.push(FileEntry {
-                path: reference.clone(),
-                sha256,
-                bytes,
-                unknown: was.map(|f| f.unknown.clone()).unwrap_or_default(),
-            });
+            match self.verify(&reference, &claimed, was.map(|f| f.bytes), rehash) {
+                Ok((sha256, bytes)) => entries.push(FileEntry {
+                    path: reference.clone(),
+                    sha256,
+                    bytes,
+                    unknown: was.map(|f| f.unknown.clone()).unwrap_or_default(),
+                }),
+                Err(error) => entries.push(keep_as_it_was(error, was, rehash, &mut kept)?),
+            }
             done.insert(reference);
         }
         // A live device's own files, every one in its folder, however it got there (a plugin
@@ -889,16 +899,17 @@ impl<S: Store> Project<S> {
             if !claimed {
                 continue;
             }
-            let (sha256, bytes) =
-                self.verify(&entry.path, &entry.sha256, Some(entry.bytes), rehash)?;
-            entries.push(FileEntry {
-                path: entry.path.clone(),
-                sha256,
-                bytes,
-                unknown: entry.unknown.clone(),
-            });
+            match self.verify(&entry.path, &entry.sha256, Some(entry.bytes), rehash) {
+                Ok((sha256, bytes)) => entries.push(FileEntry {
+                    path: entry.path.clone(),
+                    sha256,
+                    bytes,
+                    unknown: entry.unknown.clone(),
+                }),
+                Err(error) => entries.push(keep_as_it_was(error, Some(entry), rehash, &mut kept)?),
+            }
         }
-        Ok(entries)
+        Ok((entries, kept))
     }
 
     /// A file the index did not have yet: its hash and length, as the store has them, the hash
@@ -1090,6 +1101,35 @@ impl<S: Store> DeviceFiles<S> {
         let reference = self.reference(relative);
         self.store.read(&reference).map_err(store_error(&reference))
     }
+}
+
+/// What a save does with a file that didn't verify: the index's own entry, kept as it was,
+/// with a warning, when the file was indexed already and has gone missing or changed behind the
+/// project's back and this is a plain save; the refusal otherwise (a new reference to a file
+/// that isn't there, or a save that verifies everything).
+fn keep_as_it_was(
+    error: ProjectError,
+    was: Option<&FileEntry>,
+    rehash: bool,
+    kept: &mut Vec<Issue>,
+) -> Result<FileEntry, ProjectError> {
+    let (Some(was), false) = (was, rehash) else {
+        return Err(error);
+    };
+    let what = match &error {
+        ProjectError::MissingFile(_) => "missing",
+        ProjectError::Mismatch { .. } => "not the file the index names",
+        _ => return Err(error),
+    };
+    kept.push(Issue {
+        severity: crate::validate::Severity::Warning,
+        pointer: "/files".to_owned(),
+        message: format!(
+            "{}: {what}; kept in the index as it was ({error})",
+            was.path
+        ),
+    });
+    Ok(was.clone())
 }
 
 /// Every file a known field refers to, with the hash it claims, in order of first use and each
@@ -1321,7 +1361,7 @@ mod tests {
     }
 
     #[test]
-    fn a_save_refuses_a_missing_or_changed_file_and_states_what_it_does_not_see() {
+    fn a_save_keeps_an_indexed_file_that_went_missing_or_changed_and_says_so() {
         let store = MemoryStore::new();
         let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
         let stored = project.put_audio("Loop", "wav", b"RIFF").unwrap();
@@ -1330,50 +1370,58 @@ mod tests {
             .tracks
             .push(track_with_piece(&stored));
         project.save(&generator()).unwrap();
+        let indexed = project.document().files.clone();
+        let warned = |saved: &Saved| {
+            saved
+                .warnings
+                .iter()
+                .any(|w| w.message.starts_with("audio/Loop.wav:"))
+        };
 
-        // A change the store's clock shows, whatever the length: hashed again, and refused.
-        store.put("audio/Loop.wav", b"RIFFx".to_vec());
-        match project.save(&generator()) {
-            Err(ProjectError::Mismatch { reference, .. }) => {
-                assert_eq!(reference, "audio/Loop.wav")
-            }
-            other => panic!("{other:?}"),
+        // Changed behind the project's back, whatever the length: the save goes on, the entry
+        // as it was, and says so; `check` finds it; a save that verifies everything refuses it.
+        for changed in [b"RIFFx".to_vec(), b"RIFX".to_vec()] {
+            store.put("audio/Loop.wav", changed);
+            let saved = project.save(&generator()).unwrap();
+            assert!(warned(&saved), "{:?}", saved.warnings);
+            assert_eq!(project.document().files, indexed, "kept as it was");
+            assert!(!project.check().is_valid());
+            assert!(matches!(
+                project.save_verified(&generator()),
+                Err(ProjectError::Mismatch { .. })
+            ));
         }
-        store.put("audio/Loop.wav", b"RIFX".to_vec());
-        assert!(matches!(
-            project.save(&generator()),
-            Err(ProjectError::Mismatch { .. })
-        ));
+        // Put back: no warning.
         store.put("audio/Loop.wav", b"RIFF".to_vec());
-        project.save(&generator()).unwrap();
+        assert!(!warned(&project.save(&generator()).unwrap()));
 
         // A forged change, the same length with the time put back: `save` does not see it,
         // `check` and `save_verified` do.
         store.put_unseen("audio/Loop.wav", b"RIFX".to_vec());
-        project.save(&generator()).unwrap();
+        assert!(!warned(&project.save(&generator()).unwrap()));
         assert!(!project.check().is_valid());
         assert!(matches!(
             project.save_verified(&generator()),
             Err(ProjectError::Mismatch { .. })
         ));
+
+        // Gone: kept as it was, said so; a save that verifies everything refuses.
         store.remove("audio/Loop.wav").unwrap();
+        let saved = project.save(&generator()).unwrap();
+        assert!(warned(&saved));
+        assert_eq!(project.document().files, indexed);
         assert!(matches!(
-            project.save(&generator()),
+            project.save_verified(&generator()),
             Err(ProjectError::MissingFile(r)) if r == "audio/Loop.wav"
         ));
-        // A fresh session verifies the hash on its first save, unless it was given the records
-        // of the last: then a file whose length and time are still the record's is trusted
-        // without being hashed, a forged change included, and one whose time differs is hashed.
-        store.put("audio/Loop.wav", b"RIFX".to_vec());
-        let mut again = Project::open(store.clone()).unwrap().project;
-        assert!(matches!(
-            again.save(&generator()),
-            Err(ProjectError::Mismatch { .. })
-        ));
+
+        // Records cross sessions: a file whose length and time are still the record's is
+        // trusted without being hashed, a forged change included; one whose time differs is
+        // hashed, and a fresh session hashes everything once.
         store.put("audio/Loop.wav", b"RIFF".to_vec());
         let mut trusting = Project::open(store.clone()).unwrap().project;
         trusting.trust(project.verified());
-        trusting.save(&generator()).unwrap();
+        assert!(!warned(&trusting.save(&generator()).unwrap()));
         let records = trusting.verified();
         assert!(
             records
@@ -1383,20 +1431,35 @@ mod tests {
         store.put_unseen("audio/Loop.wav", b"RIFX".to_vec());
         let mut trusting = Project::open(store.clone()).unwrap().project;
         trusting.trust(records);
-        trusting.save(&generator()).unwrap();
         assert!(
-            !trusting.check().is_valid(),
-            "trusted by length and time, forged"
+            !warned(&trusting.save(&generator()).unwrap()),
+            "trusted, forged"
         );
         let mut fresh = Project::open(store.clone()).unwrap().project;
+        assert!(
+            warned(&fresh.save(&generator()).unwrap()),
+            "hashed once, and changed"
+        );
+    }
+
+    #[test]
+    fn a_new_reference_to_a_file_that_is_not_there_refuses_the_save() {
+        let store = MemoryStore::new();
+        let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
+        let stored = project.put_audio("Loop", "wav", b"RIFF").unwrap();
+        let mut track = track_with_piece(&stored);
+        if let Event::Note(note) = &mut track.patterns[0].events[0] {
+            note.audio.as_mut().unwrap().file = "audio/Nowhere.wav".to_owned();
+        }
+        project.document_mut().tracks.push(track);
         assert!(matches!(
-            fresh.save(&generator()),
-            Err(ProjectError::Mismatch { .. })
+            project.save(&generator()),
+            Err(ProjectError::MissingFile(r)) if r == "audio/Nowhere.wav"
         ));
     }
 
     #[test]
-    fn an_index_entry_the_document_mentions_is_kept_verified_and_refused_when_gone() {
+    fn an_index_entry_the_document_mentions_is_kept_and_forgotten_only_on_purpose() {
         let store = MemoryStore::new();
         let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
         store.put("renders/sidecar.bin", b"abc".to_vec());
@@ -1426,12 +1489,19 @@ mod tests {
             vec!["org.example.sidecar"]
         );
 
+        // Gone: kept, as the extension may need it, and said so; forgotten on purpose, it goes.
         store.remove("renders/sidecar.bin").unwrap();
         let mut project = reopened;
-        assert!(matches!(
-            project.save(&generator()),
-            Err(ProjectError::MissingFile(r)) if r == "renders/sidecar.bin"
-        ));
+        let saved = project.save(&generator()).unwrap();
+        assert!(
+            saved
+                .warnings
+                .iter()
+                .any(|w| w.message.starts_with("renders/sidecar.bin: missing")),
+            "{:?}",
+            saved.warnings
+        );
+        assert_eq!(project.document().files.len(), 1);
         project.forget_file("renders/sidecar.bin");
         project.save(&generator()).unwrap();
         assert!(project.document().files.is_empty());

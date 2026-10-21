@@ -37,6 +37,16 @@ designed from is `docs/research.md`.
   records outlive a session through the program (`Project::verified`, `trust`), never the
   document, which must not carry a file system's times. This closed the question Pi had
   pressed (rehash at every save).
+- **2026-10-21:** **A save never leaves a project less complete than it found it, and never
+  blesses a change.** A file the index already lists that has gone missing or changed behind
+  the writer's back keeps its entry as it was, and the save goes on and says so; only a new
+  reference to a file that isn't there refuses the save, and an export (`save_verified`, a copy,
+  a zip) refuses either. Reason: newDAWn's review found that refusing made a song unsaveable
+  the moment a recording went missing (moved by a sync, deleted by hand), every edit piling
+  up in its log; refusing helps nobody, while keeping the entry leaves the project exactly as
+  incomplete as it was, which `check` reports. This replaces Pi's round-2 rule (refuse until
+  forgotten) for entries no known field claims as well: they too are kept and reported, and
+  `forget_file` drops one on purpose.
 - **2026-10-21:** **A plugin's own files have a folder of their own in 1.0** (spec 7.8,
   `plugins/files/<device id>/`, nested paths allowed, every file in the index under its device's
   id). Reason: the owner, "To transfer a project from one machine to another we need to store

@@ -22,15 +22,18 @@ Owns `Cargo.toml` and `src/`.
   each one a point where a crash can happen, which `Project` composes. The crate builds for
   `wasm32-unknown-unknown` unchanged, and CI proves it.
 - **What `Project::save` guarantees is stated in `project.rs`'s module doc, exactly**, and
-  nowhere wider: every referenced file present, the index built from the files (a file's
-  length and modification time read at every save and compared with the record of its last
-  verification, the hash computed again when either differs and never otherwise, a
-  disagreement refusing before the document is touched; the records kept between sessions by
-  the program, `verified` and `trust`), an entry no known field claims kept while the document mentions the file (by path,
-  name or hash) and dropped when nothing does, the document valid, the README current, the
-  document renamed into place, and a failure after that rename reported as `Unconfirmed`, the
-  save being on disk and the hash the new one. `save_verified` rehashes everything, for an
-  export. The owner decides whether every save rehashes (the plan, stage 12; `NOTES.md`).
+  nowhere wider: every newly referenced file present, else a refusal before the document is
+  touched; the index built from the files (a file's length and modification time read at every
+  save and compared with the record of its last verification, the hash computed again when
+  either differs and never otherwise; the records kept between sessions by the program,
+  `verified` and `trust`); a file the index already listed that went missing or changed kept in
+  the index as it was and reported in `Saved::warnings` (a save never leaves a project less
+  complete than it found it, nor blesses a change); an entry no known field claims kept while
+  the document mentions the file (by path, name or hash) and dropped when nothing does or on
+  purpose (`forget_file`); the document valid, the README current, the document renamed into
+  place, and a failure after that rename reported as `Unconfirmed`, the save being on disk and
+  the hash the new one. `save_verified` hashes everything again and refuses a missing or changed
+  file, for an export.
 - **A device's own files are `Project::device_files`'s** (spec 7.8): put, list and read by
   their path inside `plugins/files/<device id>/`, safety required and portability advised
   (`validate::check_device_file_path`), indexed by the device's id at the save and dropped

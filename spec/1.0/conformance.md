@@ -23,6 +23,10 @@ prove them. Section numbers refer to `tutti.md`.
 - Writes every file it refers to inside the folder, before the document that refers to it;
   writes the document last, to a temporary name renamed into place, so a crash leaves either the
   old document or the new one, never a torn one.
+- **Never leaves a project less complete than it found it, and never blesses a change**: a file
+  the index already lists that has gone missing or changed behind the writer's back keeps its
+  entry as it was, and the writer says so; it is not dropped from the index and its new content
+  is not indexed. An export (a copy, a zip, a project handed on) refuses such a file instead.
 - Fills `generator`, `files`, `dependencies` (for every plugin it hosts) and
   `extensions_used`; lists in `extensions_required` only what the project needs to sound right,
   and leaves a core fallback for each (8.1).
