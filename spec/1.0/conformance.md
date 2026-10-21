@@ -68,7 +68,8 @@ files given to it from its folder (7.8).
 
 Level 1, and: scenes and slots (6.10); pattern sharing kept on write; every id kept; the `files`
 index complete and valid; `README.md` written; `extensions_required` honoured as 8.1 says; a
-document read and written again is equal (3.1) to what was read.
+document read and written again is equal (3.1) to what was read, whichever program wrote it
+before (equality leaves `generator` out).
 
 ### Profiles
 

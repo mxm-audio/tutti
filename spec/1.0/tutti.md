@@ -127,7 +127,9 @@ Two canonical forms exist, both exact:
 - **JCS** (RFC 8785, the JSON Canonicalization Scheme) is what **equality and fingerprints** are
   over: keys sorted by UTF-16 code units, no whitespace, ECMAScript number rendering, JCS string
   escaping. Two documents are *equal* when their JCS bytes are equal after defaults are applied
-  (4); a *fingerprint* is the SHA-256 of JCS bytes.
+  (4) and `generator` is left out: it names the last program that wrote the document (3.2), so
+  it changes whenever another program writes the same project back. A *fingerprint* is the
+  SHA-256 of JCS bytes.
 
 A project folder with two or more `.tutti` files at the top is invalid; a reader reports both
 names and opens neither.
@@ -677,7 +679,8 @@ plays the fallbacks, and preserves everything.
 every key it does not know, as the same JSON value, on the same object (found by id, or by its
 place under its parent when it has no id), whatever the formatting. An object of an unknown
 `type` or `kind` is kept whole. Data belonging to an object the user deleted goes with it. A
-reader never refuses a project for data it does not understand.
+reader never refuses a project for data it does not understand. A checker may note a key it does
+not know, since a misspelt key reads the same way, but never as an error.
 
 ### 8.3 Versions
 

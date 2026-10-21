@@ -15,9 +15,19 @@ use crate::id::Id;
 
 /// A key of an unknown field, ordered by UTF-16 code units, so unknown keys are written in JCS
 /// order after the known ones.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(transparent)]
 pub struct Key(pub String);
+
+/// The name a [`Key`] serialises under: a JSON serialiser writes a newtype as the string it
+/// holds, and [`crate::unknown`] tells an unknown key from a field's own name by it.
+pub(crate) const KEY_NAME: &str = "tutti::Key";
+
+impl Serialize for Key {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_newtype_struct(KEY_NAME, &self.0)
+    }
+}
 
 impl PartialOrd for Key {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

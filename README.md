@@ -108,7 +108,8 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
   the `generator`, the extensions used and required, the `files` index, the `dependencies`.
 - A pretty form on disk made for diffs: keys in a fixed order, an event, a point and a file
   entry each on its own line, defaults left out, so two people's tracks merge cleanly in git.
-- Equality and fingerprints over RFC 8785 (JCS), so two implementations hash the same bytes.
+- Equality and fingerprints over RFC 8785 (JCS), so two implementations hash the same bytes;
+  equality leaves out `generator`, the program that wrote the document last.
 
 **Identity and time**
 

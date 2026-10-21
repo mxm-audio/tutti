@@ -52,7 +52,8 @@ the top. Every object may carry `extensions` under a reverse-DNS namespace.
   `<kind>_<ULID>` (`trk_01JB2K7Q9M3F5A7Y9R2E4W6N`). Never change an id you read.
 - Write the pretty form: two-space indent, keys in the spec's order, events and points one per
   line, defaults left out, numbers rendered as JavaScript renders them. The `tutti` crate and the
-  npm package do this for you; if you write JSON yourself, run `tutti check` on the result.
+  npm package do this for you; if you write JSON yourself, run `tutti check` on the result. It
+  notes every key it doesn't know, which is how a misspelt key shows: one is kept, never refused.
 - Put every file you refer to inside the folder first (`audio/`, `plugins/states/`,
   `renders/`), then write the document to a temporary name and rename it into place.
 - Fill `files` (path, sha256, bytes), `dependencies` (every plugin you host, with its version

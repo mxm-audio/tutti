@@ -18,10 +18,10 @@ export function make(wasm) {
   /** A document in any form, returned in the pretty form; throws with the reader's reason. */
   const fmt = (text) => wasm.fmt(text);
 
-  /** The JCS bytes equality and fingerprints are over. */
+  /** The document's JCS bytes; `equal` compares them with `generator` left out. */
   const jcs = (text) => wasm.jcs(text);
 
-  /** Whether two documents are equal as the spec means it. */
+  /** Whether two documents are equal as the spec means it: `generator` left out. */
   const equal = (a, b) => wasm.equal(a, b);
 
   /** Whether a document opens read-only on this version (a later `min_version`). */
@@ -29,6 +29,12 @@ export function make(wasm) {
 
   /** Validation: an array of `{severity, pointer, message}`, errors and warnings. */
   const validate = json(wasm.validate);
+
+  /**
+   * The keys the document carries that this version doesn't know, once each: an array of
+   * `{key, pointer, count}`. They are kept, never an error; a misspelt field is one of them.
+   */
+  const unknownKeys = json(wasm.unknown_keys);
 
   /** The features a document uses: an array of `{name, level}`. */
   const features = json(wasm.features);
@@ -378,6 +384,7 @@ export function make(wasm) {
     equal,
     isReadOnly,
     validate,
+    unknownKeys,
     features,
     levelNeeded,
     referencedFiles,

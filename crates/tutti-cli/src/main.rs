@@ -17,7 +17,8 @@ const USAGE: &str = "\
 tutti: an open audio project format (version 1.0)
 
     tutti check <folder>      validate a project folder: the document, its files, the
-                              features it uses and the level a reader needs
+                              features it uses and the level a reader needs; the keys
+                              this version doesn't know are noted
     tutti inspect <folder>    list its tracks, devices, patterns, markers and extensions
     tutti deps <folder>       list what it depends on, and whether each plugin is installed
     tutti archive <folder>    copy the spec, schema and agent guide into the folder's spec/
@@ -89,6 +90,26 @@ fn check(folder: &Path) -> Result<bool, String> {
     for issue in &issues {
         eprintln!("{issue}");
     }
+    // A key this version doesn't know is kept and written back (spec 8.2), never an error; it is
+    // noted, as a misspelt field reads the same way.
+    let unknown = tutti::unknown_keys(doc);
+    for key in &unknown {
+        let more = match key.count {
+            1 => String::new(),
+            n => format!(
+                ", and in {} more object{}",
+                n - 1,
+                if n == 2 { "" } else { "s" }
+            ),
+        };
+        eprintln!(
+            "note {}: `{}` is not a key tutti {} knows{more}: kept and written back as read; \
+             if it is meant as one of the format's, check its name",
+            key.pointer,
+            key.key,
+            tutti::VERSION
+        );
+    }
     if opened.read_only {
         println!(
             "read-only on this version: min_version {}",
@@ -97,8 +118,13 @@ fn check(folder: &Path) -> Result<bool, String> {
     }
     let used = features(doc);
     let level = level_needed(doc);
+    let notes = match unknown.len() {
+        0 => String::new(),
+        1 => ", 1 note".to_owned(),
+        n => format!(", {n} notes"),
+    };
     println!(
-        "{}: {} ({} error{}, {} warning{})",
+        "{}: {} ({} error{}, {} warning{}{notes})",
         path.display(),
         if errors == 0 { "valid" } else { "invalid" },
         errors,

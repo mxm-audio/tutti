@@ -46,7 +46,8 @@ the index is below.
   hand-written and normative (`schema/AGENTS.md`); the crates implement them and are tested
   against them; the examples are tests. A change to the format lands in all of them at once.
 - **A reader never refuses a project for data it doesn't understand**, keeps it, and writes it
-  back; a writer emits the canonical pretty form. Equality and fingerprints are over RFC 8785.
+  back; a writer emits the canonical pretty form. Equality and fingerprints are over RFC 8785,
+  equality with `generator` left out (the owner, 2026-10-21).
 - **The format declares, a program resolves**: dependencies (which plugins, which version, where
   from), extensions required, conformance levels. The format never needs this workspace, and its
   docs never send an implementer here.

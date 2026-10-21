@@ -37,13 +37,13 @@ pub fn fmt(text: &str) -> Result<String, JsError> {
     Ok(tutti::write(&read(text)?))
 }
 
-/// The JCS bytes equality and fingerprints are over.
+/// The document's JCS bytes; `equal` compares them with `generator` left out.
 #[wasm_bindgen]
 pub fn jcs(text: &str) -> Result<String, JsError> {
     Ok(tutti::jcs(&read(text)?))
 }
 
-/// Whether two documents are equal as the spec means it.
+/// Whether two documents are equal as the spec means it: `generator` left out.
 #[wasm_bindgen]
 pub fn equal(a: &str, b: &str) -> Result<bool, JsError> {
     Ok(tutti::equal(&read(a)?, &read(b)?))
@@ -60,6 +60,17 @@ pub fn is_read_only(text: &str) -> Result<bool, JsError> {
 pub fn validate(text: &str) -> Result<String, JsError> {
     let report = tutti::validate(&read(text)?);
     Ok(issues_json(&report.issues))
+}
+
+/// The keys the document carries that this version doesn't know, once each: a JSON array of
+/// `{key, pointer, count}`, the pointer the first place it is in.
+#[wasm_bindgen]
+pub fn unknown_keys(text: &str) -> Result<String, JsError> {
+    let items: Vec<Value> = tutti::unknown_keys(&read(text)?)
+        .into_iter()
+        .map(|k| json!({"key": k.key, "pointer": k.pointer, "count": k.count}))
+        .collect();
+    Ok(Value::Array(items).to_string())
 }
 
 pub(crate) fn issues_json(issues: &[tutti::Issue]) -> String {

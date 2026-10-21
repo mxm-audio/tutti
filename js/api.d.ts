@@ -14,6 +14,15 @@ export interface Issue {
   message: string;
 }
 
+/** A key this version doesn't know, once for every object it was found in. */
+export interface UnknownKey {
+  key: string;
+  /** The JSON pointer of the first place it is in. */
+  pointer: string;
+  /** How many objects carry it. */
+  count: number;
+}
+
 export interface Feature {
   name: string;
   level: 0 | 1 | 2;
@@ -130,14 +139,16 @@ export function version(): string;
 export function about(): string;
 /** A document in any form, returned in the pretty form; throws with the reader's reason. */
 export function fmt(text: string): string;
-/** The JCS bytes equality and fingerprints are over. */
+/** The document's JCS bytes; `equal` compares them with `generator` left out. */
 export function jcs(text: string): string;
-/** Whether two documents are equal as the spec means it. */
+/** Whether two documents are equal as the spec means it: `generator` left out. */
 export function equal(a: string, b: string): boolean;
 /** Whether a document opens read-only on this version (a later `min_version`). */
 export function isReadOnly(text: string): boolean;
 /** Validation: errors make the document invalid; warnings are reported and it opens. */
 export function validate(text: string): Issue[];
+/** The keys the document carries that this version doesn't know, once each; kept, never an error. */
+export function unknownKeys(text: string): UnknownKey[];
 /** The features a document uses, each with the level that first covers it. */
 export function features(text: string): Feature[];
 /** The lowest conformance level a reader needs to play the document in full. */

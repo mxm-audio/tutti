@@ -49,6 +49,20 @@ test('every example is the pretty form, validates and checks out', () => {
   assert.equal(tutti.levelNeeded(minimal.text), 0);
 });
 
+test('the keys this version does not know, and equality without the writer', () => {
+  const preserve = tutti.openFolder(path.join(examples, 'conformance', 'l0', 'preserve'));
+  assert.deepEqual(
+    tutti.unknownKeys(preserve.text).map((k) => k.key).sort(),
+    ['future_note_key', 'future_top_level_key', 'future_track_key'],
+  );
+  assert.deepEqual(tutti.unknownKeys(tutti.openFolder(path.join(examples, 'minimal')).text), []);
+  const another = JSON.parse(preserve.text);
+  another.generator = { name: 'another program' };
+  assert.equal(tutti.equal(preserve.text, JSON.stringify(another)), true);
+  another.ppq = 480;
+  assert.equal(tutti.equal(preserve.text, JSON.stringify(another)), false);
+});
+
 test('every hostile fixture is refused as its expectation says', () => {
   for (const folder of folders(path.join(examples, 'conformance', 'hostile'))) {
     // A project as one file is the command's to unpack; the package reads folders.

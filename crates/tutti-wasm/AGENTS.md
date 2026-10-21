@@ -6,9 +6,9 @@ The core for JavaScript: `wasm-bindgen` functions over `tutti`, strings in and s
 (documents as their text, lists as JSON), which the npm package in `js/` wraps with plain
 objects, and `Project` (`src/project.rs`): the core's project over a store the host supplies,
 an imported type with synchronous methods, so the format's save procedure runs once, in the
-core, for JavaScript too. Names mirror the Rust API (`fmt`, `jcs`, `validate`, `seconds_at`,
-`tick_of_frame`, `render_fingerprint`, `ulid`, `readme`, `new_document`, `Project::open`,
-`save`, `put_audio`, `new_audio`, …).
+core, for JavaScript too. Names mirror the Rust API (`fmt`, `jcs`, `validate`, `unknown_keys`,
+`seconds_at`, `tick_of_frame`, `render_fingerprint`, `ulid`, `readme`, `new_document`,
+`Project::open`, `save`, `put_audio`, `new_audio`, …).
 
 # Ownership
 

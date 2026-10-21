@@ -58,7 +58,11 @@ Owns `Cargo.toml` and `src/`.
 - **MSRV 1.87**, compiled against (`cargo +1.87.0 test -p tutti`) whenever the crate takes a
   language feature it did not have before: Cargo never checks a crate's own `rust-version`.
 - **Every struct keeps what it doesn't know**: a flattened map of unknown keys and an
-  `extensions` map, written back as read. A number the spec states is a constant here, held equal
+  `extensions` map, written back as read. `unknown_keys` finds them through the document's own
+  serialisation (`unknown.rs`): an unknown key serialises as a `Key` newtype, which JSON writes
+  as its string and a field's name never is, so a new struct needs nothing there.
+- **`equal` leaves `generator` out** (spec 3.1; the owner, 2026-10-21): it names the last
+  program that wrote the document, so another program's write-back is still equal. A number the spec states is a constant here, held equal
   to the schema's by `tutti-schema`'s tests; never copy such a number into docs.
 - **Reading normalises, writing canonicalises**: a reader accepts any key order and whitespace
   and sorts what the spec says is sorted; a writer emits the pretty form exactly.

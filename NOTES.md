@@ -92,6 +92,11 @@ designed from is `docs/research.md`.
   a sampler plugin." What the format carries for it: the device's identity, its state, its
   parameter snapshot, its dependency entry, renders for a reader without the plugin, and (to be
   defined) the per-device files folder.
+- **2026-10-21:** **Equality leaves `generator` out, and `tutti check` notes a key it doesn't
+  know.** Reason: the web tracker's trial (below), the owner: "agree with the two decisions".
+  A writer names itself in `generator`, so Level 2's "written again is equal" could never hold
+  for another program's write-back; and a misspelt key is kept like any unknown one, so only a
+  note shows it. A note, never an error: a later version's key is unknown here too.
 - **2026-10-20:** **The format resolves dependencies.** Reason: the owner, "The format will also
   need a way to resolve dependcies. Eg. what plugins are used, and from where can they be
   donwloaded? (I imagine most of them are open source in the future.)" The document carries a
@@ -197,14 +202,15 @@ in newDAWn come back.
 - **`generator` and Level 2 disagree.** A writer fills `generator` with itself (spec 3.2,
   conformance 2), and Level 2 asks that a document read and written again be equal to what was
   read. When another program writes it back, the two can't both hold: the round trip compares
-  with the writer's name put back. **Agreed by the owner (2026-10-21), not done yet**: equality
-  leaves `generator` out.
+  with the writer's name put back. **Done (the owner's ruling above)**: equality leaves
+  `generator` out (3.1), and the round trip compares the documents as they are.
 - **A misnamed field would be valid.** The tracker's port was first written with `voice`,
   newDAWn's own name, for a recording note's audio, where the format says `audio`. Reading the
   format's model caught it, not a check: a reader keeps unknown keys (8.2), so a document with
-  the wrong name would have validated, its meaning lost without a word. **Agreed by the owner
-  (2026-10-21), not done yet**: `tutti check` notes an unknown key in a core object, once each,
-  as a note, not an error.
+  the wrong name would have validated, its meaning lost without a word. **Done (the owner's
+  ruling above)**: `tutti check` notes each key this version doesn't know, once, with the first
+  place it is and how many objects carry it (`unknown_keys`, `unknownKeys` in the package), and
+  the web tracker's round trip asserts its songs carry none.
 - **Two time implementations agree**: the web tracker's engine schedules through the core's
   `TempoMap`, newDAWn's playback through its own arithmetic, and their note events are the same
   frame for frame at 48 kHz on all ten songs (125 notes). Every song holds one tempo, 120 BPM
@@ -216,7 +222,7 @@ in newDAWn come back.
 - **Fixtures for tutti: none admitted as they are.** The songs carry the MXM sampler's own state,
   where Level 1's `plugin` is a tiny reference CLAP and `missing-plugin` a fictitious one, and a
   fixture here is made by `make-examples`, never by another program. What the trial suggests,
-  once `generator` is settled: a Level 2 case `another-writer`, a project written by one
+  now that equality leaves `generator` out: a Level 2 case `another-writer`, a project written by one
   generator, read and written by another, and expected equal but for `generator`.
 
 ## History
@@ -275,3 +281,7 @@ in newDAWn come back.
   `createWritable` keeps nothing and a fresh context gives no storage at all, so the browser
   test runs in a profile of its own and its storage check skips there, saying so, and runs in
   Chromium.
+- 2026-10-21: the trial's two rulings: `equal` leaves `generator` out (spec 3.1, conformance's
+  Level 2); `unknown_keys` (`unknown.rs`), a walk of the document's own serialisation in which
+  an unknown key is a `Key` newtype, noted by `tutti check` and reaching JavaScript as
+  `unknownKeys`; spec 8.2 lets a checker note such a key, never as an error.

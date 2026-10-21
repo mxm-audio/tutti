@@ -53,8 +53,23 @@ fn check_accepts_every_example_and_says_what_it_uses() {
     }
     let (_, out, _) = tutti(&["check"], &examples.join("every-feature"));
     assert!(out.contains("a reader needs Level 2"), "{out}");
-    let (_, out, _) = tutti(&["check"], &examples.join("minimal"));
+    let (_, out, err) = tutti(&["check"], &examples.join("minimal"));
     assert!(out.contains("features: none"), "{out}");
+    assert!(!err.contains("note "), "{err}");
+}
+
+#[test]
+fn check_notes_each_key_this_version_does_not_know() {
+    let folder = repository_root().join("examples/conformance/l0/preserve");
+    let (code, out, err) = tutti(&["check"], &folder);
+    assert_eq!(code, 0, "{err}");
+    let notes: Vec<&str> = err.lines().filter(|l| l.starts_with("note ")).collect();
+    assert!(!notes.is_empty(), "{err}");
+    assert!(
+        notes.iter().all(|l| l.contains("is not a key tutti")),
+        "{err}"
+    );
+    assert!(out.contains(&format!("{} note", notes.len())), "{out}");
 }
 
 /// The project as one file in a hostile fixture's folder, if it is one.

@@ -3,7 +3,8 @@
 # Purpose
 
 The `tutti` command: `check` (parse, validate, hash every indexed file, report the features a
-project uses and so the conformance level a reader needs), `inspect` (tracks, patterns, devices,
+project uses and so the conformance level a reader needs, and note each key this version doesn't
+know, never as an error), `inspect` (tracks, patterns, devices,
 extensions), `deps` (every dependency, and whether a plugin with that id is installed in the
 standard CLAP and VST3 folders), `archive` (copy the spec, schema and agent guide into a project
 folder's `spec/`), `fmt` (rewrite the document in the pretty form), `zip` and `unzip` (a
@@ -33,7 +34,8 @@ Owns `Cargo.toml`, `src/` and `tests/`.
 # Verification
 
 - `cargo test -p tutti-cli`: `check` over every example and every hostile fixture (exit 1 with
-  the named error), `inspect` and `deps` on the typical project, `archive` and `fmt` on a copy.
+  the named error), its notes on the `preserve` fixture's unknown keys, `inspect` and `deps` on
+  the typical project, `archive` and `fmt` on a copy.
 
 # Child DOX Index
 

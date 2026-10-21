@@ -24,6 +24,7 @@ pub mod project;
 pub mod read;
 pub mod render;
 pub mod time;
+pub mod unknown;
 pub mod validate;
 pub mod zip;
 
@@ -33,6 +34,7 @@ pub use id::Id;
 pub use model::*;
 pub use project::{Incoming, Opened, Project, ProjectError, Saved, Stored, Verified};
 pub use read::{ReadError, is_read_only, read};
+pub use unknown::{UnknownKey, unknown_keys};
 pub use validate::{Issue, Report, Severity, validate};
 
 /// A document as a JSON value, in the spec's key order, defaults left out (spec 4).
@@ -45,15 +47,23 @@ pub fn write(document: &Document) -> String {
     canon::pretty(&to_value(document))
 }
 
-/// The JCS bytes equality and fingerprints are over (spec 3.1).
+/// The document's JCS bytes (spec 3.1); [`equal`] compares them with `generator` left out.
 pub fn jcs(document: &Document) -> String {
     canon::jcs(&to_value(document))
 }
 
-/// Whether two documents are equal as the spec means it: the same JCS bytes once defaults are
-/// applied.
+/// Whether two documents are equal as the spec means it (3.1): the same JCS bytes once defaults
+/// are applied, `generator` left out. It names the last program that wrote the document, so it
+/// changes whenever another program writes the same project back.
 pub fn equal(a: &Document, b: &Document) -> bool {
-    jcs(a) == jcs(b)
+    let without_generator = |document: &Document| {
+        let mut value = to_value(document);
+        if let Value::Object(map) = &mut value {
+            map.remove("generator");
+        }
+        canon::jcs(&value)
+    };
+    without_generator(a) == without_generator(b)
 }
 
 /// The value of the document's `format` key.
@@ -153,5 +163,17 @@ mod tests {
         assert!(e0 < e1 && e1 < e2, "{out}");
         assert!(out.contains("\"dk.mxm.newdawn\": {\"x\": 1}"), "{out}");
         assert!(out.contains("\"bpm\": 87.5"), "{out}");
+    }
+
+    #[test]
+    fn equality_leaves_the_generator_out_and_nothing_else() {
+        let text = r#"{"format": "tutti", "version": "1.0", "generator": {"name": "a", "version": "1"},
+  "ppq": 960, "tempo": [{"at": 0, "bpm": 120}], "meter": [{"at": 0, "numerator": 4, "denominator": 4}]}"#;
+        let a = read(text.as_bytes()).unwrap();
+        let mut b = a.clone();
+        b.generator = Generator::new("b", "2", "https://example.com/b");
+        assert!(equal(&a, &b), "another writer's name");
+        b.ppq = 480;
+        assert!(!equal(&a, &b), "anything else");
     }
 }
