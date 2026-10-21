@@ -441,7 +441,7 @@
       "required": ["param", "value"],
       "properties": {
         "param": { "type": "string", "minLength": 1, "description": "A promoted parameter's name on the track." },
-        "value": { "$ref": "#/$defs/unit_interval" },
+        "value": { "type": "number", "description": "The plain value, as value in the parameter's params entry (spec 7.3); never normalized." },
         "extensions": { "$ref": "#/$defs/extensions" }
       }
     },

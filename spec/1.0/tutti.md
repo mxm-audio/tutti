@@ -458,7 +458,7 @@ carries what a reader plays if it understands nothing else.
 | Key | Type | Required | Meaning |
 |---|---|---|---|
 | `param` | string | yes | A promoted parameter's name on the track (6.8). An unknown name is kept and ignored. |
-| `value` | number 0 to 1 | yes | Normalized. |
+| `value` | number | yes | The plain value, as `value` in the parameter's `params` entry (7.3); never normalized. |
 
 A parameter event sets a parameter at a point in the pattern, with or without a note.
 
@@ -479,9 +479,10 @@ An automation lane:
 | `extensions` | object | no | `{}` | |
 
 `curve` on a point is how the value runs to the next point: `hold` or `linear` (the default);
-fallback `linear`. A device parameter's value is normalized 0 to 1 (its `params` entry carries
-the range, 7.3); `gain` is linear, `pan` −1 to 1, `mute` is muted at 0.5 and above, a send's
-value is its gain. A target that resolves to nothing is dangling (5.1).
+fallback `linear`. A device parameter's value is the plain value, as `value` in its `params`
+entry (7.3), never normalized: a plugin's mapping between the two is its own, and a CLAP host
+has no normalized value to write; `gain` is linear, `pan` −1 to 1, `mute` is muted at 0.5 and
+above, a send's value is its gain. A target that resolves to nothing is dangling (5.1).
 
 ### 6.9 Markers
 

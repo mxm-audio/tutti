@@ -822,7 +822,7 @@ fn check_event(r: &mut Report, p: &str, e: &Event, promoted: &HashSet<&str>, doc
         }
         Event::Param(pe) => {
             check_tick(r, &format!("{p}/at"), pe.at);
-            check_unit_interval(r, &format!("{p}/value"), pe.value);
+            // `value` is the plain value (spec 6.7, 7.3): any finite number.
             if !promoted.contains(pe.param.as_str()) {
                 r.warn(
                     &format!("{p}/param"),
@@ -954,7 +954,9 @@ fn check_lane(
                     "not a device of this track; dangling",
                 );
             }
-            (0.0, 1.0)
+            // The plain value (spec 6.8, 7.3): the plugin's range, which the snapshot states
+            // and this check does not know.
+            (f64::NEG_INFINITY, f64::INFINITY)
         }
         1 if t.channel.is_some() => match t.channel.as_deref().unwrap_or("") {
             "gain" => (0.0, GAIN_MAX),
@@ -983,7 +985,7 @@ fn check_lane(
                     "not a promoted parameter of this track; dangling",
                 );
             }
-            (0.0, 1.0)
+            (f64::NEG_INFINITY, f64::INFINITY)
         }
         _ => {
             r.error(

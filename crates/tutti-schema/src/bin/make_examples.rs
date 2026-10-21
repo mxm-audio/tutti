@@ -432,7 +432,7 @@ fn typical(ids: &mut Ids) -> Project {
         id: ids.next("evt"),
         at: 1920,
         param: "cutoff".to_owned(),
-        value: 0.6,
+        value: 440.0, // the plain value, hertz as the snapshot says
         extensions: Extensions::new(),
         unknown: Unknown::new(),
     }));
@@ -455,13 +455,13 @@ fn typical(ids: &mut Ids) -> Project {
         points: vec![
             Point {
                 at: 6 * bar,
-                value: 0.3,
+                value: 120.0,
                 curve: Curve::Linear,
                 unknown: Unknown::new(),
             },
             Point {
                 at: 10 * bar,
-                value: 0.9,
+                value: 2400.0,
                 curve: Curve::Hold,
                 unknown: Unknown::new(),
             },

@@ -92,7 +92,7 @@ build.
 | [`spec/AGENTS.md`](spec/AGENTS.md) | The normative text, one frozen folder per version, and the changelog |
 | [`schema/AGENTS.md`](schema/AGENTS.md) | The JSON Schema, hand-written, frozen with its version |
 | [`examples/AGENTS.md`](examples/AGENTS.md) | Example projects and the conformance fixtures, with made audio only |
-| [`docs/AGENTS.md`](docs/AGENTS.md) | The research, the implementers' guide, the agent guide, the generated field reference |
+| [`docs/AGENTS.md`](docs/AGENTS.md) | The research, the agent guide (`agent-guide.md`), the generated field reference; the implementers' guide to come |
 | [`crates/tutti/AGENTS.md`](crates/tutti/AGENTS.md) | The reference implementation: model, read, write, validate, the time arithmetic; no file IO |
 | [`crates/tutti-schema/AGENTS.md`](crates/tutti-schema/AGENTS.md) | The tests that hold spec, schema, examples, docs and code together; the field-reference generator |
 | [`crates/tutti-cli/AGENTS.md`](crates/tutti-cli/AGENTS.md) | The `tutti` command: check, inspect, deps, archive, fmt; the one place with file IO |

@@ -38,5 +38,5 @@ Two values to check a reader by: at `ppq` 960, tick 7 680 is beat 8, and beat 8 
 
 - The spec: https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md
 - The schema: https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json
-- For agents and implementers: https://github.com/mxm-audio/tutti/blob/main/docs/agents.md
+- For agents and implementers: https://github.com/mxm-audio/tutti/blob/main/docs/agent-guide.md
 - The reference implementation and the `tutti` command: https://github.com/mxm-audio/tutti

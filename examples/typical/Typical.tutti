@@ -129,7 +129,7 @@
             {"type": "note", "id": "evt_01K742SG12B9D0000000000012", "at": 2400, "length": 420, "pitch": 45, "velocity": 0.8},
             {"type": "note", "id": "evt_01K742SG13B9D0000000000013", "at": 2880, "length": 420, "pitch": 43, "velocity": 0.8},
             {"type": "note", "id": "evt_01K742SG14B9D0000000000014", "at": 3360, "length": 420, "pitch": 48, "velocity": 0.8},
-            {"type": "param", "id": "evt_01K742SG15B9D0000000000015", "at": 1920, "param": "cutoff", "value": 0.6}
+            {"type": "param", "id": "evt_01K742SG15B9D0000000000015", "at": 1920, "param": "cutoff", "value": 440}
           ]
         }
       ],
@@ -150,8 +150,8 @@
             "parameter": "cutoff"
           },
           "points": [
-            {"at": 23040, "value": 0.3},
-            {"at": 38400, "value": 0.9, "curve": "hold"}
+            {"at": 23040, "value": 120},
+            {"at": 38400, "value": 2400, "curve": "hold"}
           ]
         }
       ]

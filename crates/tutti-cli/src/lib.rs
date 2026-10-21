@@ -218,7 +218,10 @@ pub const ARCHIVE_FILES: &[(&str, &str)] = &[
         "spec/tutti.schema.json",
         include_str!("../../../schema/1.0/tutti.schema.json"),
     ),
-    ("spec/agents.md", include_str!("../../../docs/agents.md")),
+    (
+        "spec/agent-guide.md",
+        include_str!("../../../docs/agent-guide.md"),
+    ),
 ];
 
 /// Copies the spec, the schema and the agent guide into `<folder>/spec/`.

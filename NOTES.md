@@ -26,6 +26,21 @@ designed from is `docs/research.md`.
   should be a library that is not only usable from rust. Perhaps with wrappers for other
   languages, or at least javascript?" The core has no file IO and compiles to WebAssembly; an npm
   package wraps it; a C ABI or UniFFI later.
+- **2026-10-21:** **Automation points and parameter events carry the plain value**, as `value` in
+  the parameter's `params` entry, never a normalized one (spec 6.7, 6.8). Reason: the snapshot
+  already says the plain value is authoritative and that neither form is derived from the
+  other; CLAP parameters have no normalized form, so a CLAP host (newDAWn among them) could not
+  write what a normalized lane asked for, while a VST3 host converts normalized to plain through
+  the plugin at save time. Found in the brainstorm on where automation lives (on the track, in
+  ticks, because a lane may target the channel or a send and state is timeless); the owner:
+  "yes, change that".
+- **2026-10-21:** **A sampler is a plugin, not a feature of the format.** An audio piece is a
+  recording placed in time and always sounds as recorded; a note's pitch on it is informational.
+  Reason: the owner, "I don't think we should implement a sampler in the file format. Then we
+  would have to add envelopes, filters etc. So a sampler here is the sound.wav and the notes and
+  a sampler plugin." What the format carries for it: the device's identity, its state, its
+  parameter snapshot, its dependency entry, renders for a reader without the plugin, and (to be
+  defined) the per-device files folder.
 - **2026-10-20:** **The format resolves dependencies.** Reason: the owner, "The format will also
   need a way to resolve dependcies. Eg. what plugins are used, and from where can they be
   donwloaded? (I imagine most of them are open source in the future.)" The document carries a
@@ -102,3 +117,7 @@ designed from is `docs/research.md`.
   is someone else's, hence the scope).
 - 2026-10-20: the README rewritten to lead with the motivation and list the features, on the
   owner's word (the ruling above).
+- 2026-10-21: automation points and parameter events carry the plain value (the ruling above);
+  the agent guide renamed `docs/agent-guide.md`, since on a case-insensitive file system it and
+  the folder's DOX file `docs/AGENTS.md` were one file and the guide had overwritten the DOX in
+  the first commits; `docs/AGENTS.md` written anew.

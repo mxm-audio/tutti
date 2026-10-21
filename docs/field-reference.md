@@ -393,7 +393,7 @@ Frames of a file placed in a pattern (spec 5.5, 6.7).
 | Key | Type | Required | Default | Meaning |
 |---|---|---|---|---|
 | `param` | string | yes |  | A promoted parameter's name on the track. |
-| `value` | `unit_interval` | yes |  |  |
+| `value` | number | yes |  | The plain value, as value in the parameter's params entry (spec 7.3); never normalized. |
 | `extensions` | `extensions` |  |  |  |
 
 ## `automation_lane`

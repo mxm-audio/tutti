@@ -75,7 +75,7 @@ pub const SCHEMA_URL: &str =
 pub const REPOSITORY_URL: &str = "https://github.com/mxm-audio/tutti";
 
 /// The agent guide, for a project folder's README.
-pub const AGENTS_URL: &str = "https://github.com/mxm-audio/tutti/blob/main/docs/agents.md";
+pub const AGENTS_URL: &str = "https://github.com/mxm-audio/tutti/blob/main/docs/agent-guide.md";
 
 /// The README every writer puts in a project folder (spec 2.4), this version's template.
 pub const README_TEMPLATE: &str = include_str!("../../../spec/1.0/README.template.md");

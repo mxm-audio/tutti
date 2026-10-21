@@ -32,7 +32,7 @@ tutti is that format. It is designed so that:
   back. Your program's own data lives under your own namespace, on any object, and every other
   program carries it through.
 - **Agents are first-class readers and writers.** JSON with a published JSON Schema is what
-  structured output generates against; the folder's README, the spec and `docs/agents.md` are
+  structured output generates against; the folder's README, the spec and `docs/agent-guide.md` are
   what an agent reads first.
 
 ## Why not make your own
@@ -172,7 +172,7 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
   generated from the schema.
 - The JSON Schema (2020-12), a generated field reference, three example projects, and the
   conformance fixtures with their expected tables.
-- `docs/agents.md` and `llms.txt`: what an agent reads first.
+- `docs/agent-guide.md` and `llms.txt`: what an agent reads first.
 
 ## A project, in short
 
@@ -203,7 +203,7 @@ My-Project/
 
 ## Using it
 
-- **From your program**: read [`docs/agents.md`](docs/agents.md), then the spec,
+- **From your program**: read [`docs/agent-guide.md`](docs/agent-guide.md), then the spec,
   [`spec/1.0/tutti.md`](spec/1.0/tutti.md). Use the `tutti` crate from Rust or `@mxm-audio/tutti`
   from JavaScript, or any JSON library with the schema. Run `tutti check` over what you write.
 - **On a project someone sent you**: read the `README.md` in its folder.

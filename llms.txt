@@ -4,7 +4,7 @@
 > it plays, the plugin states it uses and a short README. Start a project in one program, open it
 > in another, including programs that don't exist yet. MIT, pre-alpha, version 1.0 in draft.
 
-Read `docs/agents.md` first: how to read and write a project, the time model and the model in a
+Read `docs/agent-guide.md` first: how to read and write a project, the time model and the model in a
 paragraph each, the smallest valid document, common tasks and pitfalls.
 
 ## Normative
@@ -20,7 +20,7 @@ paragraph each, the smallest valid document, common tasks and pitfalls.
 
 ## Guides
 
-- [For agents and implementers](docs/agents.md)
+- [For agents and implementers](docs/agent-guide.md)
 - [The README every project folder carries](spec/1.0/README.template.md)
 - [The research the format was designed from](docs/research.md)
 - [Why each choice was made](NOTES.md)
