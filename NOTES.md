@@ -197,13 +197,14 @@ in newDAWn come back.
 - **`generator` and Level 2 disagree.** A writer fills `generator` with itself (spec 3.2,
   conformance 2), and Level 2 asks that a document read and written again be equal to what was
   read. When another program writes it back, the two can't both hold: the round trip compares
-  with the writer's name put back. **Proposed**: Level 2's equality is stated with `generator`
-  excepted, or `generator` is left out of equality as defaults are. The owner's call.
+  with the writer's name put back. **Agreed by the owner (2026-10-21), not done yet**: equality
+  leaves `generator` out.
 - **A misnamed field would be valid.** The tracker's port was first written with `voice`,
   newDAWn's own name, for a recording note's audio, where the format says `audio`. Reading the
   format's model caught it, not a check: a reader keeps unknown keys (8.2), so a document with
-  the wrong name would have validated, its meaning lost without a word. **Proposed**: `tutti
-  check` notes an unknown key in a core object, once each, as a note, not an error.
+  the wrong name would have validated, its meaning lost without a word. **Agreed by the owner
+  (2026-10-21), not done yet**: `tutti check` notes an unknown key in a core object, once each,
+  as a note, not an error.
 - **Two time implementations agree**: the web tracker's engine schedules through the core's
   `TempoMap`, newDAWn's playback through its own arithmetic, and their note events are the same
   frame for frame at 48 kHz on all ten songs (125 notes). Every song holds one tempo, 120 BPM
