@@ -168,13 +168,20 @@ impl Store for DirStore {
     fn rename_over(&self, from: &str, to: &str) -> Result<(), FolderError> {
         let from_path = self.path_of(from)?;
         let to_path = self.path_of(to)?;
-        fs::rename(&from_path, &to_path).map_err(io_error)?;
+        fs::rename(&from_path, &to_path).map_err(io_error)
+    }
+
+    /// Linux and macOS need the folder flushed for a rename to survive a power cut; Windows
+    /// can't open a folder this way and doesn't need to, NTFS journaling the rename. Best
+    /// effort where a file system can't flush a folder: the rename has happened by now.
+    fn sync_folder(&self, folder: &str) -> Result<(), FolderError> {
+        let path = self.path_of(folder)?;
         #[cfg(unix)]
-        if let Some(parent) = to_path.parent() {
-            if let Ok(dir) = File::open(parent) {
-                let _ = dir.sync_all();
-            }
+        if let Ok(dir) = File::open(&path) {
+            let _ = dir.sync_all();
         }
+        #[cfg(not(unix))]
+        let _ = path;
         Ok(())
     }
 

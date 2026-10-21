@@ -24,9 +24,11 @@ Owns `Cargo.toml` and `src/`.
 - **What `Project::save` guarantees is stated in `project.rs`'s module doc, exactly**, and
   nowhere wider: every referenced file present, the index built from the files (lengths at
   every save, hashes verified once per session, a disagreement refusing before the document is
-  touched), entries no known field claims kept, the document valid, the README current, the
-  document renamed into place. `save_verified` rehashes everything, for an export. The owner
-  decides whether every save rehashes (the plan, stage 12; `NOTES.md`).
+  touched), an entry no known field claims kept while the document mentions the file (by path,
+  name or hash) and dropped when nothing does, the document valid, the README current, the
+  document renamed into place, and a failure after that rename reported as `Unconfirmed`, the
+  save being on disk and the hash the new one. `save_verified` rehashes everything, for an
+  export. The owner decides whether every save rehashes (the plan, stage 12; `NOTES.md`).
 - **A recording streams through `Project::new_audio`'s handle**, a `Write` that hashes as the
   bytes pass into the store's own writer; it borrows nothing from the project, and is `Send`
   exactly when the store is. The crate never deletes a file; a program's cleanup consults

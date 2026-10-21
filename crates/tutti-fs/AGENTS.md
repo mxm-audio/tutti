@@ -17,9 +17,11 @@ Owns `Cargo.toml`, `src/` and `tests/`.
 
 - **The procedure is the core's; this crate is the disk.** Nothing here decides what a save
   does: `DirStore` implements the primitive operations (`list`, `exists`, `make_folder`,
-  `write_new`, `open_new` and `close`, `rename_over`, `remove`) and the reads, each one durable
-  by itself (a new file is flushed and synced before it counts; a rename is the commit point),
-  and `Project` composes them. A rule about the format goes in the core, never here.
+  `write_new`, `open_new` and `close`, `rename_over`, `sync_folder`, `remove`) and the reads,
+  each one durable by itself (a new file is flushed and synced before it counts; a rename is
+  the commit point, and the folder's flush after it is its own step, so a failure there is
+  reported as after the commit), and `Project` composes them. A rule about the format goes in
+  the core, never here.
 - **References resolve inside the root only, following no link**: every part of a reference is
   a plain name (no empty part, `.`, `..`, `\`, NUL), each existing part is checked not to be a
   link, and a link in a file's place is `FolderError::Link` (spec 9).

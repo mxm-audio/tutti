@@ -6,9 +6,13 @@
 //! What [`Project::save`] guarantees, exactly: every file the document refers to is there; the
 //! files index names each of them with its length as read at this save and its SHA-256 as
 //! verified the first time this session saw the file (a file the crate wrote itself is known);
-//! a disagreement refuses the save by reference before the document is touched; the document is
-//! valid; `README.md` is current; the document is written to a temporary name and renamed over
-//! the old one, so a crash leaves the old document or the new, never a torn one. A file changed
+//! an entry of the index that no known field claims stays, verified the same way, as long as
+//! the document mentions the file anywhere else (its path, its name or its hash: an unknown
+//! extension's sidecar), and goes when nothing does; a disagreement refuses the save by
+//! reference before the document is touched; the document is valid; `README.md` is current;
+//! the document is written to a temporary name and renamed over the old one, so a crash
+//! leaves the old document or the new, never a torn one, and a failure after that rename is
+//! reported as [`ProjectError::Unconfirmed`], the save being on disk. A file changed
 //! behind the project's back at the same length since its hash was verified is not seen by
 //! `save`: `check` finds it, and a reader plays silence and warns (spec 9), which is what the
 //! hash rule is for. [`Project::save_verified`] rehashes everything and refuses a mismatch; it is
@@ -62,6 +66,9 @@ pub enum ProjectError {
     },
     /// A name or an extension a writer may not give (spec 2.1).
     Name(String),
+    /// The document was committed (renamed into place) and a step after that failed, the
+    /// folder's flush: the save is on disk, and [`Project::document_hash`] is the new one.
+    Unconfirmed(FolderError),
     /// The store refused an operation.
     Store {
         reference: String,
@@ -96,6 +103,10 @@ impl fmt::Display for ProjectError {
                 found,
             } => write!(f, "{reference}: expected {expected}, found {found}"),
             ProjectError::Name(name) => write!(f, "{name:?}: not a name a writer may give"),
+            ProjectError::Unconfirmed(error) => write!(
+                f,
+                "the document was written, and flushing the folder failed: {error}"
+            ),
             ProjectError::Store { reference, error } if reference.is_empty() => {
                 write!(f, "the folder: {error}")
             }
@@ -398,8 +409,9 @@ impl<S: Store> Project<S> {
         self.store.read(reference).map_err(store_error(reference))
     }
 
-    /// Drops an index entry no known field claims (an unknown extension's file that is gone):
-    /// a save refuses such an entry until the program, having asked its user, forgets it.
+    /// Drops an index entry no known field claims but the document mentions (an unknown
+    /// extension's file that is gone): a save refuses such an entry until the program, having
+    /// asked its user, forgets it.
     pub fn forget_file(&mut self, path: &str) {
         self.document.files.retain(|f| f.path != path);
         lock(&self.shared).verified.remove(path);
@@ -536,6 +548,13 @@ impl<S: Store> Project<S> {
         })
     }
 
+    /// The file in `audio/` with exactly these bytes, if any, reserved: what [`Project::put_audio`]
+    /// uses again rather than writing a copy; for a program that streams a recording in itself
+    /// and keeps the same content once.
+    pub fn find_audio(&self, bytes: &[u8]) -> Result<Option<Stored>, ProjectError> {
+        self.same_content(AUDIO, bytes)
+    }
+
     /// Puts audio in `audio/` whole. The same content is stored once: a file of it already
     /// there is used again, under its own name.
     pub fn put_audio(
@@ -544,7 +563,7 @@ impl<S: Store> Project<S> {
         extension: &str,
         bytes: &[u8],
     ) -> Result<Stored, ProjectError> {
-        if let Some(stored) = self.same_content(AUDIO, bytes)? {
+        if let Some(stored) = self.find_audio(bytes)? {
             return Ok(stored);
         }
         let mut incoming = self.new_audio(name, extension)?;
@@ -666,8 +685,10 @@ impl<S: Store> Project<S> {
     }
 
     /// The files index: what the known references name, each verified, then the entries the
-    /// index held that no known field claims, verified as they stand.
+    /// index held that no known field claims but the document mentions, verified as they
+    /// stand; one nothing mentions goes.
     fn index(&self, rehash: bool) -> Result<Vec<FileEntry>, ProjectError> {
+        let mentions = mentions(&self.document);
         let existing: HashMap<&str, &FileEntry> = self
             .document
             .files
@@ -689,7 +710,7 @@ impl<S: Store> Project<S> {
             done.insert(reference);
         }
         for entry in &self.document.files {
-            if done.contains(&entry.path) {
+            if done.contains(&entry.path) || !mentioned(&mentions, entry) {
                 continue;
             }
             let (sha256, bytes) =
@@ -770,11 +791,15 @@ impl<S: Store> Project<S> {
         Ok(true)
     }
 
-    /// The document in the pretty form, to a temporary name renamed over the old one.
+    /// The document in the pretty form, to a temporary name renamed over the old one: the
+    /// commit point, after which the hash is the new one and a failure is `Unconfirmed`.
     fn write_document(&mut self) -> Result<String, ProjectError> {
         let text = crate::write(&self.document);
         self.replace(&self.document_name, text.as_bytes())?;
         self.document_hash = sha256_hex(text.as_bytes());
+        self.store
+            .sync_folder("")
+            .map_err(ProjectError::Unconfirmed)?;
         Ok(self.document_hash.clone())
     }
 
@@ -829,6 +854,22 @@ fn claims(doc: &Document) -> Vec<(String, String)> {
         }
     }
     out
+}
+
+/// The text of everything in the document but its files index, in which a file an unknown
+/// extension or a later field refers to is mentioned by path, by name or by hash.
+fn mentions(doc: &Document) -> String {
+    let mut value = crate::to_value(doc);
+    if let Value::Object(map) = &mut value {
+        map.remove("files");
+    }
+    value.to_string()
+}
+
+/// Whether the document's text mentions an index entry: its path, its bare name or its hash.
+fn mentioned(text: &str, entry: &FileEntry) -> bool {
+    let name = entry.path.rsplit('/').next().unwrap_or(&entry.path);
+    text.contains(&entry.path) || text.contains(name) || text.contains(&entry.sha256)
 }
 
 /// Every namespace under an `extensions` key anywhere in the document, unknown objects
@@ -1049,13 +1090,21 @@ mod tests {
     }
 
     #[test]
-    fn an_index_entry_no_known_field_claims_is_kept_verified_and_refused_when_gone() {
+    fn an_index_entry_the_document_mentions_is_kept_verified_and_refused_when_gone() {
         let store = MemoryStore::new();
         let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
         store.put("renders/sidecar.bin", b"abc".to_vec());
+        store.put("renders/stale.bin", b"old".to_vec());
         project.document_mut().files.push(FileEntry {
             path: "renders/sidecar.bin".to_owned(),
             sha256: sha256_hex(b"abc"),
+            bytes: 3,
+            unknown: Unknown::new(),
+        });
+        // An entry nothing mentions is stale, and goes.
+        project.document_mut().files.push(FileEntry {
+            path: "renders/stale.bin".to_owned(),
+            sha256: sha256_hex(b"old"),
             bytes: 3,
             unknown: Unknown::new(),
         });

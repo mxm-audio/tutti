@@ -102,8 +102,12 @@ pub trait Store: Folder + Clone {
     /// Finishes a streamed file: flushed and durable.
     fn close(&self, writer: Self::Writer) -> Result<(), FolderError>;
 
-    /// Renames `from` over `to`, replacing it, durably: the commit point of a save.
+    /// Renames `from` over `to`, replacing it in one step: the commit point of a save.
     fn rename_over(&self, from: &str, to: &str) -> Result<(), FolderError>;
+
+    /// Flushes a folder's entries (`""` the root), so a rename in it survives a power cut;
+    /// nothing where the system needs none.
+    fn sync_folder(&self, folder: &str) -> Result<(), FolderError>;
 
     /// Removes a file; `Missing` when it is not there.
     fn remove(&self, reference: &str) -> Result<(), FolderError>;
@@ -275,6 +279,10 @@ impl Store for MemoryStore {
         let mut memory = self.lock();
         let bytes = memory.files.remove(from).ok_or(FolderError::Missing)?;
         memory.files.insert(to.to_owned(), bytes);
+        Ok(())
+    }
+
+    fn sync_folder(&self, _folder: &str) -> Result<(), FolderError> {
         Ok(())
     }
 

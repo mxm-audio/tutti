@@ -229,6 +229,11 @@ impl Store for Failing {
         self.inner.rename_over(from, to)
     }
 
+    fn sync_folder(&self, folder: &str) -> Result<(), FolderError> {
+        self.step()?;
+        self.inner.sync_folder(folder)
+    }
+
     fn remove(&self, reference: &str) -> Result<(), FolderError> {
         self.step()?;
         self.inner.remove(reference)
@@ -279,6 +284,13 @@ fn a_failure_at_any_step_of_a_save_leaves_the_old_document_or_the_new() {
                 assert!(
                     after == 120.0 || after == 100.0 + fail_at as f64,
                     "failing at {fail_at} ({e}) left tempo {after}"
+                );
+                // A failure after the commit point says so, and the hash is the new one.
+                let committed = after == 100.0 + fail_at as f64;
+                assert_eq!(
+                    matches!(e, ProjectError::Unconfirmed(_)),
+                    committed,
+                    "failing at {fail_at}: {e}"
                 );
                 // The next save starts from whatever is there: the new one or the old.
                 let mut again = tutti_fs::open(&dir).unwrap().project;

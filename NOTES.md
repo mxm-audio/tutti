@@ -107,12 +107,18 @@ designed from is `docs/research.md`.
   through a handle that hashes as it goes and owns a clone of the store, so a recorder runs on
   its own thread; the handle's guard keeps the file reserved until the command that names it
   has run. What a save verifies: lengths at every save, hashes once per session, a mismatch
-  refusing; `save_verified` rehashes all. Pi asked for a rehash at every save (rounds 2 to 4):
+  refusing; `save_verified` rehashes all; a failure after the rename (the folder's flush) is
+  `Unconfirmed`, the save being on disk, which a program with its own generation count needs
+  to know (newDAWn's did, 2026-10-21). Pi asked for a rehash at every save (rounds 2 to 4):
   declined for the cost (a one-hour session of 48 kHz stereo is about 700 MB per track to
   read at every save, and a DAW saves after every change), stated as the owner's decision in
-  the plan. Index entries no known field claims are kept and verified, and refuse the save
-  when their file is gone until the program forgets them on purpose, since an unknown
-  extension may refer to them. The name cleaning came from newDAWn's store, relicensed MIT.
+  the plan. An index entry no known field claims is kept and verified while the document
+  mentions its file anywhere else (its path, its name or its hash: how an unknown extension
+  would refer to it), refusing the save when the file is gone until the program forgets it on
+  purpose; one nothing mentions goes, since keeping every present file for ever kept a state
+  newDAWn's model had dropped indexed, and so kept, for ever (2026-10-21; Pi's blocker 2 of
+  round 2 asked for all kept, which that showed wrong). The name cleaning came from newDAWn's
+  store, relicensed MIT.
 - **Frozen spec folders instead of tags**: the workspace refuses tags, and a document's `version`
   must name an immutable text.
 - **Three conformance levels** (plays, hosts, round-trips), claimed by passing fixtures: DAWproject's
@@ -143,4 +149,6 @@ designed from is `docs/research.md`.
 - 2026-10-21: stage 12 of the plan's second round: `Project` in the core (`project.rs`, `names.rs`,
   `Store` and `MemoryStore` in `folder.rs`), `crates/tutti-fs` (the disk store, `open`,
   `create`), the command and the example generator onto them, the examples regenerated
-  through `Project::save` (one list sorted, nothing else changed).
+  through `Project::save` (one list sorted, nothing else changed). Then, for newDAWn's move
+  onto it (stage 15): `Project::find_audio`, `Store::sync_folder` as a step of its own after
+  the rename with `ProjectError::Unconfirmed`, and the mention rule for unclaimed index entries.
