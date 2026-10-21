@@ -1,0 +1,4 @@
+{
+  "what": "a project as one file with an entry that declares more than a project file may be",
+  "error": "more than a project file may be"
+}

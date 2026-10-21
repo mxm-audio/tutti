@@ -3,6 +3,8 @@
 //! one place in tutti's crates with file IO: the core has none, so it builds for the web, and
 //! every program on a disk goes through here rather than writing the spec's procedure itself.
 
+pub mod zip;
+
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
@@ -47,10 +49,10 @@ impl DirStore {
                 return Err(FolderError::Other(format!("{reference}: not a reference")));
             }
             path.push(part);
-            if let Ok(meta) = fs::symlink_metadata(&path) {
-                if meta.file_type().is_symlink() {
-                    return Err(FolderError::Link);
-                }
+            if let Ok(meta) = fs::symlink_metadata(&path)
+                && meta.file_type().is_symlink()
+            {
+                return Err(FolderError::Link);
             }
         }
         Ok(path)
@@ -82,6 +84,15 @@ impl Folder for DirStore {
         fs::metadata(self.path_of(reference)?)
             .map(|m| m.len())
             .map_err(io_error)
+    }
+
+    fn modified(&self, reference: &str) -> Result<Option<u64>, FolderError> {
+        let meta = fs::metadata(self.path_of(reference)?).map_err(io_error)?;
+        Ok(meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| u64::try_from(d.as_nanos()).unwrap_or(u64::MAX)))
     }
 
     /// Streamed: a file is never held whole.

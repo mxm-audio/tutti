@@ -85,7 +85,8 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
 **The folder**
 
 - A plain folder, never a package, a zip or a database: every file visible to search, sync and
-  git.
+  git. To send one, a defined zip form, `<Name>.tutti.zip`: the document first and stored,
+  every entry's name and length checked, nothing written outside the folder being made.
 - Audio in `audio/`, never renamed and never overwritten; plugin states in `plugins/states/`,
   each named by its content's SHA-256; optional renders so a project plays where its plugins are
   missing.
@@ -172,7 +173,7 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
 - `tutti-fs`, the disk: `open` and `create` give a `Project` for a folder; put a recording
   in through a writer, a state by content, save. An implementer never writes the
   procedure.
-- The `tutti` command: `check`, `inspect`, `deps`, `archive` and `fmt`.
+- The `tutti` command: `check`, `inspect`, `deps`, `archive`, `fmt`, `zip` and `unzip`.
 - `@mxm-audio/tutti` for JavaScript (Node, browsers, Bun, Deno), with TypeScript types
   generated from the schema.
 - The JSON Schema (2020-12), a generated field reference, three example projects, and the

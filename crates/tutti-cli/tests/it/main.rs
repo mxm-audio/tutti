@@ -57,13 +57,39 @@ fn check_accepts_every_example_and_says_what_it_uses() {
     assert!(out.contains("features: none"), "{out}");
 }
 
+/// The project as one file in a hostile fixture's folder, if it is one.
+fn zip_in(folder: &Path) -> Option<PathBuf> {
+    fs::read_dir(folder)
+        .ok()?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .find(|p| {
+            p.file_name()
+                .is_some_and(|n| tutti::zip::is_zip_name(&n.to_string_lossy()))
+        })
+}
+
 #[test]
 fn check_refuses_every_hostile_fixture_with_its_named_error() {
     for folder in folders_under(&repository_root().join("examples/conformance/hostile")) {
         let expected: serde_json::Value =
             serde_json::from_slice(&fs::read(folder.join("expected.json")).unwrap()).unwrap();
         let want = expected["error"].as_str().unwrap();
-        let (code, _, err) = tutti(&["check"], &folder);
+        // A project as one file is refused by `unzip`, and nothing is unpacked.
+        let (code, _, err) = match zip_in(&folder) {
+            Some(zip) => {
+                let result = tutti(&["unzip"], &zip);
+                let name = tutti::zip::project_name(&zip.file_name().unwrap().to_string_lossy())
+                    .unwrap()
+                    .to_owned();
+                assert!(
+                    !folder.join(name).exists(),
+                    "{}: unpacked",
+                    folder.display()
+                );
+                result
+            }
+            None => tutti(&["check"], &folder),
+        };
         assert_eq!(code, 1, "{}: exit {code}; {err}", folder.display());
         assert!(
             err.contains(want),
@@ -113,6 +139,59 @@ fn inspect_and_deps_describe_the_typical_project() {
     let (code, out, _) = tutti(&["deps"], &repository_root().join("examples/minimal"));
     assert_eq!(code, 0);
     assert!(out.contains("no dependencies"), "{out}");
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    fs::create_dir_all(to).unwrap();
+    for entry in fs::read_dir(from).unwrap().filter_map(Result::ok) {
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+#[test]
+fn zip_and_unzip_round_trip_a_project() {
+    let temp = std::env::temp_dir().join(format!("tutti-cli-zip-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&temp);
+    // A copy of the typical example, so the file lands in a folder of the test's.
+    let source = temp.join("src").join("typical");
+    copy_dir(&repository_root().join("examples/typical"), &source);
+    let (code, out, err) = tutti(&["zip"], &source);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("entries"), "{out}");
+    let zip = temp.join("src").join("typical.tutti.zip");
+    assert!(zip.is_file());
+    // Zipping again overwrites nothing.
+    let (code, _, err) = tutti(&["zip"], &source);
+    assert_eq!(code, 1);
+    assert!(err.contains("is there already"), "{err}");
+
+    fs::create_dir_all(temp.join("dst")).unwrap();
+    let moved = temp.join("dst").join("typical.tutti.zip");
+    fs::rename(&zip, &moved).unwrap();
+    let (code, out, err) = tutti(&["unzip"], &moved);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("files"), "{out}");
+    let unpacked = temp.join("dst").join("typical");
+    let (code, out, err) = tutti(&["check"], &unpacked);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("valid (0 errors"), "{out}");
+    for name in ["Typical.tutti", "README.md", "audio/Click-loop_95.wav"] {
+        assert_eq!(
+            fs::read(unpacked.join(name)).unwrap(),
+            fs::read(source.join(name)).unwrap(),
+            "{name}"
+        );
+    }
+    // Unpacking again beside the file lands on the folder it made: refused.
+    let (code, _, err) = tutti(&["unzip"], &moved);
+    assert_eq!(code, 1);
+    assert!(err.contains("holds a project already"), "{err}");
+    let _ = fs::remove_dir_all(&temp);
 }
 
 #[test]

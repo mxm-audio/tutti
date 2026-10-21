@@ -78,6 +78,31 @@ agent-guide URLs. It is about 2 kB, the first thing a person or an agent reads, 
 reconstruct the project if the URLs are ever dead. A writer MAY also copy the spec, the schema
 and the agent guide into `spec/` at the top of the folder (an *archive*; `conformance.md`).
 
+### 2.5 One file: `<Name>.tutti.zip`
+
+A project is a folder. To send one, or to hand one over where a folder cannot be (a mail, an
+API, a browser), it travels as **one zip file named `<Name>.tutti.zip`**: the folder, zipped
+as follows. A writer that makes one and a reader that opens one keep these rules:
+
+- Every entry is a file of the project under its path relative to the folder
+  (`My-Project.tutti`, `audio/Drum-loop.wav`), `/` between the parts, no folder entries
+  needed. The reserved and private paths (2.3) are left out: the zip is a hand-off, as a copy
+  is. A reader ignores them if present, and deletes nothing for them.
+- **The document is the first entry and is stored, not compressed**, so a reader learns what
+  the file is from its first entry alone.
+- An entry's name MUST be a relative path of plain parts: no absolute path, no drive, no `.`
+  or `..` part, no empty part, no `\`, no control character; and no entry is a link. A reader
+  refuses the whole file on one such name, before writing anything: it is an attack, not a
+  mistake.
+- **A reader trusts no declared length.** It reads an entry up to the length it declares and
+  refuses the file when more or less comes; an indexed file's declared length MUST equal its
+  `bytes` in the index (3.4); any other entry's (the document's, the README's, an analysis
+  or plugin file's) MUST be within a limit the reader states, this version's reference
+  reader's being 2^30 bytes.
+- Unpacking makes the folder named by the file's stem (`My-Project` from
+  `My-Project.tutti.zip`) beside the file, refusing one that holds a document already, and
+  the result is a project folder as this section says, on which `check` holds.
+
 ## 3. The document
 
 ### 3.1 JSON
@@ -656,6 +681,9 @@ What a reader MUST check, and what is invalid:
   outside its bounds, a tick beyond 2^40, a negative gain, a map or point list not strictly
   increasing, are each invalid, named by their JSON pointer.
 - A hash that does not match plays silence for that file and warns; it never deletes.
+- A project as one file (2.5) is refused whole on an entry name that is not a relative path
+  of plain parts, on a link, or on a length that is not what the entry declares; nothing is
+  written outside the folder being made, and nothing written stays on a refusal.
 
 The conformance fixtures include hostile projects for each of these (`conformance.md`).
 

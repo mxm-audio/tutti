@@ -1160,6 +1160,82 @@ struct Hostile {
     files: Vec<(String, Vec<u8>)>,
 }
 
+/// A zip of stored entries, written by hand so a fixture can declare any length: each entry
+/// `(name, bytes, declared)`, the declared length the bytes' unless given.
+fn stored_zip(entries: &[(&str, &[u8], Option<u32>)]) -> Vec<u8> {
+    fn le16(out: &mut Vec<u8>, v: u16) {
+        out.extend_from_slice(&v.to_le_bytes());
+    }
+    fn le32(out: &mut Vec<u8>, v: u32) {
+        out.extend_from_slice(&v.to_le_bytes());
+    }
+    fn crc32(bytes: &[u8]) -> u32 {
+        let mut crc = 0xFFFF_FFFFu32;
+        for &b in bytes {
+            crc ^= u32::from(b);
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 {
+                    (crc >> 1) ^ 0xEDB8_8320
+                } else {
+                    crc >> 1
+                };
+            }
+        }
+        !crc
+    }
+    let mut out = Vec::new();
+    let mut central = Vec::new();
+    for (name, bytes, declared) in entries {
+        let offset = out.len() as u32;
+        let crc = crc32(bytes);
+        let size = declared.unwrap_or(bytes.len() as u32);
+        // The local header.
+        out.extend_from_slice(b"PK\x03\x04");
+        le16(&mut out, 10);
+        le16(&mut out, 0);
+        le16(&mut out, 0);
+        le16(&mut out, 0);
+        le16(&mut out, 0x21);
+        le32(&mut out, crc);
+        le32(&mut out, bytes.len() as u32);
+        le32(&mut out, size);
+        le16(&mut out, name.len() as u16);
+        le16(&mut out, 0);
+        out.extend_from_slice(name.as_bytes());
+        out.extend_from_slice(bytes);
+        // The central directory's record of it.
+        central.extend_from_slice(b"PK\x01\x02");
+        le16(&mut central, 20);
+        le16(&mut central, 10);
+        le16(&mut central, 0);
+        le16(&mut central, 0);
+        le16(&mut central, 0);
+        le16(&mut central, 0x21);
+        le32(&mut central, crc);
+        le32(&mut central, bytes.len() as u32);
+        le32(&mut central, size);
+        le16(&mut central, name.len() as u16);
+        le16(&mut central, 0);
+        le16(&mut central, 0);
+        le16(&mut central, 0);
+        le16(&mut central, 0);
+        le32(&mut central, 0);
+        le32(&mut central, offset);
+        central.extend_from_slice(name.as_bytes());
+    }
+    let central_offset = out.len() as u32;
+    out.extend_from_slice(&central);
+    out.extend_from_slice(b"PK\x05\x06");
+    le16(&mut out, 0);
+    le16(&mut out, 0);
+    le16(&mut out, entries.len() as u16);
+    le16(&mut out, entries.len() as u16);
+    le32(&mut out, central.len() as u32);
+    le32(&mut out, central_offset);
+    le16(&mut out, 0);
+    out
+}
+
 fn hostile_document(ids: &mut Ids, mutate: impl FnOnce(&mut Document, &mut Ids)) -> Vec<u8> {
     let mut p = Project::new(generator());
     let mut t = Track::new(ids.next("trk"), "Track");
@@ -1352,6 +1428,34 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
         files: vec![(doc_name, br#"{"format": "tutti", "version": "1.0", "generator": {"name": "x"}, "ppq": 960,
   "tempo": [{"at": 0, "bpm": 120, "bpm": 130}], "meter": [{"at": 0, "numerator": 4, "denominator": 4}]}
 "#.to_vec())],
+    });
+    // A project as one file (spec 2.5): an entry that leaves the folder, and one that
+    // declares more than a project file may be.
+    let slip_document = hostile_document(ids, |_, _| {});
+    out.push(Hostile {
+        name: "zip-slip",
+        what: "a project as one file with an entry whose name leaves the folder",
+        error: "leaves the folder",
+        files: vec![(
+            "Slip.tutti.zip".to_owned(),
+            stored_zip(&[
+                ("Slip.tutti", &slip_document, None),
+                ("../escape.wav", b"RIFF", None),
+            ]),
+        )],
+    });
+    let bomb_document = hostile_document(ids, |_, _| {});
+    out.push(Hostile {
+        name: "zip-bomb",
+        what: "a project as one file with an entry that declares more than a project file may be",
+        error: "more than a project file may be",
+        files: vec![(
+            "Bomb.tutti.zip".to_owned(),
+            stored_zip(&[
+                ("Bomb.tutti", &bomb_document, None),
+                ("analysis/big.bin", b"ten bytes!", Some(0xF000_0000)),
+            ]),
+        )],
     });
     out
 }

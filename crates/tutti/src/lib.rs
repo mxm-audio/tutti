@@ -25,12 +25,13 @@ pub mod read;
 pub mod render;
 pub mod time;
 pub mod validate;
+pub mod zip;
 
 use serde_json::Value;
 
 pub use id::Id;
 pub use model::*;
-pub use project::{Incoming, Opened, Project, ProjectError, Saved, Stored};
+pub use project::{Incoming, Opened, Project, ProjectError, Saved, Stored, Verified};
 pub use read::{ReadError, is_read_only, read};
 pub use validate::{Issue, Report, Severity, validate};
 

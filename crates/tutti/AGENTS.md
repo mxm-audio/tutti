@@ -22,9 +22,11 @@ Owns `Cargo.toml` and `src/`.
   each one a point where a crash can happen, which `Project` composes. The crate builds for
   `wasm32-unknown-unknown` unchanged, and CI proves it.
 - **What `Project::save` guarantees is stated in `project.rs`'s module doc, exactly**, and
-  nowhere wider: every referenced file present, the index built from the files (lengths at
-  every save, hashes verified once per session, a disagreement refusing before the document is
-  touched), an entry no known field claims kept while the document mentions the file (by path,
+  nowhere wider: every referenced file present, the index built from the files (a file's
+  length and modification time read at every save and compared with the record of its last
+  verification, the hash computed again when either differs and never otherwise, a
+  disagreement refusing before the document is touched; the records kept between sessions by
+  the program, `verified` and `trust`), an entry no known field claims kept while the document mentions the file (by path,
   name or hash) and dropped when nothing does, the document valid, the README current, the
   document renamed into place, and a failure after that rename reported as `Unconfirmed`, the
   save being on disk and the hash the new one. `save_verified` rehashes everything, for an

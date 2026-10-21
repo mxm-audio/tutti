@@ -105,8 +105,10 @@ A track with one pattern played once, one note:
 - **Change a plugin parameter**: a device's `params` entry by `id` (plain `value`); automate it
   with a lane whose `target` is `{"device": id, "param": id}` and plain values, as the
   entry's `value`; never normalized.
-- **Hand a project to another program**: nothing to do; the folder is the hand-off. Zip it if
-  you must move it; never leave the folder.
+- **Hand a project to another program**: nothing to do; the folder is the hand-off. To send it
+  as one file, `tutti zip <folder>` makes `<Name>.tutti.zip` (the document first and stored,
+  every entry's name and length checked by the reader; spec 2.5) and `tutti unzip` makes the
+  folder again. Never leave the folder.
 
 ## Pitfalls
 

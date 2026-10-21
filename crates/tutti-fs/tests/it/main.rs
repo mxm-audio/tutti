@@ -191,6 +191,10 @@ impl Folder for Failing {
     fn sha256(&self, reference: &str) -> Result<(String, u64), FolderError> {
         self.inner.sha256(reference)
     }
+
+    fn modified(&self, reference: &str) -> Result<Option<u64>, FolderError> {
+        self.inner.modified(reference)
+    }
 }
 
 impl Store for Failing {

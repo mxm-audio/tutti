@@ -26,6 +26,25 @@ designed from is `docs/research.md`.
   should be a library that is not only usable from rust. Perhaps with wrappers for other
   languages, or at least javascript?" The core has no file IO and compiles to WebAssembly; an npm
   package wraps it; a C ABI or UniFFI later.
+- **2026-10-21:** **A file is verified by its length and modification time, hashed again only
+  when either differs; a file changed behind the project's back is a breach, not a case.**
+  Reason: the owner, "Audio should not silently change after it is saved. Should it? If so
+  that should be a break of the contract. And why the whole audio files... look at the size
+  and the timestamp. If they have not changed it should be pretty safe too": rule two of the
+  folder forbids the change, the hash rule catches it (`check`, silence and a warning), and
+  size and time are what git, rsync and every build tool trust. The one way past them is a
+  same-length change with the time put back: forgery, and `check` still catches it. The
+  records outlive a session through the program (`Project::verified`, `trust`), never the
+  document, which must not carry a file system's times. This closed the question Pi had
+  pressed (rehash at every save).
+- **2026-10-21:** **A project as one file, `<Name>.tutti.zip`, is in 1.0** (spec 2.5): the
+  owner, "the zip thing is ready to go", after the brainstorm found that a browser writer can
+  only hand over one file and that a zip form left undefined would be invented differently by
+  every program. The document first and stored; entry names a relative path of plain parts,
+  the whole file refused on one that is not; no declared length trusted; nothing written
+  outside the folder being made. `tutti zip` and `unzip`, in `tutti-fs` over the `zip` crate
+  (deflate only, pinned), the fixtures `zip-slip` and `zip-bomb` written by the generator's
+  own stored-zip writer.
 - **2026-10-21:** **Automation points and parameter events carry the plain value**, as `value` in
   the parameter's `params` entry, never a normalized one (spec 6.7, 6.8). Reason: the snapshot
   already says the plain value is authoritative and that neither form is derived from the
@@ -126,7 +145,7 @@ designed from is `docs/research.md`.
 - Decided against, one line each: per-object schema tags (bloat; the tree says what an object
   is); a JSON Schema in every project (the README and URLs do it; `archive` snapshots); `extras`
   beside `extensions` (one namespaced container); second-anchored positions in 1.0 (`bpm: null`
-  covers unwarped audio); curves other than linear in 1.0; a zip profile in 1.0 (no safe reader
+  covers unwarped audio); curves other than linear in 1.0; a zip profile left for later (no safe reader
   planned yet); building the DAWproject bridge first (the owner: later).
 
 ## History
@@ -152,3 +171,6 @@ designed from is `docs/research.md`.
   through `Project::save` (one list sorted, nothing else changed). Then, for newDAWn's move
   onto it (stage 15): `Project::find_audio`, `Store::sync_folder` as a step of its own after
   the rename with `ProjectError::Unconfirmed`, and the mention rule for unclaimed index entries.
+- 2026-10-21: a file verified by length and modification time (`Folder::modified`, `Verified`,
+  `Project::verified` and `trust`); the zip profile (spec 2.5, `tutti::zip`, `tutti_fs::zip`, `tutti
+  zip` and `unzip`, the `zip-slip` and `zip-bomb` fixtures).

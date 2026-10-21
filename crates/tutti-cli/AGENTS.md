@@ -6,8 +6,8 @@ The `tutti` command: `check` (parse, validate, hash every indexed file, report t
 project uses and so the conformance level a reader needs), `inspect` (tracks, patterns, devices,
 extensions), `deps` (every dependency, and whether a plugin with that id is installed in the
 standard CLAP and VST3 folders), `archive` (copy the spec, schema and agent guide into a project
-folder's `spec/`), `fmt` (rewrite the document in the pretty form). Folders only: a zipped
-project is unpacked with the user's own tools. The project itself is opened, checked and
+folder's `spec/`), `fmt` (rewrite the document in the pretty form), `zip` and `unzip` (a
+project as one file, spec 2.5, through `tutti_fs::zip`). The project itself is opened, checked and
 rewritten through `tutti-fs` and the core's `Project`; the library half (`src/lib.rs`) holds
 what is the command's alone: the plugin folders, the installed check, `archive`.
 

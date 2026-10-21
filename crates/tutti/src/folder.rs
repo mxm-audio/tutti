@@ -55,6 +55,14 @@ pub trait Folder {
         let bytes = self.read(reference)?;
         Ok((sha256_hex(&bytes), bytes.len() as u64))
     }
+
+    /// When the file was last changed, as the store tells it: nanoseconds since the Unix
+    /// epoch, as precise as it knows; `None` when it can't say. With the length, what a save
+    /// trusts a verified hash by.
+    fn modified(&self, reference: &str) -> Result<Option<u64>, FolderError> {
+        let _ = reference;
+        Ok(None)
+    }
 }
 
 /// What an entry of a folder is.
@@ -139,11 +147,22 @@ impl Folder for MemoryFolder {
 #[derive(Debug, Default)]
 struct Memory {
     files: BTreeMap<String, Vec<u8>>,
+    /// When each file was last written, on a clock that ticks once per write.
+    stamps: BTreeMap<String, u64>,
     folders: BTreeSet<String>,
+    clock: u64,
+}
+
+impl Memory {
+    fn stamp(&mut self, reference: &str) {
+        self.clock += 1;
+        self.stamps.insert(reference.to_owned(), self.clock);
+    }
 }
 
 /// A store held in memory, shared by every clone: a project a test or a host builds without a
 /// file system, written out afterwards with [`MemoryStore::files`]. The root is always there.
+/// Its modification times are a clock that ticks once per write.
 #[derive(Clone, Debug, Default)]
 pub struct MemoryStore {
     memory: Arc<Mutex<Memory>>,
@@ -163,8 +182,17 @@ impl MemoryStore {
         self.lock().files.clone()
     }
 
-    /// Puts a file whatever is there: for a test that changes a file behind a project's back.
+    /// Puts a file whatever is there, as a change behind a project's back the store's clock
+    /// shows.
     pub fn put(&self, reference: &str, bytes: Vec<u8>) {
+        let mut memory = self.lock();
+        memory.files.insert(reference.to_owned(), bytes);
+        memory.stamp(reference);
+    }
+
+    /// Puts a file whatever is there, keeping its modification time: a change forged behind
+    /// a project's back, which a save can't see and `check` can.
+    pub fn put_unseen(&self, reference: &str, bytes: Vec<u8>) {
         self.lock().files.insert(reference.to_owned(), bytes);
     }
 }
@@ -202,6 +230,14 @@ impl Folder for MemoryStore {
             .get(reference)
             .map(|b| b.len() as u64)
             .ok_or(FolderError::Missing)
+    }
+
+    fn modified(&self, reference: &str) -> Result<Option<u64>, FolderError> {
+        let memory = self.lock();
+        if !memory.files.contains_key(reference) {
+            return Err(FolderError::Missing);
+        }
+        Ok(memory.stamps.get(reference).copied())
     }
 }
 
@@ -258,6 +294,7 @@ impl Store for MemoryStore {
             return Err(FolderError::Exists);
         }
         memory.files.insert(reference.to_owned(), bytes.to_vec());
+        memory.stamp(reference);
         Ok(())
     }
 
@@ -278,7 +315,9 @@ impl Store for MemoryStore {
     fn rename_over(&self, from: &str, to: &str) -> Result<(), FolderError> {
         let mut memory = self.lock();
         let bytes = memory.files.remove(from).ok_or(FolderError::Missing)?;
+        memory.stamps.remove(from);
         memory.files.insert(to.to_owned(), bytes);
+        memory.stamp(to);
         Ok(())
     }
 
@@ -287,7 +326,9 @@ impl Store for MemoryStore {
     }
 
     fn remove(&self, reference: &str) -> Result<(), FolderError> {
-        self.lock()
+        let mut memory = self.lock();
+        memory.stamps.remove(reference);
+        memory
             .files
             .remove(reference)
             .map(|_| ())

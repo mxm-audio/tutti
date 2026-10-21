@@ -23,6 +23,8 @@ tutti: an open audio project format (version 1.0)
     tutti archive <folder>    copy the spec, schema and agent guide into the folder's spec/
     tutti fmt <folder>        rewrite the document in the pretty form (keys in order,
                               defaults left out, ids and unknown data kept)
+    tutti zip <folder>        pack the project into <Name>.tutti.zip beside the folder
+    tutti unzip <file>        unpack <Name>.tutti.zip into the folder <Name> beside it
 ";
 
 fn main() -> ExitCode {
@@ -40,6 +42,8 @@ fn main() -> ExitCode {
         "deps" => deps(&folder),
         "archive" => archive_command(&folder),
         "fmt" => fmt(&folder),
+        "zip" => zip_command(&folder),
+        "unzip" => unzip_command(&folder),
         _ => {
             eprint!("{USAGE}");
             return ExitCode::from(2);
@@ -297,6 +301,44 @@ fn archive_command(folder: &Path) -> Result<bool, String> {
     for path in written {
         println!("{}", path.display());
     }
+    Ok(true)
+}
+
+fn zip_command(folder: &Path) -> Result<bool, String> {
+    let name = folder
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .ok_or_else(|| format!("{}: no folder name", folder.display()))?;
+    let file = folder
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_default()
+        .join(format!("{name}.{}", tutti::zip::ZIP_EXTENSION));
+    let entries =
+        tutti_fs::zip::pack(folder, &file).map_err(|e| format!("{}: {e}", folder.display()))?;
+    println!("{}: {entries} entries", file.display());
+    Ok(true)
+}
+
+fn unzip_command(file: &Path) -> Result<bool, String> {
+    let name = file
+        .file_name()
+        .and_then(|n| tutti::zip::project_name(&n.to_string_lossy()).map(str::to_owned))
+        .ok_or_else(|| {
+            format!(
+                "{}: not a <Name>.{} file",
+                file.display(),
+                tutti::zip::ZIP_EXTENSION
+            )
+        })?;
+    let into = file
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_default()
+        .join(name);
+    let files =
+        tutti_fs::zip::unpack(file, &into).map_err(|e| format!("{}: {e}", file.display()))?;
+    println!("{}: {files} files", into.display());
     Ok(true)
 }
 

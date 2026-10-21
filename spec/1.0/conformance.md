@@ -101,7 +101,9 @@ fixture is made (a sine, a click, noise), never taken from anywhere.
 Under `examples/conformance/hostile/<case>/`, each must be refused with the named error, and a
 canary file one level above the project must stay untouched: `path-escape`, `symlink-audio`,
 `size-lie`, `dup-id`, `send-cycle`, `nan-token`, `huge-tick`, `map-unordered`, `two-documents`,
-`higher-major`. (A cycle in the track tree cannot be written: the tree is nested, so a track is
+`higher-major`, and for a project as one file (`tutti.md` 2.5) `zip-slip` (an entry whose name
+leaves the folder) and `zip-bomb` (an entry that declares more than a project file may be),
+each refused before anything is unpacked. (A cycle in the track tree cannot be written: the tree is nested, so a track is
 in one place; a track listed twice is `dup-id`.)
 
 ## 5. What a program may say

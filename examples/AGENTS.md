@@ -4,7 +4,9 @@
 
 Example projects and the conformance fixtures: `minimal/`, `typical/` and `every-feature/`
 (project folders, each with tiny synthesised audio), and `conformance/<level>/<case>/` with an
-`expected.json` each, `conformance/hostile/<case>/` for what a reader must refuse.
+`expected.json` each, `conformance/hostile/<case>/` for what a reader must refuse, two of them
+projects as one file (`<Name>.tutti.zip`, written by the generator's own stored-zip writer so a
+fixture can declare any length).
 
 # Ownership
 

@@ -5,17 +5,21 @@
 //!
 //! What [`Project::save`] guarantees, exactly: every file the document refers to is there; the
 //! files index names each of them with its length as read at this save and its SHA-256 as
-//! verified the first time this session saw the file (a file the crate wrote itself is known);
+//! verified when the file was last seen to change: a file's length and modification time are
+//! read at every save and compared with the record of its last verification, and a file
+//! whose either differs is hashed again (a file the crate wrote itself is known; a store
+//! without modification times is trusted by length within the session; a program keeps the
+//! records between sessions with [`Project::verified`] and [`Project::trust`]);
 //! an entry of the index that no known field claims stays, verified the same way, as long as
 //! the document mentions the file anywhere else (its path, its name or its hash: an unknown
 //! extension's sidecar), and goes when nothing does; a disagreement refuses the save by
 //! reference before the document is touched; the document is valid; `README.md` is current;
 //! the document is written to a temporary name and renamed over the old one, so a crash
 //! leaves the old document or the new, never a torn one, and a failure after that rename is
-//! reported as [`ProjectError::Unconfirmed`], the save being on disk. A file changed
-//! behind the project's back at the same length since its hash was verified is not seen by
-//! `save`: `check` finds it, and a reader plays silence and warns (spec 9), which is what the
-//! hash rule is for. [`Project::save_verified`] rehashes everything and refuses a mismatch; it is
+//! reported as [`ProjectError::Unconfirmed`], the save being on disk. A file changed behind
+//! the project's back at the same length with its modification time put back, which is
+//! forgery and a breach of the folder's rules (spec 1), is not seen by `save`: `check` finds
+//! it, and a reader plays silence and warns (spec 9), which is what the hash rule is for. [`Project::save_verified`] rehashes everything and refuses a mismatch; it is
 //! what an exporting program's guarantee (conformance 4) rests on.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -23,6 +27,7 @@ use std::fmt;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -130,12 +135,23 @@ fn store_error(reference: &str) -> impl FnOnce(FolderError) -> ProjectError + '_
     }
 }
 
-/// What a project and its handles share: the files verified this session (reference to hash
-/// and length), and the references reserved by a file being written or not yet named by the
-/// document.
+/// A file as last verified: its hash, and the length and modification time it had then,
+/// which a save compares with the file's to trust the hash. A program may keep these between
+/// sessions ([`Project::verified`], [`Project::trust`]) in a place of its own, never in the
+/// document: a modification time is this file system's, and churns.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Verified {
+    pub sha256: String,
+    pub bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modified: Option<u64>,
+}
+
+/// What a project and its handles share: the files verified (reference to [`Verified`]), and
+/// the references reserved by a file being written or not yet named by the document.
 #[derive(Debug, Default)]
 struct Shared {
-    verified: HashMap<String, (String, u64)>,
+    verified: HashMap<String, Verified>,
     reserved: HashSet<String>,
 }
 
@@ -143,6 +159,29 @@ type SharedRef = Arc<Mutex<Shared>>;
 
 fn lock(shared: &SharedRef) -> MutexGuard<'_, Shared> {
     shared.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Records a file as verified, with its modification time as the store tells it now.
+fn remember<S: Store>(store: &S, shared: &SharedRef, reference: &str, sha256: &str, bytes: u64) {
+    let modified = store.modified(reference).ok().flatten();
+    lock(shared).verified.insert(
+        reference.to_owned(),
+        Verified {
+            sha256: sha256.to_owned(),
+            bytes,
+            modified,
+        },
+    );
+}
+
+/// The verified hash of a file whose length and modification time are still the record's.
+fn trusted<S: Store>(store: &S, shared: &SharedRef, reference: &str, size: u64) -> Option<String> {
+    let record = lock(shared).verified.get(reference).cloned()?;
+    if record.bytes != size {
+        return None;
+    }
+    let modified = store.modified(reference).ok().flatten();
+    (record.modified == modified).then_some(record.sha256)
 }
 
 /// A project opened from a store.
@@ -228,9 +267,13 @@ impl<S: Store> Incoming<S> {
             .map_err(store_error(&self.reference))?;
         let sha256 = format!("{:x}", std::mem::take(&mut self.hasher).finalize());
         self.finished = true;
-        lock(&self.shared)
-            .verified
-            .insert(self.reference.clone(), (sha256.clone(), self.bytes));
+        remember(
+            &self.store,
+            &self.shared,
+            &self.reference,
+            &sha256,
+            self.bytes,
+        );
         Ok(Stored {
             reference: self.reference.clone(),
             sha256,
@@ -393,6 +436,27 @@ impl<S: Store> Project<S> {
     /// How many files are reserved: being written, or stored and not yet named by a command.
     pub fn unnamed(&self) -> usize {
         lock(&self.shared).reserved.len()
+    }
+
+    /// Every file verified so far, by reference: for a program to keep between sessions, in a
+    /// place of its own, and give back with [`Project::trust`].
+    pub fn verified(&self) -> Vec<(String, Verified)> {
+        let mut out: Vec<(String, Verified)> = lock(&self.shared)
+            .verified
+            .iter()
+            .map(|(r, v)| (r.clone(), v.clone()))
+            .collect();
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    }
+
+    /// Takes records a program kept: a file whose length and modification time are still the
+    /// record's is trusted at the next save without being hashed again.
+    pub fn trust(&self, records: impl IntoIterator<Item = (String, Verified)>) {
+        let mut shared = lock(&self.shared);
+        for (reference, record) in records {
+            shared.verified.insert(reference, record);
+        }
     }
 
     /// Validation and the files check together (conformance 1).
@@ -608,9 +672,13 @@ impl<S: Store> Project<S> {
             Ok(()) | Err(FolderError::Exists) => {}
             Err(e) => return Err(store_error(&reference)(e)),
         }
-        lock(&self.shared)
-            .verified
-            .insert(reference, (state.sha256.clone(), bytes.len() as u64));
+        remember(
+            &self.store,
+            &self.shared,
+            &reference,
+            &state.sha256,
+            bytes.len() as u64,
+        );
         Ok(state)
     }
 
@@ -633,10 +701,9 @@ impl<S: Store> Project<S> {
             {
                 continue;
             }
-            let known = lock(&self.shared).verified.get(&reference).cloned();
-            let hash = match known {
-                Some((hash, len)) if len == length => hash,
-                _ => {
+            let hash = match trusted(&self.store, &self.shared, &reference, length) {
+                Some(hash) => hash,
+                None => {
                     self.store
                         .sha256(&reference)
                         .map_err(store_error(&reference))?
@@ -644,11 +711,8 @@ impl<S: Store> Project<S> {
                 }
             };
             if hash == sha256 {
-                let mut shared = lock(&self.shared);
-                shared
-                    .verified
-                    .insert(reference.clone(), (hash.clone(), length));
-                shared.reserved.insert(reference.clone());
+                remember(&self.store, &self.shared, &reference, &hash, length);
+                lock(&self.shared).reserved.insert(reference.clone());
                 return Ok(Some(Stored {
                     reference: reference.clone(),
                     sha256: hash,
@@ -755,11 +819,11 @@ impl<S: Store> Project<S> {
         let known = if rehash {
             None
         } else {
-            lock(&self.shared).verified.get(reference).cloned()
+            trusted(&self.store, &self.shared, reference, size)
         };
         let sha256 = match known {
-            Some((hash, len)) if len == size => hash,
-            _ => {
+            Some(hash) => hash,
+            None => {
                 self.store
                     .sha256(reference)
                     .map_err(store_error(reference))?
@@ -773,9 +837,7 @@ impl<S: Store> Project<S> {
                 found: sha256,
             });
         }
-        lock(&self.shared)
-            .verified
-            .insert(reference.to_owned(), (sha256.clone(), size));
+        remember(&self.store, &self.shared, reference, &sha256, size);
         Ok((sha256, size))
     }
 
@@ -1049,7 +1111,7 @@ mod tests {
     }
 
     #[test]
-    fn a_save_refuses_a_missing_file_and_a_changed_length_and_states_what_it_does_not_see() {
+    fn a_save_refuses_a_missing_or_changed_file_and_states_what_it_does_not_see() {
         let store = MemoryStore::new();
         let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
         let stored = project.put_audio("Loop", "wav", b"RIFF").unwrap();
@@ -1059,6 +1121,7 @@ mod tests {
             .push(track_with_piece(&stored));
         project.save(&generator()).unwrap();
 
+        // A change the store's clock shows, whatever the length: hashed again, and refused.
         store.put("audio/Loop.wav", b"RIFFx".to_vec());
         match project.save(&generator()) {
             Err(ProjectError::Mismatch { reference, .. }) => {
@@ -1066,9 +1129,17 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
-        // A same-length change since the hash was verified: `save` does not see it, `check` and
-        // `save_verified` do.
         store.put("audio/Loop.wav", b"RIFX".to_vec());
+        assert!(matches!(
+            project.save(&generator()),
+            Err(ProjectError::Mismatch { .. })
+        ));
+        store.put("audio/Loop.wav", b"RIFF".to_vec());
+        project.save(&generator()).unwrap();
+
+        // A forged change, the same length with the time put back: `save` does not see it,
+        // `check` and `save_verified` do.
+        store.put_unseen("audio/Loop.wav", b"RIFX".to_vec());
         project.save(&generator()).unwrap();
         assert!(!project.check().is_valid());
         assert!(matches!(
@@ -1080,11 +1151,36 @@ mod tests {
             project.save(&generator()),
             Err(ProjectError::MissingFile(r)) if r == "audio/Loop.wav"
         ));
-        // A fresh session verifies the hash on its first save.
+        // A fresh session verifies the hash on its first save, unless it was given the records
+        // of the last: then a file whose length and time are still the record's is trusted
+        // without being hashed, a forged change included, and one whose time differs is hashed.
         store.put("audio/Loop.wav", b"RIFX".to_vec());
         let mut again = Project::open(store.clone()).unwrap().project;
         assert!(matches!(
             again.save(&generator()),
+            Err(ProjectError::Mismatch { .. })
+        ));
+        store.put("audio/Loop.wav", b"RIFF".to_vec());
+        let mut trusting = Project::open(store.clone()).unwrap().project;
+        trusting.trust(project.verified());
+        trusting.save(&generator()).unwrap();
+        let records = trusting.verified();
+        assert!(
+            records
+                .iter()
+                .any(|(r, v)| r == "audio/Loop.wav" && v.modified.is_some())
+        );
+        store.put_unseen("audio/Loop.wav", b"RIFX".to_vec());
+        let mut trusting = Project::open(store.clone()).unwrap().project;
+        trusting.trust(records);
+        trusting.save(&generator()).unwrap();
+        assert!(
+            !trusting.check().is_valid(),
+            "trusted by length and time, forged"
+        );
+        let mut fresh = Project::open(store.clone()).unwrap().project;
+        assert!(matches!(
+            fresh.save(&generator()),
             Err(ProjectError::Mismatch { .. })
         ));
     }

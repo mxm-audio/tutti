@@ -103,9 +103,33 @@ fn every_hostile_fixture_is_refused_as_its_expectation_says() {
     }
 }
 
+/// The project as one file in a hostile fixture's folder, if it is one.
+fn zip_in(folder: &Path) -> Option<PathBuf> {
+    fs::read_dir(folder)
+        .ok()?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .find(|p| {
+            p.file_name()
+                .is_some_and(|n| tutti::zip::is_zip_name(&n.to_string_lossy()))
+        })
+}
+
 /// What a reader says about a hostile folder: the first refusal, in order of the checks a reader
-/// makes (one document, I-JSON, the version, validation, the files).
+/// makes (one document, I-JSON, the version, validation, the files). A project as one file is
+/// unpacked first, into a folder of the test's, and refused there or as a folder.
 fn refusal(folder: &Path) -> String {
+    if let Some(zip) = zip_in(folder) {
+        let into = std::env::temp_dir().join(format!(
+            "tutti-hostile-{}-{}",
+            std::process::id(),
+            folder.file_name().unwrap().to_string_lossy()
+        ));
+        let _ = fs::remove_dir_all(&into);
+        return match tutti_fs::zip::unpack(&zip, &into) {
+            Err(e) => e.to_string(),
+            Ok(_) => refusal(&into),
+        };
+    }
     let path = match document_in(folder) {
         Ok(p) => p,
         Err(e) => return e.to_string(),
