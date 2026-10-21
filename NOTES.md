@@ -190,3 +190,6 @@ designed from is `docs/research.md`.
 - 2026-10-21: stage 14: a plugin's own files (spec 7.8; `Project::device_files`,
   `copy_device_files`; the index path rule in `validate`; the `device-files-escape` fixture;
   every-feature carries one).
+- 2026-10-21: stage 16, the closeout: `docs/implementers.md`; the README says the spec is the
+  authority, `check` the gate and the crate the one implementation we ship; newDAWn states in
+  its `AGENTS.md` that it claims no conformance level yet. CI by hand is the owner's.

@@ -6,8 +6,9 @@ What a reader of the format reads besides the spec: `research.md` (the findings 
 the format was designed from, with sources), `agent-guide.md` (what a program or an agent reads
 first: reading and writing a project, the time model and the model in a paragraph each, the
 smallest document, common tasks, pitfalls; `llms.txt` at the root points here), and
-`field-reference.md` (generated from the schema). The implementers' guide comes with the
-closeout stage.
+`field-reference.md` (generated from the schema), and `implementers.md` (for someone writing a
+program in any language: the three ways in, what a reader and a writer do in order, how a
+file is verified, the levels, the pitfalls each with its rule).
 
 # Ownership
 

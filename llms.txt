@@ -21,6 +21,7 @@ paragraph each, the smallest valid document, common tasks and pitfalls.
 ## Guides
 
 - [For agents and implementers](docs/agent-guide.md)
+- [Implementing tutti: the three ways in, what a reader and a writer do, the pitfalls](docs/implementers.md)
 - [The README every project folder carries](spec/1.0/README.template.md)
 - [The research the format was designed from](docs/research.md)
 - [Why each choice was made](NOTES.md)

@@ -72,6 +72,10 @@ And what you give up is nothing. Anything your program models that tutti doesn't
 your namespace, kept by every other program; a thing many programs need is adopted into the core
 at the next version, with your form still read.
 
+Nor are you tied to our code. The spec is the authority, `tutti check` is the gate, and the
+crate is the one implementation we ship and every binding wraps: a program that writes the
+folder itself and passes `check` is as much a tutti program as one that uses the crate.
+
 ## And DAWproject?
 
 DAWproject (Bitwig, PreSonus) is the one cross-DAW format that ships, in Bitwig, Studio One,
@@ -211,10 +215,11 @@ My-Project/
 
 ## Using it
 
-- **From your program**: read [`docs/agent-guide.md`](docs/agent-guide.md), then the spec,
-  [`spec/1.0/tutti.md`](spec/1.0/tutti.md). From Rust, `tutti-fs` opens, creates and saves a
-  project folder for you; from JavaScript, `@mxm-audio/tutti`; or use any JSON library with
-  the schema. Run `tutti check` over what you write.
+- **From your program**: read [`docs/implementers.md`](docs/implementers.md) (the three ways in,
+  what a reader and a writer do, the pitfalls), then [`docs/agent-guide.md`](docs/agent-guide.md)
+  and the spec, [`spec/1.0/tutti.md`](spec/1.0/tutti.md). From Rust, `tutti-fs` opens, creates
+  and saves a project folder for you; from JavaScript, `@mxm-audio/tutti`; or use any JSON
+  library with the schema. Run `tutti check` over what you write.
 - **On a project someone sent you**: read the `README.md` in its folder.
 - **To say your program reads tutti**: pass the fixtures of a level
   ([`spec/1.0/conformance.md`](spec/1.0/conformance.md)). No permission is needed and no fee.
@@ -226,7 +231,7 @@ My-Project/
 | `spec/<version>/` | The normative text, frozen once a version is declared; `spec/CHANGELOG.md` |
 | `schema/<version>/` | The JSON Schema (2020-12), hand-written, frozen with its version |
 | `examples/` | Example projects and the conformance fixtures |
-| `docs/` | The research behind the format, the agent guide, the generated field reference |
+| `docs/` | The research behind the format, the implementers' guide, the agent guide, the generated field reference |
 | `crates/tutti` | The model, canonical reading and writing, validation, the time arithmetic |
 | `crates/tutti-schema` | The tests that hold the schema, the examples and the types together |
 | `crates/tutti-cli` | `tutti check`, `tutti inspect`, `tutti deps`, `tutti archive`, `tutti fmt` |
