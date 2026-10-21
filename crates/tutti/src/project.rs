@@ -1172,14 +1172,12 @@ fn claims(doc: &Document) -> Vec<(String, String)> {
     out
 }
 
-/// The text of everything in the document but its files index, in which a file an unknown
-/// extension or a later field refers to is mentioned by path, by name or by hash.
 /// `dependencies` in step with the devices (spec 3.5: one entry per distinct plugin id a device
 /// uses). Every device's plugin has an entry: the program's own, filled from what the plugin
 /// declares, or else the least the spec asks (the id, `plugin`, the device's name). A plugin's
-/// entry no device uses goes, unless the document names the plugin anywhere else (another
-/// program's extension), as an index entry nothing claims stays while the document mentions its
-/// file. Other kinds of entry are left as they are.
+/// entry no device uses goes, unless a value elsewhere in the document is exactly its id (another
+/// program's extension naming it), as an index entry nothing claims stays while the document
+/// mentions its file. Other kinds of entry are left as they are.
 fn keep_dependencies(doc: &mut Document) {
     let mut used: Vec<(String, String)> = doc
         .master
@@ -1203,21 +1201,28 @@ fn keep_dependencies(doc: &mut Document) {
         }
         value.to_string()
     };
+    // A value that is the id itself, quoted as JSON writes it: never a longer id it begins, nor a
+    // name that happens to contain it.
+    let named = |id: &str| elsewhere.contains(&serde_json::Value::from(id).to_string());
     doc.dependencies.retain(|entry| {
-        entry.kind != "plugin"
-            || used.iter().any(|(id, _)| *id == entry.id)
-            || elsewhere.contains(&entry.id)
+        entry.kind != "plugin" || used.iter().any(|(id, _)| *id == entry.id) || named(&entry.id)
     });
     used.sort();
     used.dedup_by(|a, b| a.0 == b.0);
     for (id, name) in used {
-        if !doc.dependencies.iter().any(|entry| entry.id == id) {
+        if !doc
+            .dependencies
+            .iter()
+            .any(|entry| entry.kind == "plugin" && entry.id == id)
+        {
             doc.dependencies.push(crate::Dependency::plugin(&id, &name));
         }
     }
     doc.dependencies.sort_by(|a, b| a.id.cmp(&b.id));
 }
 
+/// The text of everything in the document but its files index, in which a file an unknown
+/// extension or a later field refers to is mentioned by path, by name or by hash.
 fn mentions(doc: &Document) -> String {
     let mut value = crate::to_value(doc);
     if let Value::Object(map) = &mut value {
@@ -1440,6 +1445,10 @@ mod tests {
         // A plugin no device uses any more, and one only another program's extension names.
         doc.dependencies
             .push(Dependency::plugin("clap:org.example.gone", "Gone"));
+        // A prefix of a used id, and an id a track's name happens to contain: neither is named.
+        doc.dependencies
+            .push(Dependency::plugin("clap:org.example", "Prefix"));
+        doc.tracks[0].name = "Synth (was clap:org.example.gone)".to_owned();
         doc.dependencies
             .push(Dependency::plugin("clap:org.example.theirs", "Theirs"));
         doc.extensions.insert(
