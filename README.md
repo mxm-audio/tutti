@@ -175,7 +175,7 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
   procedure.
 - The `tutti` command: `check`, `inspect`, `deps`, `archive`, `fmt`, `zip` and `unzip`.
 - `@mxm-audio/tutti` for JavaScript (Node, browsers, Bun, Deno), with TypeScript types
-  generated from the schema.
+  generated from the schema and the same `Project` over a store the host supplies.
 - The JSON Schema (2020-12), a generated field reference, three example projects, and the
   conformance fixtures with their expected tables.
 - `docs/agent-guide.md` and `llms.txt`: what an agent reads first.

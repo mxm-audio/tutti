@@ -174,3 +174,5 @@ designed from is `docs/research.md`.
 - 2026-10-21: a file verified by length and modification time (`Folder::modified`, `Verified`,
   `Project::verified` and `trust`); the zip profile (spec 2.5, `tutti::zip`, `tutti_fs::zip`, `tutti
   zip` and `unzip`, the `zip-slip` and `zip-bomb` fixtures).
+- 2026-10-21: stage 13: `Project` for JavaScript (`crates/tutti-wasm/src/project.rs`, over a
+  store the host supplies), `nodeStore` and `memoryStore` in the package, `checkFolder` gone.

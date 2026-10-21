@@ -19,12 +19,106 @@ export interface Feature {
   level: 0 | 1 | 2;
 }
 
-export interface FolderCheck {
+/** What `save` did. */
+export interface Saved {
+  warnings: Issue[];
+  readme_written: boolean;
+  document_hash: string;
+}
+
+/** A file put in the project. */
+export interface Stored {
+  reference: string;
+  sha256: string;
+  bytes: number;
+}
+
+/** A plugin state put in the project (spec 7.4). */
+export interface StoredState {
+  sha256: string;
+  kind: string;
   path: string;
-  text: string;
-  issues: Issue[];
-  features: Feature[];
-  level: 0 | 1 | 2;
+}
+
+/** A file as last verified: its hash, and the length and time it had then. */
+export interface Verified {
+  sha256: string;
+  bytes: number;
+  modified?: number;
+}
+
+/** One entry of a folder, as a store lists it. */
+export interface Entry {
+  name: string;
+  kind: 'file' | 'folder' | 'other';
+}
+
+/**
+ * A store the host supplies: synchronous methods over its files, references relative to the
+ * project's folder with `/` between the parts. A method throws an `Error` whose `code` says
+ * what happened: `ENOENT` (missing), `EEXIST` (there already), `LINK` (a link where a file or
+ * folder was expected); any other error is the store's own reason.
+ */
+export interface Store {
+  /** The entries directly in `folder` (`''` the root), as JSON text of `Entry[]`. */
+  list(folder: string): string;
+  read(reference: string): Uint8Array;
+  size(reference: string): number;
+  /** Nanoseconds since the Unix epoch as a `bigint`, milliseconds as a number, or `null`. */
+  modified(reference: string): bigint | number | null;
+  exists(reference: string): boolean;
+  makeFolder(folder: string): void;
+  /** Writes a new file whole and durably; throws `EEXIST` when a file is there already. */
+  writeNew(reference: string, bytes: Uint8Array): void;
+  renameOver(from: string, to: string): void;
+  syncFolder(folder: string): void;
+  remove(reference: string): void;
+}
+
+/** A store in memory, for a host without a file system or a test. */
+export interface MemoryStore extends Store {
+  files(): Map<string, Uint8Array>;
+  put(reference: string, bytes: Uint8Array): void;
+  putUnseen(reference: string, bytes: Uint8Array): void;
+}
+
+/** A new file being written into a project. */
+export declare class Incoming {
+  readonly reference: string;
+  write(bytes: Uint8Array): void;
+  finish(): Stored;
+}
+
+/** A project in a store (spec 2, 3.4, 10): the format's own save procedure, run by the core. */
+export declare class Project {
+  static open(store: Store): Project;
+  static create(store: Store, title: string, generator: Generator): Project;
+  static adopt(store: Store, documentName: string, document: Document | string): Project;
+  readonly report: Issue[];
+  readonly readOnly: boolean;
+  /** The document in the pretty form. */
+  readonly text: string;
+  /** The document as an object; set it back to change it. */
+  document: Document;
+  readonly documentName: string;
+  readonly documentHash: string;
+  readonly title: string;
+  readonly unnamed: number;
+  save(generator: Generator): Saved;
+  saveVerified(generator: Generator): Saved;
+  rewrite(): string;
+  check(): Issue[];
+  read(reference: string): Uint8Array;
+  putAudio(name: string, extension: string, bytes: Uint8Array): Stored;
+  putRender(name: string, extension: string, bytes: Uint8Array): Stored;
+  putState(kind: string, bytes: Uint8Array): StoredState;
+  findAudio(bytes: Uint8Array): Stored | undefined;
+  newAudio(name: string, extension: string): Incoming;
+  newRender(name: string, extension: string): Incoming;
+  forgetFile(path: string): void;
+  verified(): Record<string, Verified>;
+  trust(records: Record<string, Verified> | string): void;
+  copyInto(store: Store): Project;
 }
 
 /** The format's version this build writes. */
@@ -75,5 +169,11 @@ export function isId(text: string): boolean;
 export function readme(title: string, generator: Generator, documentName: string): string;
 /** The smallest valid document, in the pretty form. */
 export function newDocument(generator: Generator): string;
-/** Node only: reads a project folder, validates its document and checks its files. */
-export function checkFolder(folder: string): Promise<FolderCheck>;
+/** A store in memory: a project built without a file system, written out afterwards. */
+export function memoryStore(): MemoryStore;
+/** Node only: a store over a folder on disk, through synchronous file calls. */
+export function nodeStore(root: string): Store;
+/** Node only: the project in a folder on disk. */
+export function openFolder(folder: string): Project;
+/** Node only: a new project in a folder on disk that holds no document. */
+export function createFolder(folder: string, title: string, generator: Generator): Project;

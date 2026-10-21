@@ -30,30 +30,34 @@ test('the version and the about sentence', () => {
   assert.match(tutti.about(), /tutti 1\.0/);
 });
 
-test('every example is the pretty form, validates and checks out', async () => {
+test('every example is the pretty form, validates and checks out', () => {
   for (const folder of exampleFolders) {
-    const result = await tutti.checkFolder(folder);
-    const errors = result.issues.filter((i) => i.severity === 'error');
+    const project = tutti.openFolder(folder);
+    assert.deepEqual(project.report.filter((i) => i.severity === 'error'), [], folder);
+    assert.equal(project.readOnly, false);
+    const errors = project.check().filter((i) => i.severity === 'error');
     assert.deepEqual(errors, [], folder);
-    assert.equal(tutti.fmt(result.text), result.text, `${folder}: not the pretty form`);
-    assert.equal(tutti.equal(result.text, tutti.fmt(result.text)), true);
-    assert.equal(tutti.isReadOnly(result.text), false);
+    const text = fs.readFileSync(path.join(folder, project.documentName), 'utf8');
+    assert.equal(project.text, text, `${folder}: not the pretty form`);
+    assert.equal(tutti.equal(text, tutti.fmt(text)), true);
   }
-  const every = await tutti.checkFolder(path.join(examples, 'every-feature'));
-  assert.equal(every.level, 2);
-  assert.ok(every.features.some((f) => f.name === 'warps' && f.level === 1));
-  const minimal = await tutti.checkFolder(path.join(examples, 'minimal'));
-  assert.deepEqual(minimal.features, []);
-  assert.equal(minimal.level, 0);
+  const every = tutti.openFolder(path.join(examples, 'every-feature'));
+  assert.equal(tutti.levelNeeded(every.text), 2);
+  assert.ok(tutti.features(every.text).some((f) => f.name === 'warps' && f.level === 1));
+  const minimal = tutti.openFolder(path.join(examples, 'minimal'));
+  assert.deepEqual(tutti.features(minimal.text), []);
+  assert.equal(tutti.levelNeeded(minimal.text), 0);
 });
 
-test('every hostile fixture is refused as its expectation says', async () => {
+test('every hostile fixture is refused as its expectation says', () => {
   for (const folder of folders(path.join(examples, 'conformance', 'hostile'))) {
+    // A project as one file is the command's to unpack; the package reads folders.
+    if (fs.readdirSync(folder).some((name) => name.endsWith('.tutti.zip'))) continue;
     const expected = JSON.parse(fs.readFileSync(path.join(folder, 'expected.json'), 'utf8'));
     let message;
     try {
-      const result = await tutti.checkFolder(folder);
-      const first = result.issues.find((i) => i.severity === 'error');
+      const project = tutti.openFolder(folder);
+      const first = project.report.find((i) => i.severity === 'error') || project.check().find((i) => i.severity === 'error');
       message = first ? `error ${first.pointer}: ${first.message}` : 'accepted';
     } catch (e) {
       message = e.message;

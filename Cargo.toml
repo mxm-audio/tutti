@@ -26,6 +26,7 @@ serde_json = { version = "=1.0.145", features = ["float_roundtrip", "preserve_or
 sha2 = "=0.10.9"
 # The JavaScript package's bridge (crates/tutti-wasm) and nothing else.
 wasm-bindgen = "=0.2.129"
+js-sys = "=0.3.106"
 
 tutti = { path = "crates/tutti" }
 tutti-fs = { path = "crates/tutti-fs" }

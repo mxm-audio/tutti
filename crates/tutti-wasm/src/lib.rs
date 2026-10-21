@@ -1,8 +1,13 @@
 //! The core for JavaScript: thin functions over `tutti`, strings in and strings out, so the
-//! npm package (`js/`) wraps them with plain objects. No file IO: the host reads and writes
-//! files and hands the bytes here. Names mirror the Rust API.
+//! npm package (`js/`) wraps them with plain objects, and `Project` over a store the host
+//! supplies (`project`). No file IO here: the host's store reads and writes files. Names mirror
+//! the Rust API.
+
+mod project;
 
 use std::collections::HashMap;
+
+pub use project::{Incoming, Project};
 
 use serde_json::{Value, json};
 use tutti::folder::{Folder, FolderError, check_files};
@@ -57,7 +62,7 @@ pub fn validate(text: &str) -> Result<String, JsError> {
     Ok(issues_json(&report.issues))
 }
 
-fn issues_json(issues: &[tutti::Issue]) -> String {
+pub(crate) fn issues_json(issues: &[tutti::Issue]) -> String {
     let items: Vec<Value> = issues
         .iter()
         .map(|i| {

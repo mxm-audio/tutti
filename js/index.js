@@ -1,7 +1,8 @@
 // @mxm-audio/tutti: the Rust core compiled to WebAssembly, wrapped so JavaScript sees plain
-// objects. Documents go in and out as strings (the file's text); points, maps and generators as
-// the objects the schema describes. File IO is the host's: `checkFolder` is a Node helper that
-// reads a project folder and hands the core what it needs.
+// objects. Documents go in and out as strings (the file's text) or as the objects the schema
+// describes; points, maps and generators as objects. A project lives in a store the host
+// supplies: `nodeStore` over Node's files, `memoryStore` in memory, or one of the host's own
+// with the same synchronous methods; `Project` runs the format's own procedure over it.
 
 'use strict';
 
@@ -94,42 +95,363 @@ const readme = (title, generator, documentName) => wasm.readme(title, JSON.strin
 /** The smallest valid document, in the pretty form. */
 const newDocument = (generator) => wasm.new_document(JSON.stringify(generator));
 
+// --- stores ------------------------------------------------------------------------------------
+
+/** An error a store throws, with the `code` the core reads: ENOENT, EEXIST or LINK. */
+function storeError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
 /**
- * Node only: reads a project folder, validates its document and checks its files. Returns
- * `{path, text, issues, features, level}`; throws when the folder has no document, or two.
+ * A store in memory, shared by every reference to it: a project a host builds without a file
+ * system, written out afterwards with `files()`. Modification times are a clock that ticks once
+ * per write; `put` changes a file behind the project's back, `putUnseen` does so keeping its time.
  */
-async function checkFolder(folder) {
-  const fs = require('node:fs/promises');
+function memoryStore() {
+  const files = new Map();
+  const stamps = new Map();
+  const folders = new Set();
+  let clock = 0;
+  const stamp = (reference) => stamps.set(reference, BigInt(++clock));
+  const missing = (reference) => storeError('ENOENT', `${reference}: missing`);
+  return {
+    list(folder) {
+      const prefix = folder === '' ? '' : `${folder}/`;
+      const names = new Map();
+      for (const path of files.keys()) {
+        if (!path.startsWith(prefix)) continue;
+        const rest = path.slice(prefix.length);
+        const slash = rest.indexOf('/');
+        if (slash < 0) names.set(rest, 'file');
+        else names.set(rest.slice(0, slash), 'folder');
+      }
+      for (const path of folders) {
+        if (!path.startsWith(prefix)) continue;
+        const first = path.slice(prefix.length).split('/')[0];
+        if (first !== '' && !names.has(first)) names.set(first, 'folder');
+      }
+      if (names.size === 0 && folder !== '' && !folders.has(folder)) throw missing(folder);
+      return JSON.stringify([...names].map(([name, kind]) => ({ name, kind })));
+    },
+    read(reference) {
+      const bytes = files.get(reference);
+      if (bytes === undefined) throw missing(reference);
+      return bytes;
+    },
+    size(reference) {
+      const bytes = files.get(reference);
+      if (bytes === undefined) throw missing(reference);
+      return bytes.length;
+    },
+    modified(reference) {
+      if (!files.has(reference)) throw missing(reference);
+      return stamps.get(reference) ?? null;
+    },
+    exists(reference) {
+      return files.has(reference);
+    },
+    makeFolder(folder) {
+      if (folder !== '') folders.add(folder);
+    },
+    writeNew(reference, bytes) {
+      if (files.has(reference)) throw storeError('EEXIST', `${reference}: already there`);
+      files.set(reference, Uint8Array.from(bytes));
+      stamp(reference);
+    },
+    renameOver(from, to) {
+      const bytes = files.get(from);
+      if (bytes === undefined) throw missing(from);
+      files.delete(from);
+      stamps.delete(from);
+      files.set(to, bytes);
+      stamp(to);
+    },
+    syncFolder() {},
+    remove(reference) {
+      if (!files.delete(reference)) throw missing(reference);
+      stamps.delete(reference);
+    },
+    /** Every file, by reference. */
+    files() {
+      return new Map(files);
+    },
+    /** Puts a file whatever is there, as a change the clock shows. */
+    put(reference, bytes) {
+      files.set(reference, Uint8Array.from(bytes));
+      stamp(reference);
+    },
+    /** Puts a file whatever is there, keeping its time: a forged change a save can't see. */
+    putUnseen(reference, bytes) {
+      files.set(reference, Uint8Array.from(bytes));
+    },
+  };
+}
+
+/**
+ * Node only: a store over a folder on disk, through synchronous file calls. References resolve
+ * inside the folder, each part a plain name, no part a link; a new file is flushed before it
+ * counts; a rename replaces in one step.
+ */
+function nodeStore(root) {
+  const fs = require('node:fs');
   const path = require('node:path');
-  const crypto = require('node:crypto');
-  const names = (await fs.readdir(folder)).filter((n) => n.endsWith('.tutti')).sort();
-  if (names.length !== 1) {
-    throw new Error(`${folder}: ${names.length === 0 ? 'no .tutti document' : `${names.length} documents (${names.join(', ')})`}`);
-  }
-  const documentPath = path.join(folder, names[0]);
-  const text = await fs.readFile(documentPath, 'utf8');
-  const issues = validate(text);
-  const files = {};
-  for (const sub of ['audio', 'plugins/states', 'renders']) {
-    let entries = [];
-    try {
-      entries = await fs.readdir(path.join(folder, sub), { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      if (entry.isSymbolicLink()) {
-        issues.push({ severity: 'error', pointer: '/files', message: `${sub}/${entry.name}: a link, which a reader refuses` });
+  const pathOf = (reference) => {
+    let p = root;
+    if (reference === '') return p;
+    for (const part of reference.split('/')) {
+      if (part === '' || part === '.' || part === '..' || part.includes('\\')) {
+        throw storeError('EINVAL', `${reference}: not a reference`);
+      }
+      p = path.join(p, part);
+      let stat;
+      try {
+        stat = fs.lstatSync(p);
+      } catch {
         continue;
       }
-      if (!entry.isFile()) continue;
-      const bytes = await fs.readFile(path.join(folder, sub, entry.name));
-      files[`${sub}/${entry.name}`] = { sha256: crypto.createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length };
+      if (stat.isSymbolicLink()) throw storeError('LINK', `${reference}: a link, which a reader refuses`);
     }
-  }
-  issues.push(...checkFiles(text, files));
-  return { path: documentPath, text, issues, features: features(text), level: levelNeeded(text) };
+    return p;
+  };
+  const fsync = (p, flags) => {
+    let fd;
+    try {
+      fd = fs.openSync(p, flags);
+    } catch {
+      return;
+    }
+    try {
+      fs.fsyncSync(fd);
+    } catch {
+      // A folder that can't be flushed (Windows): the rename has happened by now.
+    } finally {
+      fs.closeSync(fd);
+    }
+  };
+  return {
+    list(folder) {
+      const p = pathOf(folder);
+      const entries = fs.readdirSync(p, { withFileTypes: true }).map((e) => ({
+        name: e.name,
+        kind: e.isSymbolicLink() ? 'other' : e.isDirectory() ? 'folder' : e.isFile() ? 'file' : 'other',
+      }));
+      return JSON.stringify(entries);
+    },
+    read(reference) {
+      return fs.readFileSync(pathOf(reference));
+    },
+    size(reference) {
+      return fs.statSync(pathOf(reference)).size;
+    },
+    modified(reference) {
+      return fs.statSync(pathOf(reference), { bigint: true }).mtimeNs;
+    },
+    exists(reference) {
+      const p = pathOf(reference);
+      try {
+        return fs.lstatSync(p).isFile();
+      } catch (e) {
+        if (e.code === 'ENOENT') return false;
+        throw e;
+      }
+    },
+    makeFolder(folder) {
+      fs.mkdirSync(pathOf(folder), { recursive: true });
+    },
+    writeNew(reference, bytes) {
+      const p = pathOf(reference);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, bytes, { flag: 'wx' });
+      fsync(p, 'r+');
+    },
+    renameOver(from, to) {
+      fs.renameSync(pathOf(from), pathOf(to));
+    },
+    syncFolder(folder) {
+      if (process.platform !== 'win32') fsync(pathOf(folder), 'r');
+    },
+    remove(reference) {
+      fs.unlinkSync(pathOf(reference));
+    },
+  };
 }
+
+// --- the project -----------------------------------------------------------------------------
+
+/** A new file being written into a project: `write` bytes, then `finish` for its facts. */
+class Incoming {
+  constructor(inner) {
+    this.inner = inner;
+  }
+
+  /** The reference the file will have. */
+  get reference() {
+    return this.inner.reference();
+  }
+
+  write(bytes) {
+    this.inner.write(bytes);
+  }
+
+  /** Closes the file: `{reference, sha256, bytes}`. */
+  finish() {
+    return JSON.parse(this.inner.finish());
+  }
+}
+
+/**
+ * A project in a store: opened, created or adopted; its document an object you edit and set
+ * back; `save` runs the format's own procedure (every referenced file present and verified, the
+ * files index built from the files, the document validated, the README written, the document
+ * renamed into place) and throws with the reason when it refuses.
+ */
+class Project {
+  constructor(inner) {
+    this.inner = inner;
+  }
+
+  /** Opens the project in a store; throws when there is no document, or two, or it can't be read. */
+  static open(store) {
+    return new Project(wasm.Project.open(store));
+  }
+
+  /** Creates a project in a store with no document: saved at once with its README. */
+  static create(store, title, generator) {
+    return new Project(wasm.Project.create(store, title, JSON.stringify(generator)));
+  }
+
+  /** A project over a document you built, to be saved under `documentName` (`<Name>.tutti`). */
+  static adopt(store, documentName, document) {
+    const text = typeof document === 'string' ? document : JSON.stringify(document);
+    return new Project(wasm.Project.adopt(store, documentName, text));
+  }
+
+  /** Validation's findings at open, errors included. */
+  get report() {
+    return JSON.parse(this.inner.report());
+  }
+
+  /** Whether the document needs a later minor version than this build writes: `save` refuses. */
+  get readOnly() {
+    return this.inner.readOnly();
+  }
+
+  /** The document, in the pretty form. */
+  get text() {
+    return this.inner.document();
+  }
+
+  /** The document as an object (a fresh copy each time; set it back to change it). */
+  get document() {
+    return JSON.parse(this.inner.document());
+  }
+
+  set document(value) {
+    this.inner.setDocument(typeof value === 'string' ? value : JSON.stringify(value));
+  }
+
+  get documentName() {
+    return this.inner.documentName();
+  }
+
+  /** The SHA-256 of the document's bytes as last read or written. */
+  get documentHash() {
+    return this.inner.documentHash();
+  }
+
+  get title() {
+    return this.inner.title();
+  }
+
+  /** Saves: `{warnings, readme_written, document_hash}`; throws with the refusal's reason. */
+  save(generator) {
+    return JSON.parse(this.inner.save(JSON.stringify(generator)));
+  }
+
+  /** `save`, hashing every indexed file again: for an export. */
+  saveVerified(generator) {
+    return JSON.parse(this.inner.saveVerified(JSON.stringify(generator)));
+  }
+
+  /** Rewrites the document as held, in the pretty form, and nothing else. */
+  rewrite() {
+    return this.inner.rewrite();
+  }
+
+  /** Validation and the files check together: `{severity, pointer, message}` each. */
+  check() {
+    return JSON.parse(this.inner.check());
+  }
+
+  /** A file of the project, by reference. */
+  read(reference) {
+    return this.inner.read(reference);
+  }
+
+  /** Puts audio in `audio/` whole, the same content once: `{reference, sha256, bytes}`. */
+  putAudio(name, extension, bytes) {
+    return JSON.parse(this.inner.putAudio(name, extension, bytes));
+  }
+
+  /** Puts a render in `renders/` whole: `{reference, sha256, bytes}`. */
+  putRender(name, extension, bytes) {
+    return JSON.parse(this.inner.putRender(name, extension, bytes));
+  }
+
+  /** Puts a plugin state in `plugins/states/`, named by its content: `{sha256, kind, path}`. */
+  putState(kind, bytes) {
+    return JSON.parse(this.inner.putState(kind, bytes));
+  }
+
+  /** The file in `audio/` with exactly these bytes, or `undefined`. */
+  findAudio(bytes) {
+    const found = this.inner.findAudio(bytes);
+    return found === undefined ? undefined : JSON.parse(found);
+  }
+
+  /** A new audio file to stream into `audio/`. */
+  newAudio(name, extension) {
+    return new Incoming(this.inner.newAudio(name, extension));
+  }
+
+  /** A new file to stream into `renders/`. */
+  newRender(name, extension) {
+    return new Incoming(this.inner.newRender(name, extension));
+  }
+
+  /** Drops an index entry no known field claims whose file is gone, on purpose. */
+  forgetFile(path) {
+    this.inner.forgetFile(path);
+  }
+
+  /** Every file verified so far, `{reference: {sha256, bytes, modified}}`: keep it, give it back with `trust`. */
+  verified() {
+    return JSON.parse(this.inner.verified());
+  }
+
+  /** Takes records kept from an earlier session (what `verified` gave). */
+  trust(records) {
+    this.inner.trust(typeof records === 'string' ? records : JSON.stringify(records));
+  }
+
+  /** How many files are being written or stored and not yet named by the document. */
+  get unnamed() {
+    return this.inner.unnamed();
+  }
+
+  /** Copies the project into another store, complete and verified. */
+  copyInto(store) {
+    return new Project(this.inner.copyInto(store));
+  }
+}
+
+/** Node only: opens the project in a folder on disk. */
+const openFolder = (folder) => Project.open(nodeStore(folder));
+
+/** Node only: creates a project in a folder on disk that holds no document. */
+const createFolder = (folder, title, generator) => Project.create(nodeStore(folder), title, generator);
 
 module.exports = {
   version,
@@ -156,5 +478,10 @@ module.exports = {
   isId,
   readme,
   newDocument,
-  checkFolder,
+  memoryStore,
+  nodeStore,
+  Project,
+  Incoming,
+  openFolder,
+  createFolder,
 };
