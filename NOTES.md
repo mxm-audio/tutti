@@ -180,6 +180,44 @@ designed from is `docs/research.md`.
   covers unwarped audio); curves other than linear in 1.0; a zip profile left for later (no safe reader
   planned yet); building the DAWproject bridge first (the owner: later).
 
+## What the web tracker's trial taught the format (2026-10-21)
+
+newDAWn's web tracker (`mxm-audio/mxm-tracker`, newDAWn's `plans/plan-web-tracker.md`) is the
+format's second program and its trial run: an app of its own in TypeScript that reads, edits and
+saves songs through this package alone, with nothing of newDAWn's code. Its round trip (W7) is
+tests in both programs: ten songs from the web tracker open in newDAWn, and the same ten edited
+in newDAWn come back.
+
+- **The package was enough.** Opening, validating, editing in place, saving to the browser's
+  storage, sharing as one file, the tempo map's arithmetic (`samplesAt`), deterministic ids for
+  a generator (`ulid` with a clock and random bits given) and `equal` all came from it; the
+  trial needed nothing added after W1's browser build.
+- **Two writers, one document.** Every song from either program opens in the other editable,
+  and the web tracker writes newDAWn's songs back equal, by `equal`, to what it read.
+- **`generator` and Level 2 disagree.** A writer fills `generator` with itself (spec 3.2,
+  conformance 2), and Level 2 asks that a document read and written again be equal to what was
+  read. When another program writes it back, the two can't both hold: the round trip compares
+  with the writer's name put back. **Proposed**: Level 2's equality is stated with `generator`
+  excepted, or `generator` is left out of equality as defaults are. The owner's call.
+- **A misnamed field would be valid.** The tracker's port was first written with `voice`,
+  newDAWn's own name, for a recording note's audio, where the format says `audio`. Reading the
+  format's model caught it, not a check: a reader keeps unknown keys (8.2), so a document with
+  the wrong name would have validated, its meaning lost without a word. **Proposed**: `tutti
+  check` notes an unknown key in a core object, once each, as a note, not an error.
+- **Two time implementations agree**: the web tracker's engine schedules through the core's
+  `TempoMap`, newDAWn's playback through its own arithmetic, and their note events are the same
+  frame for frame at 48 kHz on all ten songs (125 notes). Every song holds one tempo, 120 BPM
+  at `ppq` 960, so ramps and other `ppq`s were not tried by the trial; Level 0's `scale` and
+  `ramp` cover them.
+- **The schema stands alone**: every song both ways is valid by the hand-written schema in Ajv
+  8.17.1, strict, which shares no code with either program (its `uri` formats need Ajv's formats
+  package, and were left to `check`); and each, packed and unpacked, passes `check`.
+- **Fixtures for tutti: none admitted as they are.** The songs carry the MXM sampler's own state,
+  where Level 1's `plugin` is a tiny reference CLAP and `missing-plugin` a fictitious one, and a
+  fixture here is made by `make-examples`, never by another program. What the trial suggests,
+  once `generator` is settled: a Level 2 case `another-writer`, a project written by one
+  generator, read and written by another, and expected equal but for `generator`.
+
 ## History
 
 - 2026-10-20: the repository created in the workspace (stage 1 of the plan); the spec's draft, its
