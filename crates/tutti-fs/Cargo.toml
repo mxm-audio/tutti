@@ -1,0 +1,13 @@
+[package]
+name = "tutti-fs"
+description = "tutti on disk: the project store over std::fs, and open and create for a project folder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+tutti.workspace = true
+sha2.workspace = true

@@ -1,18 +1,17 @@
-//! The `tutti` command: the one place in the repository with file IO. Arguments are read by
-//! hand, as newDAWn's command line does: no argument-parsing dependency.
+//! The `tutti` command, over `tutti-fs` for the project folder. Arguments are read by hand, as
+//! newDAWn's command line does: no argument-parsing dependency.
 //!
 //! Exit codes: 0 valid, 1 invalid (the reasons on stderr, one per line, with a JSON pointer
 //! where one applies), 2 usage.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use tutti::features::{features, level_needed};
-use tutti::folder::check_files;
-use tutti::validate::{Severity, validate};
-use tutti::{Document, Event};
-use tutti_cli::{DirFolder, Installed, archive, document_in, find_installed};
+use tutti::validate::Severity;
+use tutti::{Document, Event, Opened};
+use tutti_cli::{Installed, archive, find_installed};
+use tutti_fs::DirStore;
 
 const USAGE: &str = "\
 tutti: an open audio project format (version 1.0)
@@ -56,19 +55,25 @@ fn main() -> ExitCode {
     }
 }
 
-/// The document of a folder, read: refusals are errors with their reason.
+/// The project in a folder, opened: refusals are errors with their reason.
+fn open_project(folder: &Path) -> Result<Opened<DirStore>, String> {
+    tutti_fs::open(folder).map_err(|e| format!("{}: {e}", folder.display()))
+}
+
+/// The document of a folder, read, and its path.
 fn open(folder: &Path) -> Result<(PathBuf, Document), String> {
-    let path = document_in(folder)?;
-    let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let doc = tutti::read(&bytes).map_err(|e| format!("{}: {e}", path.display()))?;
-    Ok((path, doc))
+    let opened = open_project(folder)?;
+    Ok((
+        folder.join(opened.project.document_name()),
+        opened.project.document().clone(),
+    ))
 }
 
 fn check(folder: &Path) -> Result<bool, String> {
-    let (path, doc) = open(folder)?;
-    let report = validate(&doc);
-    let mut issues = report.issues.clone();
-    issues.extend(check_files(&doc, &DirFolder::new(folder)));
+    let opened = open_project(folder)?;
+    let path = folder.join(opened.project.document_name());
+    let doc = opened.project.document();
+    let issues = opened.project.check().issues;
     let errors = issues
         .iter()
         .filter(|i| i.severity == Severity::Error)
@@ -80,14 +85,14 @@ fn check(folder: &Path) -> Result<bool, String> {
     for issue in &issues {
         eprintln!("{issue}");
     }
-    if tutti::is_read_only(&doc) {
+    if opened.read_only {
         println!(
             "read-only on this version: min_version {}",
             doc.min_version.as_deref().unwrap_or("?")
         );
     }
-    let used = features(&doc);
-    let level = level_needed(&doc);
+    let used = features(doc);
+    let level = level_needed(doc);
     println!(
         "{}: {} ({} error{}, {} warning{})",
         path.display(),
@@ -287,7 +292,7 @@ fn deps(folder: &Path) -> Result<bool, String> {
 }
 
 fn archive_command(folder: &Path) -> Result<bool, String> {
-    document_in(folder)?;
+    tutti_fs::document_in(folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     let written = archive(folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     for path in written {
         println!("{}", path.display());
@@ -296,12 +301,11 @@ fn archive_command(folder: &Path) -> Result<bool, String> {
 }
 
 fn fmt(folder: &Path) -> Result<bool, String> {
-    let (path, doc) = open(folder)?;
-    let pretty = tutti::write(&doc);
-    let temporary = path.with_extension("tutti.tmp");
-    fs::write(&temporary, pretty.as_bytes())
-        .map_err(|e| format!("{}: {e}", temporary.display()))?;
-    fs::rename(&temporary, &path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut project = open_project(folder)?.project;
+    let path = folder.join(project.document_name());
+    project
+        .rewrite()
+        .map_err(|e| format!("{}: {e}", path.display()))?;
     println!("{}: the pretty form", path.display());
     Ok(true)
 }

@@ -1,8 +1,14 @@
-//! A project folder as the core sees it: a trait the caller implements (the command line with
-//! `std::fs`, a JavaScript host with its own files), and the checks that need the folder: the
-//! files index complete and valid (spec 3.4, 9), and what the document refers to being there.
+//! A project folder as the core sees it: `Folder`, what a reader needs (read a file by
+//! reference, its size, its hash), and `Store`, what a writer needs besides (list, make a
+//! folder, write a new file, stream one, rename over, remove), each a trait the host implements:
+//! `tutti-fs` with `std::fs`, a JavaScript host with its own files, `MemoryStore` here for tests
+//! and hosts that keep a project in memory. And the checks that need the folder: the files index
+//! complete and valid (spec 3.4, 9), and what the document refers to being there.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::io;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use crate::model::{Document, Event};
 use crate::render::sha256_hex;
@@ -15,6 +21,8 @@ pub enum FolderError {
     Missing,
     /// A link where a file or folder was expected (spec 9): refused.
     Link,
+    /// A file is already there where a new one was to be written: nothing is overwritten.
+    Exists,
     /// The folder's own reason.
     Other(String),
 }
@@ -24,6 +32,7 @@ impl fmt::Display for FolderError {
         match self {
             FolderError::Missing => write!(f, "missing"),
             FolderError::Link => write!(f, "a link, which a reader refuses"),
+            FolderError::Exists => write!(f, "already there"),
             FolderError::Other(s) => f.write_str(s),
         }
     }
@@ -48,11 +57,63 @@ pub trait Folder {
     }
 }
 
+/// What an entry of a folder is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    File,
+    Folder,
+    /// A link or anything else: a reader resolves nothing through it (spec 9).
+    Other,
+}
+
+/// One entry of a folder, by name.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Entry {
+    pub name: String,
+    pub kind: Kind,
+}
+
+/// A project folder a writer can change: the primitive operations the save procedure
+/// (`Project`) is composed of, each one a point where a crash can happen and nothing is half
+/// done as far as the store is concerned. References and folders are relative paths with `/`,
+/// the root being `""`; a file's parents are made as needed. An implementation is a cheap
+/// handle (`Clone`): a recording handle carries one. It resolves inside the root only, follows
+/// no link, and refuses a link where a file or folder is expected.
+pub trait Store: Folder + Clone {
+    /// Where a new file's bytes go while it is being written.
+    type Writer: io::Write;
+
+    /// The entries directly in `folder`, in any order; `Missing` when the folder is not there.
+    fn list(&self, folder: &str) -> Result<Vec<Entry>, FolderError>;
+
+    /// Whether a file is there; `Link` for a link in its place.
+    fn exists(&self, reference: &str) -> Result<bool, FolderError>;
+
+    /// Makes a folder and its parents; nothing when it is there.
+    fn make_folder(&self, folder: &str) -> Result<(), FolderError>;
+
+    /// Writes a new file whole and durably; `Exists` when a file is there already.
+    fn write_new(&self, reference: &str, bytes: &[u8]) -> Result<(), FolderError>;
+
+    /// Opens a new file for streaming; `Exists` when a file is there already. The file is
+    /// there, and durable, only once [`Store::close`] returns.
+    fn open_new(&self, reference: &str) -> Result<Self::Writer, FolderError>;
+
+    /// Finishes a streamed file: flushed and durable.
+    fn close(&self, writer: Self::Writer) -> Result<(), FolderError>;
+
+    /// Renames `from` over `to`, replacing it, durably: the commit point of a save.
+    fn rename_over(&self, from: &str, to: &str) -> Result<(), FolderError>;
+
+    /// Removes a file; `Missing` when it is not there.
+    fn remove(&self, reference: &str) -> Result<(), FolderError>;
+}
+
 /// A folder held in memory: references to bytes. For tests, and for a host that unpacked an
 /// archive.
 #[derive(Clone, Debug, Default)]
 pub struct MemoryFolder {
-    pub files: std::collections::BTreeMap<String, Vec<u8>>,
+    pub files: BTreeMap<String, Vec<u8>>,
 }
 
 impl Folder for MemoryFolder {
@@ -67,6 +128,161 @@ impl Folder for MemoryFolder {
         self.files
             .get(reference)
             .map(|b| b.len() as u64)
+            .ok_or(FolderError::Missing)
+    }
+}
+
+#[derive(Debug, Default)]
+struct Memory {
+    files: BTreeMap<String, Vec<u8>>,
+    folders: BTreeSet<String>,
+}
+
+/// A store held in memory, shared by every clone: a project a test or a host builds without a
+/// file system, written out afterwards with [`MemoryStore::files`]. The root is always there.
+#[derive(Clone, Debug, Default)]
+pub struct MemoryStore {
+    memory: Arc<Mutex<Memory>>,
+}
+
+impl MemoryStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Memory> {
+        self.memory.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Every file, by reference.
+    pub fn files(&self) -> BTreeMap<String, Vec<u8>> {
+        self.lock().files.clone()
+    }
+
+    /// Puts a file whatever is there: for a test that changes a file behind a project's back.
+    pub fn put(&self, reference: &str, bytes: Vec<u8>) {
+        self.lock().files.insert(reference.to_owned(), bytes);
+    }
+}
+
+/// The bytes of a file being streamed into a [`MemoryStore`].
+#[derive(Debug)]
+pub struct MemoryWriter {
+    reference: String,
+    buffer: Vec<u8>,
+}
+
+impl io::Write for MemoryWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.buffer.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Folder for MemoryStore {
+    fn read(&self, reference: &str) -> Result<Vec<u8>, FolderError> {
+        self.lock()
+            .files
+            .get(reference)
+            .cloned()
+            .ok_or(FolderError::Missing)
+    }
+
+    fn size(&self, reference: &str) -> Result<u64, FolderError> {
+        self.lock()
+            .files
+            .get(reference)
+            .map(|b| b.len() as u64)
+            .ok_or(FolderError::Missing)
+    }
+}
+
+impl Store for MemoryStore {
+    type Writer = MemoryWriter;
+
+    fn list(&self, folder: &str) -> Result<Vec<Entry>, FolderError> {
+        let memory = self.lock();
+        let prefix = if folder.is_empty() {
+            String::new()
+        } else {
+            format!("{folder}/")
+        };
+        let mut names: BTreeMap<String, Kind> = BTreeMap::new();
+        for path in memory.files.keys() {
+            if let Some(rest) = path.strip_prefix(&prefix) {
+                match rest.split_once('/') {
+                    Some((first, _)) => names.insert(first.to_owned(), Kind::Folder),
+                    None => names.insert(rest.to_owned(), Kind::File),
+                };
+            }
+        }
+        for path in &memory.folders {
+            if let Some(rest) = path.strip_prefix(&prefix) {
+                let first = rest.split('/').next().unwrap_or(rest);
+                if !first.is_empty() {
+                    names.entry(first.to_owned()).or_insert(Kind::Folder);
+                }
+            }
+        }
+        if names.is_empty() && !folder.is_empty() && !memory.folders.contains(folder) {
+            return Err(FolderError::Missing);
+        }
+        Ok(names
+            .into_iter()
+            .map(|(name, kind)| Entry { name, kind })
+            .collect())
+    }
+
+    fn exists(&self, reference: &str) -> Result<bool, FolderError> {
+        Ok(self.lock().files.contains_key(reference))
+    }
+
+    fn make_folder(&self, folder: &str) -> Result<(), FolderError> {
+        if !folder.is_empty() {
+            self.lock().folders.insert(folder.to_owned());
+        }
+        Ok(())
+    }
+
+    fn write_new(&self, reference: &str, bytes: &[u8]) -> Result<(), FolderError> {
+        let mut memory = self.lock();
+        if memory.files.contains_key(reference) {
+            return Err(FolderError::Exists);
+        }
+        memory.files.insert(reference.to_owned(), bytes.to_vec());
+        Ok(())
+    }
+
+    fn open_new(&self, reference: &str) -> Result<Self::Writer, FolderError> {
+        if self.lock().files.contains_key(reference) {
+            return Err(FolderError::Exists);
+        }
+        Ok(MemoryWriter {
+            reference: reference.to_owned(),
+            buffer: Vec::new(),
+        })
+    }
+
+    fn close(&self, writer: Self::Writer) -> Result<(), FolderError> {
+        self.write_new(&writer.reference, &writer.buffer)
+    }
+
+    fn rename_over(&self, from: &str, to: &str) -> Result<(), FolderError> {
+        let mut memory = self.lock();
+        let bytes = memory.files.remove(from).ok_or(FolderError::Missing)?;
+        memory.files.insert(to.to_owned(), bytes);
+        Ok(())
+    }
+
+    fn remove(&self, reference: &str) -> Result<(), FolderError> {
+        self.lock()
+            .files
+            .remove(reference)
+            .map(|_| ())
             .ok_or(FolderError::Missing)
     }
 }

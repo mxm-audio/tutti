@@ -15,8 +15,8 @@ path = "src/bin/make_examples.rs"
 
 [dependencies]
 tutti.workspace = true
+tutti-fs.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-tutti-cli.workspace = true
 jsonschema = { version = "=0.59.0", default-features = false }

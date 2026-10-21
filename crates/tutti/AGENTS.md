@@ -5,8 +5,11 @@
 The format's reference implementation: the model (the types a document deserialises into,
 unknown fields and extensions kept), reading a document in any form, writing the canonical pretty
 form and the JCS (RFC 8785) bytes equality and fingerprints are over, `validate` (what the schema
-can't say), and the arithmetic the spec defines: ticks to seconds through the tempo map and back,
-an audio piece's placement and playback rate, a render's fingerprint.
+can't say), the arithmetic the spec defines (ticks to seconds through the tempo map and back,
+an audio piece's placement and playback rate, a render's fingerprint), and `Project`: a project
+in a store, opened, created, saved and filled by the one procedure every writer follows (spec
+10, conformance 2), written once over the `Store` trait so the disk (`tutti-fs`), a test's
+memory (`MemoryStore`) and a JavaScript host run the same one.
 
 # Ownership
 
@@ -14,9 +17,20 @@ Owns `Cargo.toml` and `src/`.
 
 # Local Contracts
 
-- **No file IO, no platform code.** Documents are bytes in and bytes out; anything that lists or
-  reads a folder goes through a trait the caller implements. The crate builds for
+- **No file IO, no platform code.** Documents are bytes in and bytes out; a folder is a trait the
+  host implements: `folder::Folder` to read, `folder::Store` to write, primitive operations
+  each one a point where a crash can happen, which `Project` composes. The crate builds for
   `wasm32-unknown-unknown` unchanged, and CI proves it.
+- **What `Project::save` guarantees is stated in `project.rs`'s module doc, exactly**, and
+  nowhere wider: every referenced file present, the index built from the files (lengths at
+  every save, hashes verified once per session, a disagreement refusing before the document is
+  touched), entries no known field claims kept, the document valid, the README current, the
+  document renamed into place. `save_verified` rehashes everything, for an export. The owner
+  decides whether every save rehashes (the plan, stage 12; `NOTES.md`).
+- **A recording streams through `Project::new_audio`'s handle**, a `Write` that hashes as the
+  bytes pass into the store's own writer; it borrows nothing from the project, and is `Send`
+  exactly when the store is. The crate never deletes a file; a program's cleanup consults
+  `Project::unnamed` before touching `audio/`.
 - **Dependencies: serde, serde_json, sha2**, pinned; nothing else without a reason in `NOTES.md`.
 - **MSRV 1.87**, compiled against (`cargo +1.87.0 test -p tutti`) whenever the crate takes a
   language feature it did not have before: Cargo never checks a crate's own `rust-version`.

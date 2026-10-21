@@ -681,6 +681,15 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "tutti",
+ "tutti-fs",
+]
+
+[[package]]
+name = "tutti-fs"
+version = "0.1.0"
+dependencies = [
+ "sha2",
+ "tutti",
 ]
 
 [[package]]
@@ -690,7 +699,7 @@ dependencies = [
  "jsonschema",
  "serde_json",
  "tutti",
- "tutti-cli",
+ "tutti-fs",
 ]
 
 [[package]]

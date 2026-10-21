@@ -9,7 +9,7 @@
     "version": "1.0",
     "url": "https://github.com/mxm-audio/tutti"
   },
-  "extensions_used": ["org.example.view", "dk.mxm.newdawn"],
+  "extensions_used": ["dk.mxm.newdawn", "org.example.view"],
   "metadata": {
     "title": "Preserve"
   },

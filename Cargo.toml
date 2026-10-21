@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/tutti",
+    "crates/tutti-fs",
     "crates/tutti-schema",
     "crates/tutti-cli",
     "crates/tutti-wasm",
@@ -27,4 +28,5 @@ sha2 = "=0.10.9"
 wasm-bindgen = "=0.2.129"
 
 tutti = { path = "crates/tutti" }
+tutti-fs = { path = "crates/tutti-fs" }
 tutti-cli = { path = "crates/tutti-cli" }

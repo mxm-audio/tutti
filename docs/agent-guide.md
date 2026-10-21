@@ -42,6 +42,12 @@ the top. Every object may carry `extensions` under a reverse-DNS namespace.
 
 ## Writing a project
 
+- **From Rust, let the crate do it**: `tutti_fs::create(folder, title, generator)` or
+  `tutti_fs::open(folder)` gives a `Project`; put files in with `new_audio` (a writer to
+  stream a recording through), `put_audio`, `put_state`, `put_render`; edit the document;
+  `save(generator)`. It names and hashes the files, fills the index, validates, writes the
+  README and renames the document into place. Everything below is what it does, for a
+  program that writes JSON itself.
 - Ids: strings matching `^[A-Za-z0-9_-]{1,64}$`, unique across the document. Make yours as
   `<kind>_<ULID>` (`trk_01JB2K7Q9M3F5A7Y9R2E4W6N`). Never change an id you read.
 - Write the pretty form: two-space indent, keys in the spec's order, events and points one per

@@ -94,6 +94,25 @@ designed from is `docs/research.md`.
 - **Sidecar plugin states by content hash with a `kind`**, a readable parameter snapshot beside
   them, and renders a project may carry: Ardour's and REAPER's inline base64 makes every diff
   opaque; a state of one ABI fed to a plugin of another is garbage, usually silently.
+- **The save procedure lives in the core, as `Project` over a `Store` of primitive operations;
+  the disk is a crate of its own, `tutti-fs`** (2026-10-21). The owner's rule: an implementer
+  never writes file-system code against the spec ("It can easily get out of sync, and be
+  misunderstood. It is a huge risk to break the standard"). Not a feature flag in the core: its
+  no-IO contract is what lets it build for the web, and Pi's review held the line (round 1).
+  Not "the only place": the spec stays the authority and `tutti check` the gate, since a
+  format safe only through one library is an SDK, and C++ DAWs, Python tools and agents
+  writing JSON will never call it. The store is primitives (list, exists, make a folder, write
+  a new file, stream one, rename over, remove), each a crash point, so newDAWn's
+  failure-injecting file trait can implement it and keep its crash tests. A recording streams
+  through a handle that hashes as it goes and owns a clone of the store, so a recorder runs on
+  its own thread; the handle's guard keeps the file reserved until the command that names it
+  has run. What a save verifies: lengths at every save, hashes once per session, a mismatch
+  refusing; `save_verified` rehashes all. Pi asked for a rehash at every save (rounds 2 to 4):
+  declined for the cost (a one-hour session of 48 kHz stereo is about 700 MB per track to
+  read at every save, and a DAW saves after every change), stated as the owner's decision in
+  the plan. Index entries no known field claims are kept and verified, and refuse the save
+  when their file is gone until the program forgets them on purpose, since an unknown
+  extension may refer to them. The name cleaning came from newDAWn's store, relicensed MIT.
 - **Frozen spec folders instead of tags**: the workspace refuses tags, and a document's `version`
   must name an immutable text.
 - **Three conformance levels** (plays, hosts, round-trips), claimed by passing fixtures: DAWproject's
@@ -121,3 +140,7 @@ designed from is `docs/research.md`.
   the agent guide renamed `docs/agent-guide.md`, since on a case-insensitive file system it and
   the folder's DOX file `docs/AGENTS.md` were one file and the guide had overwritten the DOX in
   the first commits; `docs/AGENTS.md` written anew.
+- 2026-10-21: stage 12 of the plan's second round: `Project` in the core (`project.rs`, `names.rs`,
+  `Store` and `MemoryStore` in `folder.rs`), `crates/tutti-fs` (the disk store, `open`,
+  `create`), the command and the example generator onto them, the examples regenerated
+  through `Project::save` (one list sorted, nothing else changed).

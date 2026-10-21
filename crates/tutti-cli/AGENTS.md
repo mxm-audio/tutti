@@ -7,9 +7,9 @@ project uses and so the conformance level a reader needs), `inspect` (tracks, pa
 extensions), `deps` (every dependency, and whether a plugin with that id is installed in the
 standard CLAP and VST3 folders), `archive` (copy the spec, schema and agent guide into a project
 folder's `spec/`), `fmt` (rewrite the document in the pretty form). Folders only: a zipped
-project is unpacked with the user's own tools. Its library half (`src/lib.rs`) is what the tests
-and the generators share: `DirFolder`, the one document in a folder, the plugin folders, the
-installed check, `archive`.
+project is unpacked with the user's own tools. The project itself is opened, checked and
+rewritten through `tutti-fs` and the core's `Project`; the library half (`src/lib.rs`) holds
+what is the command's alone: the plugin folders, the installed check, `archive`.
 
 # Ownership
 
@@ -17,8 +17,8 @@ Owns `Cargo.toml`, `src/` and `tests/`.
 
 # Local Contracts
 
-- **The one place with file IO**: it implements `tutti`'s folder trait with `std::fs`, resolving
-  without following links and refusing a link where the spec refuses one.
+- **No file IO of the format's**: the folder is `tutti-fs`'s. What the command reads or writes
+  itself is the plugin folders it scans for `deps` and the texts `archive` copies in.
 - Arguments are read by hand, as newDAWn's command line does: no argument-parsing dependency.
 - **`deps` says how sure it is.** A CLAP id lives inside the binary, so a `.clap` named like the
   id's last segment is *likely installed*; a VST3 class id listed in a bundle's `moduleinfo.json`

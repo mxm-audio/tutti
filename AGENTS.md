@@ -57,8 +57,11 @@ the index is below.
   program, open or closed, can read and write the format. No trademark on the name.
 - **Dependencies are pinned exactly and `Cargo.lock` is committed.** The core (`crates/tutti`)
   takes serde, serde_json and sha2 and nothing else; it has no file IO and no platform code, and
-  builds for `wasm32-unknown-unknown` (CI proves it). File IO lives in `crates/tutti-cli` (the
-  command and the folder on disk it lends the tests) and the test crate's generators, nowhere else.
+  builds for `wasm32-unknown-unknown` (CI proves it). **File IO lives in `crates/tutti-fs`**, the
+  disk store and `open`/`create`, nowhere else: the command, the example generator and the
+  tests go through it, and the save procedure itself is the core's `Project`, which `tutti-fs`
+  only lends a disk to (the owner, 2026-10-21: an implementer never writes file-system code
+  against the spec).
 - **MSRV is per crate, compiled against**: the core at 1.87 (`cargo +1.87.0 test -p tutti` when its
   language use changes); a crate that needs more says so in its `Cargo.toml` and `AGENTS.md`.
 - **Windows, macOS and Linux, and the web.** Work and verify on Windows; the other platforms are
@@ -93,8 +96,9 @@ build.
 | [`schema/AGENTS.md`](schema/AGENTS.md) | The JSON Schema, hand-written, frozen with its version |
 | [`examples/AGENTS.md`](examples/AGENTS.md) | Example projects and the conformance fixtures, with made audio only |
 | [`docs/AGENTS.md`](docs/AGENTS.md) | The research, the agent guide (`agent-guide.md`), the generated field reference; the implementers' guide to come |
-| [`crates/tutti/AGENTS.md`](crates/tutti/AGENTS.md) | The reference implementation: model, read, write, validate, the time arithmetic; no file IO |
+| [`crates/tutti/AGENTS.md`](crates/tutti/AGENTS.md) | The reference implementation: model, read, write, validate, the time arithmetic, `Project` (the save procedure over a store trait); no file IO |
+| [`crates/tutti-fs/AGENTS.md`](crates/tutti-fs/AGENTS.md) | tutti on disk: the store over `std::fs`, `open` and `create`; the one place with file IO |
 | [`crates/tutti-schema/AGENTS.md`](crates/tutti-schema/AGENTS.md) | The tests that hold spec, schema, examples, docs and code together; the field-reference generator |
-| [`crates/tutti-cli/AGENTS.md`](crates/tutti-cli/AGENTS.md) | The `tutti` command: check, inspect, deps, archive, fmt; the one place with file IO |
+| [`crates/tutti-cli/AGENTS.md`](crates/tutti-cli/AGENTS.md) | The `tutti` command: check, inspect, deps, archive, fmt, over `tutti-fs` |
 | [`crates/tutti-wasm/AGENTS.md`](crates/tutti-wasm/AGENTS.md) | The core for JavaScript: wasm-bindgen functions, strings in and out, no file IO |
 | [`js/AGENTS.md`](js/AGENTS.md) | `@mxm-audio/tutti`, the npm package: the wasm build, the wrapper, the generated document types, the Node tests over the examples |

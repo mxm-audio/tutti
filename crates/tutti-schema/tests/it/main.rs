@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 use tutti::folder::check_files;
 use tutti::validate::{self, Severity};
-use tutti_cli::{DirFolder, document_in};
+use tutti_fs::{DirStore, document_in};
 use tutti_schema::{field_reference, repository_root, schema};
 
 /// Every example project folder: the three examples and the conformance fixtures.
@@ -59,7 +59,7 @@ fn every_example_validates_reads_writes_back_byte_identical_and_checks_out() {
         let report = validate::validate(&doc);
         let errors: Vec<String> = report.errors().map(|i| i.to_string()).collect();
         assert!(errors.is_empty(), "{}: {errors:#?}", path.display());
-        let file_issues = check_files(&doc, &DirFolder::new(&folder));
+        let file_issues = check_files(&doc, &DirStore::new(&folder));
         let file_errors: Vec<String> = file_issues
             .iter()
             .filter(|i| i.severity == Severity::Error)
@@ -108,7 +108,7 @@ fn every_hostile_fixture_is_refused_as_its_expectation_says() {
 fn refusal(folder: &Path) -> String {
     let path = match document_in(folder) {
         Ok(p) => p,
-        Err(e) => return e,
+        Err(e) => return e.to_string(),
     };
     let bytes = fs::read(&path).unwrap();
     let doc = match tutti::read(&bytes) {
@@ -119,7 +119,7 @@ fn refusal(folder: &Path) -> String {
     if let Some(first) = report.errors().next() {
         return first.to_string();
     }
-    let issues = check_files(&doc, &DirFolder::new(folder));
+    let issues = check_files(&doc, &DirStore::new(folder));
     if let Some(first) = issues.iter().find(|i| i.severity == Severity::Error) {
         return first.to_string();
     }

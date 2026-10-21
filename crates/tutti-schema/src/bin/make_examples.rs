@@ -9,8 +9,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
+use tutti::folder::Store;
 use tutti::render::{render_fingerprint, sha256_hex};
 use tutti::*;
+use tutti_fs::DirStore;
 
 const RATE: u32 = 44_100;
 
@@ -105,31 +107,29 @@ impl Project {
     }
 }
 
+/// Writes an example as any writer does: the files into the store, then the document through
+/// `Project::save`, which indexes and verifies them and writes the README.
 fn write_project(folder: &Path, title: &str, mut project: Project) {
     let _ = fs::remove_dir_all(folder);
-    fs::create_dir_all(folder).expect("the folder");
     project.document.metadata.title = Some(title.replace('-', " "));
-    project.document.normalise();
-    let report = validate(&project.document);
-    for issue in &report.issues {
-        println!("  {} {title}: {issue}", folder.display());
-    }
-    assert!(report.is_valid(), "{title} must validate");
+    let store = DirStore::new(folder);
+    store.make_folder("").expect("the folder");
     for (reference, bytes) in &project.files {
-        let path = folder.join(reference);
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, bytes).unwrap();
+        store
+            .write_new(reference, bytes)
+            .expect("a file of the example");
     }
-    let document_name = format!("{title}.tutti");
-    write_text(&folder.join(&document_name), &write(&project.document));
-    write_text(
-        &folder.join("README.md"),
-        &readme(
-            &title.replace('-', " "),
-            &project.document.generator,
-            &document_name,
-        ),
-    );
+    let generator = project.document.generator.clone();
+    let mut example = tutti::Project::adopt(store, &format!("{title}.tutti"), project.document)
+        .expect("a document name");
+    match example.save(&generator) {
+        Ok(saved) => {
+            for issue in &saved.warnings {
+                println!("  {} {title}: {issue}", folder.display());
+            }
+        }
+        Err(e) => panic!("{title} must save: {e}"),
+    }
 }
 
 fn write_text(path: &Path, text: &str) {

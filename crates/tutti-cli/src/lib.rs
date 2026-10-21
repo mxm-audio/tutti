@@ -1,74 +1,8 @@
-//! What the `tutti` command does with a folder, as a library so the tests and the generators can
-//! use the same folder on disk: `DirFolder` (a project folder, references resolved inside it,
-//! links refused), the one document in a folder, the standard plugin folders, and `archive`.
+//! What the `tutti` command does besides a project: the standard plugin folders and whether a
+//! plugin is installed (`deps`), and `archive`. The project itself is `tutti-fs`'s.
 
 use std::fs;
 use std::path::{Path, PathBuf};
-
-use tutti::folder::{Folder, FolderError};
-
-/// A project folder on disk: references resolved inside it, links refused (spec 9).
-pub struct DirFolder {
-    pub root: PathBuf,
-}
-
-impl DirFolder {
-    pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
-    }
-
-    /// The path of a reference, each part checked not to be a link, `.`, `..` or empty.
-    pub fn path_of(&self, reference: &str) -> Result<PathBuf, FolderError> {
-        let mut path = self.root.clone();
-        for part in reference.split('/') {
-            if part.is_empty() || part == "." || part == ".." || part.contains('\\') {
-                return Err(FolderError::Other(format!("{reference}: not a reference")));
-            }
-            path.push(part);
-            let meta = fs::symlink_metadata(&path).map_err(|_| FolderError::Missing)?;
-            if meta.file_type().is_symlink() {
-                return Err(FolderError::Link);
-            }
-        }
-        Ok(path)
-    }
-}
-
-impl Folder for DirFolder {
-    fn read(&self, reference: &str) -> Result<Vec<u8>, FolderError> {
-        fs::read(self.path_of(reference)?).map_err(|e| FolderError::Other(e.to_string()))
-    }
-
-    fn size(&self, reference: &str) -> Result<u64, FolderError> {
-        fs::metadata(self.path_of(reference)?)
-            .map(|m| m.len())
-            .map_err(|e| FolderError::Other(e.to_string()))
-    }
-}
-
-/// The one `.tutti` document at the top of a folder: its path, or why not (spec 3.1).
-pub fn document_in(folder: &Path) -> Result<PathBuf, String> {
-    let mut found: Vec<PathBuf> = fs::read_dir(folder)
-        .map_err(|e| format!("{}: {e}", folder.display()))?
-        .filter_map(|entry| entry.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|x| x == "tutti") && p.is_file())
-        .collect();
-    found.sort();
-    match found.len() {
-        1 => Ok(found.remove(0)),
-        0 => Err(format!("{}: no .tutti document", folder.display())),
-        n => Err(format!(
-            "{}: {n} documents ({})",
-            folder.display(),
-            found
-                .iter()
-                .filter_map(|p| p.file_name())
-                .map(|n| n.to_string_lossy().into_owned())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )),
-    }
-}
 
 /// The folders a host scans for plugins of a format (`clap` or `vst3`): the environment's
 /// `CLAP_PATH` or `VST3_PATH` first, then the platform's standard folders.

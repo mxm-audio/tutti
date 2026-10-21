@@ -1,7 +1,7 @@
 //! The tests that hold the schema, the examples, the docs and the types together, and the
 //! generator of `docs/field-reference.md`. Nothing here ships in a program: the validator it
 //! uses is a dev-dependency, so its toolchain floor never reaches a DAW. A project folder on disk
-//! is the command's `DirFolder` (`tutti-cli`), which the tests take as a dev-dependency.
+//! is `tutti-fs`'s `DirStore`, which the example generator writes through and the tests read.
 
 use std::fs;
 use std::path::PathBuf;

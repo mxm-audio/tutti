@@ -8,9 +8,11 @@ generator of `docs/field-reference.md`. Not a library anyone ships.
 # Ownership
 
 Owns `Cargo.toml`, `src/` and `tests/`. `src/bin/make_examples.rs` is the generator of
-`examples/` (every example project and the Level 0 fixtures with their `expected.json`), the one
-place with file IO besides the command: it uses the core for ids, the pretty form, hashes,
-fingerprints and the time arithmetic the fixtures' expected values come from.
+`examples/` (every example project and the Level 0 fixtures with their `expected.json`). It
+writes each example as any writer does, the files into a `tutti-fs` store and the document
+through `Project::save`, which indexes and verifies them and writes the README; only the
+hostile fixtures and the `expected.json` files are written raw. It uses the core for ids,
+hashes, fingerprints and the time arithmetic the fixtures' expected values come from.
 
 # Local Contracts
 

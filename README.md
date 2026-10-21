@@ -165,8 +165,13 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
 
 **Tooling**
 
-- `tutti`, a Rust crate with no file IO (serde, serde_json and sha2, nothing else): read any
-  form, write the pretty form, validate, the time arithmetic; builds for WebAssembly.
+- `tutti`, the Rust crate: reads any form, writes the pretty form, validates, does the time
+  arithmetic, and holds `Project`, the one save procedure every writer follows, over a store
+  trait. It never touches files itself and depends only on serde, serde_json and sha2, so it
+  compiles to WebAssembly unchanged and adds almost nothing to a program that uses it.
+- `tutti-fs`, the disk: `open` and `create` give a `Project` for a folder; put a recording
+  in through a writer, a state by content, save. An implementer never writes the
+  procedure.
 - The `tutti` command: `check`, `inspect`, `deps`, `archive` and `fmt`.
 - `@mxm-audio/tutti` for JavaScript (Node, browsers, Bun, Deno), with TypeScript types
   generated from the schema.
@@ -204,8 +209,9 @@ My-Project/
 ## Using it
 
 - **From your program**: read [`docs/agent-guide.md`](docs/agent-guide.md), then the spec,
-  [`spec/1.0/tutti.md`](spec/1.0/tutti.md). Use the `tutti` crate from Rust or `@mxm-audio/tutti`
-  from JavaScript, or any JSON library with the schema. Run `tutti check` over what you write.
+  [`spec/1.0/tutti.md`](spec/1.0/tutti.md). From Rust, `tutti-fs` opens, creates and saves a
+  project folder for you; from JavaScript, `@mxm-audio/tutti`; or use any JSON library with
+  the schema. Run `tutti check` over what you write.
 - **On a project someone sent you**: read the `README.md` in its folder.
 - **To say your program reads tutti**: pass the fixtures of a level
   ([`spec/1.0/conformance.md`](spec/1.0/conformance.md)). No permission is needed and no fee.

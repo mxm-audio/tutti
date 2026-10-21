@@ -3,10 +3,12 @@
 //! A project is a plain folder holding one JSON document, `<Name>.tutti`, and every file the
 //! project uses. This crate is the format's reference implementation: the model, reading a
 //! document (any key order, any whitespace), writing one in the canonical pretty form,
-//! validation, and the time arithmetic the spec defines (ticks to seconds through the tempo map,
-//! an audio piece's placement). It has no file IO: documents come in and go out as bytes, and
-//! anything that lists or reads a folder goes through a trait the caller implements, so the crate
-//! builds for `wasm32-unknown-unknown` unchanged.
+//! validation, the time arithmetic the spec defines (ticks to seconds through the tempo map, an
+//! audio piece's placement), and [`Project`]: a project in a store, opened, created, saved and
+//! filled by the one procedure every writer follows. It has no file IO: documents come in and
+//! go out as bytes, and a folder is a trait the host implements ([`folder::Folder`] to read,
+//! [`folder::Store`] to write; `tutti-fs` is the disk, [`folder::MemoryStore`] is memory), so
+//! the crate builds for `wasm32-unknown-unknown` unchanged.
 //!
 //! The normative text is `spec/<version>/tutti.md` in the repository; the schema is
 //! `schema/<version>/tutti.schema.json`. A number the spec states is a constant here, and a test
@@ -17,6 +19,8 @@ pub mod features;
 pub mod folder;
 pub mod id;
 pub mod model;
+pub mod names;
+pub mod project;
 pub mod read;
 pub mod render;
 pub mod time;
@@ -26,6 +30,7 @@ use serde_json::Value;
 
 pub use id::Id;
 pub use model::*;
+pub use project::{Incoming, Opened, Project, ProjectError, Saved, Stored};
 pub use read::{ReadError, is_read_only, read};
 pub use validate::{Issue, Report, Severity, validate};
 
