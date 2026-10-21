@@ -46,6 +46,7 @@
     "curve": { "type": "string", "description": "hold or linear; an unknown name reads as linear (spec 5.2, 6.8)." },
     "extensions": { "type": "object", "propertyNames": { "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$" }, "default": {}, "description": "Vendor data by reverse-DNS namespace (spec 8.1)." },
     "reference": { "type": "string", "pattern": "^(audio|plugins/states|renders)/[A-Za-z0-9_-]{1,120}\\.[A-Za-z0-9]{1,8}$", "description": "A bare file name in a fixed folder (spec 2.2)." },
+    "index_path": { "type": "string", "pattern": "^(audio|plugins/states|renders)/[A-Za-z0-9_-]{1,120}\\.[A-Za-z0-9]{1,8}$|^plugins/files/[A-Za-z0-9_-]{1,64}/.+$", "description": "A reference (spec 2.2), or a device's own file by its path inside plugins/files/<device id>/ (spec 7.8)." },
 
     "generator": {
       "type": "object",
@@ -60,7 +61,7 @@
       "type": "object",
       "required": ["path", "sha256", "bytes"],
       "properties": {
-        "path": { "$ref": "#/$defs/reference" },
+        "path": { "$ref": "#/$defs/index_path" },
         "sha256": { "$ref": "#/$defs/sha256" },
         "bytes": { "type": "integer", "minimum": 0 }
       }

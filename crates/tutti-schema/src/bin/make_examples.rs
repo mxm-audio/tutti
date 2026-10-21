@@ -932,6 +932,21 @@ fn every_feature(ids: &mut Ids) -> Project {
     d.tracks.insert(0, folder);
     p.add_file("audio/Pad-220.wav", pad_bytes);
     p.add_file("renders/Loop_000.wav", render_bytes);
+    // A plugin's own files, in its device's folder (spec 7.8), nested as the plugin likes.
+    let synth_id = p
+        .document
+        .all_tracks()
+        .iter()
+        .flat_map(|t| t.devices.iter())
+        .find(|d| d.plugin == "clap:dk.mxm.mxm-mono-01")
+        .map(|d| d.id.as_str().to_owned())
+        .expect("the synth");
+    p.add_file(
+        &format!("plugins/files/{synth_id}/presets/Init.txt"),
+        b"cutoff=218
+"
+        .to_vec(),
+    );
     p
 }
 
@@ -1455,6 +1470,22 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 ("Bomb.tutti", &bomb_document, None),
                 ("analysis/big.bin", b"ten bytes!", Some(0xF000_0000)),
             ]),
+        )],
+    });
+    out.push(Hostile {
+        name: "device-files-escape",
+        what: "a device's own file indexed under a path that leaves its folder",
+        error: "error /files/0/path",
+        files: vec![(
+            "Hostile.tutti".to_owned(),
+            hostile_document(ids, |d, _| {
+                d.files.push(FileEntry {
+                    path: "plugins/files/dev_x/../escape.txt".to_owned(),
+                    sha256: "0".repeat(64),
+                    bytes: 1,
+                    unknown: Unknown::new(),
+                });
+            }),
         )],
     });
     out

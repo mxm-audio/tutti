@@ -119,3 +119,6 @@ A track with one pattern played once, one note:
 - Dropping a key you did not understand is a bug. Writing a key at its default is not a bug, but
   the pretty form leaves it out.
 - `plugins/states/<sha256>.<kind>`: feed a state only to a plugin of the same kind.
+- `plugins/files/<device id>/`: a plugin's own files, any kind, nested as it likes; every one in
+  the index under that path; the index entries go with the device, the folder is the program's
+  to remove (spec 7.8).

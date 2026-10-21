@@ -36,7 +36,7 @@ use crate::model::{Document, Event, FileEntry, Generator, StateRef, Unknown, ver
 use crate::names::{clean_name, free_name};
 use crate::read::{ReadError, is_read_only, read};
 use crate::render::sha256_hex;
-use crate::validate::{Issue, Report, is_file_name, validate};
+use crate::validate::{Issue, Report, check_device_file_path, device_file, is_file_name, validate};
 
 /// The document's extension, without the dot.
 pub const DOCUMENT_EXTENSION: &str = "tutti";
@@ -548,6 +548,32 @@ impl<S: Store> Project<S> {
         Ok(copy)
     }
 
+    /// A device's own files, `plugins/files/<device id>/` (spec 7.8): put, list and read them by
+    /// their path inside the folder. They are indexed by the device's id at the next save, and
+    /// go from the index with the device; the folder itself is the program's to remove.
+    pub fn device_files(&self, device: &str) -> Result<DeviceFiles<S>, ProjectError> {
+        crate::id::check(device).map_err(|_| ProjectError::Name(device.to_owned()))?;
+        Ok(DeviceFiles {
+            store: self.store.clone(),
+            prefix: format!("plugins/files/{device}"),
+            shared: self.shared.clone(),
+        })
+    }
+
+    /// Copies one device's own files to another's folder, for a duplicated device (spec 7.8):
+    /// how many files were copied.
+    pub fn copy_device_files(&self, from: &str, to: &str) -> Result<usize, ProjectError> {
+        let source = self.device_files(from)?;
+        let target = self.device_files(to)?;
+        let mut copied = 0;
+        for relative in source.list()? {
+            let bytes = source.read(&relative)?;
+            target.put(&relative, &bytes)?;
+            copied += 1;
+        }
+        Ok(copied)
+    }
+
     /// A new audio file to stream into `audio/`: `name` cleaned to the characters a name may
     /// have and made free, `extension` the file's kind (`wav`). The handle is independent of
     /// the project, so a recorder writes on its own thread.
@@ -749,10 +775,23 @@ impl<S: Store> Project<S> {
     }
 
     /// The files index: what the known references name, each verified, then the entries the
-    /// index held that no known field claims but the document mentions, verified as they
-    /// stand; one nothing mentions goes.
+    /// index held that no known field claims but the document mentions (a device's own file is
+    /// claimed by its device, spec 7.8), verified as they stand; one nothing mentions goes.
     fn index(&self, rehash: bool) -> Result<Vec<FileEntry>, ProjectError> {
         let mentions = mentions(&self.document);
+        let devices: HashSet<String> = self
+            .document
+            .master
+            .devices
+            .iter()
+            .chain(
+                self.document
+                    .all_tracks()
+                    .into_iter()
+                    .flat_map(|t| t.devices.iter()),
+            )
+            .map(|d| d.id.as_str().to_owned())
+            .collect();
         let existing: HashMap<&str, &FileEntry> = self
             .document
             .files
@@ -774,7 +813,14 @@ impl<S: Store> Project<S> {
             done.insert(reference);
         }
         for entry in &self.document.files {
-            if done.contains(&entry.path) || !mentioned(&mentions, entry) {
+            if done.contains(&entry.path) {
+                continue;
+            }
+            let claimed = match device_file(&entry.path) {
+                Some((device, _)) => devices.contains(device),
+                None => mentioned(&mentions, entry),
+            };
+            if !claimed {
                 continue;
             }
             let (sha256, bytes) =
@@ -879,6 +925,87 @@ impl<S: Store> Project<S> {
         self.store
             .rename_over(&temporary, reference)
             .map_err(store_error(reference))
+    }
+}
+
+/// A device's own files (spec 7.8), by their path inside `plugins/files/<device id>/`.
+#[derive(Debug)]
+pub struct DeviceFiles<S: Store> {
+    store: S,
+    prefix: String,
+    shared: SharedRef,
+}
+
+impl<S: Store> DeviceFiles<S> {
+    /// The reference of a file inside the folder.
+    pub fn reference(&self, relative: &str) -> String {
+        format!("{}/{relative}", self.prefix)
+    }
+
+    /// Puts a file whole, never replacing one: `relative` a path inside the folder, checked
+    /// for safety (refused) and portability (allowed). Its index entry, for the next save.
+    pub fn put(&self, relative: &str, bytes: &[u8]) -> Result<FileEntry, ProjectError> {
+        check_device_file_path(relative)
+            .map_err(|reason| ProjectError::Name(format!("{relative}: {reason}")))?;
+        let reference = self.reference(relative);
+        self.store
+            .write_new(&reference, bytes)
+            .map_err(store_error(&reference))?;
+        let sha256 = sha256_hex(bytes);
+        remember(
+            &self.store,
+            &self.shared,
+            &reference,
+            &sha256,
+            bytes.len() as u64,
+        );
+        Ok(FileEntry {
+            path: reference,
+            sha256,
+            bytes: bytes.len() as u64,
+            unknown: Unknown::new(),
+        })
+    }
+
+    /// Every file in the folder, by its path inside it, folders walked; none when the folder
+    /// isn't there.
+    pub fn list(&self) -> Result<Vec<String>, ProjectError> {
+        let mut out = Vec::new();
+        self.walk("", &mut out)?;
+        out.sort();
+        Ok(out)
+    }
+
+    fn walk(&self, inside: &str, out: &mut Vec<String>) -> Result<(), ProjectError> {
+        let folder = if inside.is_empty() {
+            self.prefix.clone()
+        } else {
+            format!("{}/{inside}", self.prefix)
+        };
+        let entries = match self.store.list(&folder) {
+            Ok(entries) => entries,
+            Err(FolderError::Missing) => return Ok(()),
+            Err(e) => return Err(store_error(&folder)(e)),
+        };
+        for entry in entries {
+            let relative = if inside.is_empty() {
+                entry.name
+            } else {
+                format!("{inside}/{}", entry.name)
+            };
+            match entry.kind {
+                Kind::File => out.push(relative),
+                Kind::Folder => self.walk(&relative, out)?,
+                Kind::Other => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// A file of the folder, whole.
+    pub fn read(&self, relative: &str) -> Result<Vec<u8>, ProjectError> {
+        let reference = self.reference(relative);
+        self.store.read(&reference).map_err(store_error(&reference))
     }
 }
 
@@ -1312,6 +1439,72 @@ mod tests {
             project.copy_into(other.clone()),
             Err(ProjectError::DocumentExists(_))
         ));
+    }
+
+    #[test]
+    fn a_devices_own_files_are_indexed_by_its_id_copied_with_it_and_dropped_with_it() {
+        let store = MemoryStore::new();
+        let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
+        let mut track = Track::new(Id::new("trk_1").unwrap(), "Synth");
+        let device = crate::model::Device {
+            id: Id::new("dev_1").unwrap(),
+            role: "instrument".to_owned(),
+            name: "sampler".to_owned(),
+            plugin: "clap:org.example.sampler".to_owned(),
+            aliases: Vec::new(),
+            state: None,
+            params: Vec::new(),
+            overrides: Vec::new(),
+            enabled: true,
+            extensions: Default::default(),
+            unknown: Unknown::new(),
+        };
+        track.devices.push(device);
+        project.document_mut().tracks.push(track);
+        let files = project.device_files("dev_1").unwrap();
+        let entry = files.put("kits/Kick.wav", b"RIFF").unwrap();
+        assert_eq!(entry.path, "plugins/files/dev_1/kits/Kick.wav");
+        files.put("map.json", b"{}").unwrap();
+        assert!(matches!(
+            files.put("../out.txt", b"x"),
+            Err(ProjectError::Name(_))
+        ));
+        assert_eq!(files.list().unwrap(), ["kits/Kick.wav", "map.json"]);
+        assert_eq!(files.read("kits/Kick.wav").unwrap(), b"RIFF");
+        // Indexed at the save, by the device's id; the index entry verified like any other.
+        project.document_mut().files.push(entry);
+        project.save(&generator()).unwrap();
+        let paths: Vec<&str> = project
+            .document()
+            .files
+            .iter()
+            .map(|f| f.path.as_str())
+            .collect();
+        assert_eq!(
+            paths,
+            ["plugins/files/dev_1/kits/Kick.wav"],
+            "map.json was not indexed"
+        );
+        project.document_mut().files.push(FileEntry {
+            path: "plugins/files/dev_1/map.json".to_owned(),
+            sha256: sha256_hex(b"{}"),
+            bytes: 2,
+            unknown: Unknown::new(),
+        });
+        project.save(&generator()).unwrap();
+        assert!(project.check().is_valid());
+        assert_eq!(project.document().files.len(), 2);
+        // Duplicated: the files go with the copy.
+        assert_eq!(project.copy_device_files("dev_1", "dev_2").unwrap(), 2);
+        assert_eq!(
+            project.device_files("dev_2").unwrap().list().unwrap(),
+            ["kits/Kick.wav", "map.json"]
+        );
+        // The device gone, its entries go from the index; the files stay for the program.
+        project.document_mut().tracks[0].devices.clear();
+        project.save(&generator()).unwrap();
+        assert!(project.document().files.is_empty());
+        assert!(store.files().contains_key("plugins/files/dev_1/map.json"));
     }
 
     #[test]

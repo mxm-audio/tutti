@@ -37,6 +37,17 @@ designed from is `docs/research.md`.
   records outlive a session through the program (`Project::verified`, `trust`), never the
   document, which must not carry a file system's times. This closed the question Pi had
   pressed (rehash at every save).
+- **2026-10-21:** **A plugin's own files have a folder of their own in 1.0** (spec 7.8,
+  `plugins/files/<device id>/`, nested paths allowed, every file in the index under its device's
+  id). Reason: the owner, "To transfer a project from one machine to another we need to store
+  the plugin's identity, the plugin's parameter values in the instance, and any resources the
+  plugin needs for the settings. And we cannot assume the file types of the resources. Ie
+  Harmor can use an image for synthesis. Basically anything that is needed to make two systems
+  with the same plugins create the same result." Safety is required (an unsafe path is
+  invalid) and portability advised (a warning), apart, as Pi's review asked. No `files` key on
+  the device: the folder named by its id is the list, the index proves it present, a copy goes
+  by the id. How the files get there is the host's and the plugin's (CLAP's resource-directory
+  extension; a plugin without one keeps absolute paths, and the format can only say so).
 - **2026-10-21:** **A project as one file, `<Name>.tutti.zip`, is in 1.0** (spec 2.5): the
   owner, "the zip thing is ready to go", after the brainstorm found that a browser writer can
   only hand over one file and that a zip form left undefined would be invented differently by
@@ -176,3 +187,6 @@ designed from is `docs/research.md`.
   zip` and `unzip`, the `zip-slip` and `zip-bomb` fixtures).
 - 2026-10-21: stage 13: `Project` for JavaScript (`crates/tutti-wasm/src/project.rs`, over a
   store the host supplies), `nodeStore` and `memoryStore` in the package, `checkFolder` gone.
+- 2026-10-21: stage 14: a plugin's own files (spec 7.8; `Project::device_files`,
+  `copy_device_files`; the index path rule in `validate`; the `device-files-escape` fixture;
+  every-feature carries one).

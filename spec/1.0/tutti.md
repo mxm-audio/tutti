@@ -39,7 +39,7 @@ My-Project/
 ├─ README.md                   what this folder is, from README.template.md
 ├─ audio/                      every sound the project plays
 ├─ plugins/states/<sha256>.<kind>   plugin states, content-addressed
-├─ plugins/files/<device id>/       a plugin's own files (reserved; see 7.4)
+├─ plugins/files/<device id>/       a plugin's own files, any kind, in its own tree (7.8)
 ├─ renders/                    bounces the project carries so it plays without its plugins
 ├─ analysis/                   results an application keeps beside the audio (reserved name)
 └─ versions/ exports/ trash/ log/ lock    the writing program's own (see 2.3)
@@ -585,8 +585,8 @@ container, which carries the class id and the component and controller chunks), 
 to a plugin reached through `K`'s own ABI, or through an alias marked `state_compatible`; anything
 else is garbage, usually silently.
 
-`plugins/files/<device id>/` is reserved for a plugin's own files (what CLAP's resource directory
-collects); a later minor version defines it.
+A plugin's own files, beyond its state, are its device's folder, `plugins/files/<device id>/`
+(7.8).
 
 ### 7.5 Authority, in order
 
@@ -628,6 +628,32 @@ tracks.
 
 with defaults applied as in 4. A render whose fingerprint no longer matches the track is
 *stale*: a reader may still play it but says so.
+
+### 7.8 A plugin's own files
+
+What a plugin needs beyond its state to sound the same on another machine, a sample, an
+image, a wavetable, a whole library, of any kind, lives in its device's own folder,
+`plugins/files/<device id>/`, laid out as the plugin likes: **nested paths are allowed**, so a
+state that refers to its files by relative path keeps working. The rules:
+
+- **Safety, required.** A path inside the folder is relative, `/` between the parts, no empty
+  part, no `.` or `..`, no `\\`, no control character, and no link in place of a file or
+  folder; an index entry breaking this is an error (9), and a reader resolves nothing through
+  it.
+- **Portability, advised.** Every part SHOULD keep to the file-name characters (2.1); a part
+  outside them, a plugin's own Unicode name say, is written all the same, and `check` warns
+  that it may not travel to every file system.
+- **Every file is in the index** (3.4), under `plugins/files/<device id>/<path>`; the index is
+  what makes the project complete, and what a copy carries. The index names the device
+  whose files they are: when the device goes, its entries go from the index; the folder is
+  the writing program's to remove, as audio is (it never deletes on another's behalf).
+- **Duplicating a device copies its folder** under the new id; a transfer of a track (5.1)
+  carries its devices' folders.
+
+How a plugin's outside files get into the folder is the host's and the plugin's business, not
+the format's: CLAP's resource-directory extension lets a host give a plugin its folder and ask
+it to collect what it uses; a plugin without such an extension keeps absolute paths in its
+state, and its project travels only as far as those paths. A writer SHOULD say which it got.
 
 ## 8. Extensions, unknown data and versions
 
@@ -672,7 +698,8 @@ What a reader MUST check, and what is invalid:
 
 - File references match 2.1 and resolve inside the folder without following links; a link in
   place of a file or folder the reader reads is refused; `private` paths and the reserved folders
-  are never traversed.
+  are never traversed. A device's own file (7.8) is indexed under a safe relative path, or it
+  is invalid.
 - `bytes` in the index is verified against the file, never used to allocate; audio is never read
   whole on trust of the document.
 - Ids are unique across the document; every reference resolves to an object of the expected

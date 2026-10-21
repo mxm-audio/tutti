@@ -139,6 +139,33 @@ pub fn is_file_name(name: &str) -> bool {
         && ext.bytes().all(|b| b.is_ascii_alphanumeric())
 }
 
+/// A device's own file in the index, `plugins/files/<device id>/<path>` (spec 7.8): the device's
+/// id and the path inside its folder.
+pub fn device_file(path: &str) -> Option<(&str, &str)> {
+    let rest = path.strip_prefix("plugins/files/")?;
+    let (device, relative) = rest.split_once('/')?;
+    (crate::id::check(device).is_ok() && !relative.is_empty()).then_some((device, relative))
+}
+
+/// Checks the path of a device's own file inside its folder (spec 7.8): safety is required
+/// (a relative path of plain parts, as `zip::check_entry_name` says; the reason when not),
+/// portability advised (every part in the file-name characters: `Ok(true)`, else `Ok(false)`).
+pub fn check_device_file_path(relative: &str) -> Result<bool, String> {
+    crate::zip::check_entry_name(relative)?;
+    if relative.ends_with('/') {
+        return Err("a folder, not a file".to_owned());
+    }
+    let portable = relative.split('/').all(|part| {
+        let (stem, extension) = part.rsplit_once('.').unwrap_or((part, ""));
+        !stem.is_empty()
+            && stem
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            && extension.bytes().all(|b| b.is_ascii_alphanumeric())
+    });
+    Ok(portable)
+}
+
 /// Whether `reference` is `<folder>/<file name>` for one of the folders a reader reads (spec 2.2).
 pub fn is_reference(reference: &str, folder: &str) -> bool {
     reference
@@ -249,17 +276,42 @@ pub fn validate(doc: &Document) -> Report {
             );
         }
     }
+    let device_ids: HashSet<&str> = doc
+        .master
+        .devices
+        .iter()
+        .chain(doc.all_tracks().into_iter().flat_map(|t| t.devices.iter()))
+        .map(|d| d.id.as_str())
+        .collect();
     let mut paths = HashSet::new();
     for (i, f) in doc.files.iter().enumerate() {
         let p = format!("/files/{i}");
-        if !["audio", "plugins/states", "renders"]
+        let plain = ["audio", "plugins/states", "renders"]
             .iter()
-            .any(|folder| is_reference(&f.path, folder))
-        {
-            r.error(
-                &format!("{p}/path"),
-                "not a reference into audio/, plugins/states/ or renders/",
-            );
+            .any(|folder| is_reference(&f.path, folder));
+        if !plain {
+            match device_file(&f.path) {
+                Some((device, relative)) => match check_device_file_path(relative) {
+                    Err(reason) => r.error(&format!("{p}/path"), &reason),
+                    Ok(portable) => {
+                        if !portable {
+                            r.warn(
+                                &format!("{p}/path"),
+                                "a part outside the file-name characters: may not travel to \
+                                 every file system",
+                            );
+                        }
+                        if !device_ids.contains(device) {
+                            r.warn(&format!("{p}/path"), "no device with this id: stale");
+                        }
+                    }
+                },
+                None => r.error(
+                    &format!("{p}/path"),
+                    "not a reference into audio/, plugins/states/, renders/ or a device's \
+                     plugins/files/<id>/",
+                ),
+            }
         }
         if !is_sha256(&f.sha256) {
             r.error(

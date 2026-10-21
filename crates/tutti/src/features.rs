@@ -43,6 +43,13 @@ pub fn features(doc: &Document) -> Vec<Feature> {
     if !doc.master.devices.is_empty() {
         add(feature("plugins", 1));
     }
+    if doc
+        .files
+        .iter()
+        .any(|f| crate::validate::device_file(&f.path).is_some())
+    {
+        add(feature("plugin files", 1));
+    }
     for t in doc.all_tracks() {
         if !t.children.is_empty() {
             add(feature("folders", 0));

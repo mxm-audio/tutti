@@ -138,6 +138,8 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
 - Devices in signal order, each with a role: instrument, note effect, audio effect, analyzer.
 - Plugin ids with a scheme, `clap:`, `vst3:`, `au:`, `lv2:`, `vst2:`, `builtin:`, and aliases
   that name the same plugin in other formats, saying whether the state carries over.
+- A plugin's own files beyond its state, of any kind and nested as it likes, in its device's
+  own folder, every one in the index, copied with the device and carried by a transfer.
 - The state as a sidecar file by hash with its kind declared; a readable parameter snapshot
   (value, unit, range, text) a stranger or another format's build can use; overrides; the order
   of authority written down.

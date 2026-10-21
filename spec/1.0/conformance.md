@@ -57,7 +57,8 @@ Level 0, and: plugins by id for at least one scheme (7.2), states loaded by kind
 authority order kept (7.5), device order honoured (7.1), the missing-plugin behaviour (7.6),
 sends and returns (6.2), automation lanes with every target form (6.8), multi-point maps (warps)
 followed and audio following tempo ramps (5.5), per-note expressions (6.7), parameter events
-through promoted names (6.8), the meter and key maps (5.3, 5.4), markers (6.9).
+through promoted names (6.8), the meter and key maps (5.3, 5.4), markers (6.9), a plugin's own
+files given to it from its folder (7.8).
 
 ### Level 2: round-trips
 
@@ -103,7 +104,8 @@ canary file one level above the project must stay untouched: `path-escape`, `sym
 `size-lie`, `dup-id`, `send-cycle`, `nan-token`, `huge-tick`, `map-unordered`, `two-documents`,
 `higher-major`, and for a project as one file (`tutti.md` 2.5) `zip-slip` (an entry whose name
 leaves the folder) and `zip-bomb` (an entry that declares more than a project file may be),
-each refused before anything is unpacked. (A cycle in the track tree cannot be written: the tree is nested, so a track is
+each refused before anything is unpacked; `device-files-escape` (a device's own file indexed
+under a path that leaves its folder). (A cycle in the track tree cannot be written: the tree is nested, so a track is
 in one place; a track listed twice is `dup-id`.)
 
 ## 5. What a program may say

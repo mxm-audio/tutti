@@ -44,7 +44,7 @@ differs from the generator's output. Edit the schema, not this file. The normati
 
 | Key | Type | Required | Default | Meaning |
 |---|---|---|---|---|
-| `path` | `reference` | yes |  |  |
+| `path` | `index_path` | yes |  |  |
 | `sha256` | `sha256` | yes |  |  |
 | `bytes` | integer, ≥ 0 | yes |  |  |
 

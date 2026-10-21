@@ -31,6 +31,10 @@ Owns `Cargo.toml` and `src/`.
   document renamed into place, and a failure after that rename reported as `Unconfirmed`, the
   save being on disk and the hash the new one. `save_verified` rehashes everything, for an
   export. The owner decides whether every save rehashes (the plan, stage 12; `NOTES.md`).
+- **A device's own files are `Project::device_files`'s** (spec 7.8): put, list and read by
+  their path inside `plugins/files/<device id>/`, safety required and portability advised
+  (`validate::check_device_file_path`), indexed by the device's id at the save and dropped
+  from the index with the device; `copy_device_files` for a duplicate.
 - **A recording streams through `Project::new_audio`'s handle**, a `Write` that hashes as the
   bytes pass into the store's own writer; it borrows nothing from the project, and is `Send`
   exactly when the store is. The crate never deletes a file; a program's cleanup consults

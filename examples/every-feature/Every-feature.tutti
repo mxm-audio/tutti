@@ -15,6 +15,7 @@
   "files": [
     {"path": "audio/Click-loop_95.wav", "sha256": "577b3812879b547705ccf885d90d3213f8104a1ad772dfdb09ddfef8e6086bfb", "bytes": 445686},
     {"path": "audio/Pad-220.wav", "sha256": "1bb532bc8670e2f49644c119afa82f6197270d40c6245aa8958622aa09849593", "bytes": 132344},
+    {"path": "plugins/files/dev_01K742SG2TB9D000000000002T/presets/Init.txt", "sha256": "4645da8fbdfaaa0c562db3ca4007c1e683a56a628ac6a8dd93f571f7d453667b", "bytes": 11},
     {"path": "plugins/states/2e783022508ce1b4eb42266e2e4ca6455892d14425db64b4c4129a04475bd03e.clap", "sha256": "2e783022508ce1b4eb42266e2e4ca6455892d14425db64b4c4129a04475bd03e", "bytes": 41},
     {"path": "renders/Loop_000.wav", "sha256": "3a9800d7d549eb3211fd922d8aab53d9e8e6873618e3e32f6471b6db4c61be24", "bytes": 176444}
   ],
