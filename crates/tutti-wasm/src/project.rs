@@ -511,3 +511,21 @@ impl Incoming {
         Ok(stored_json(&stored))
     }
 }
+
+/// Packs the project in a store into one file, `<Name>.tutti.zip` (spec 2.5): its bytes, the
+/// document first and stored. Throws with the reason when the store holds no valid project.
+#[wasm_bindgen]
+pub fn pack(store: JsStore) -> Result<Vec<u8>, JsError> {
+    let (out, _) = tutti_zip::pack(&HostStore::new(store), io::Cursor::new(Vec::new()))
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(out.into_inner())
+}
+
+/// Unpacks one file's bytes into a store that holds no project, refusing what a reader must
+/// refuse (spec 2.5) with nothing written left behind; gives the number of files written.
+#[wasm_bindgen]
+pub fn unpack(bytes: &[u8], store: JsStore) -> Result<u32, JsError> {
+    tutti_zip::unpack(io::Cursor::new(bytes), &HostStore::new(store))
+        .map(|written| written as u32)
+        .map_err(|e| JsError::new(&e.to_string()))
+}

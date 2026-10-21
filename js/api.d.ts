@@ -174,6 +174,12 @@ export function readme(title: string, generator: Generator, documentName: string
 export function newDocument(generator: Generator): string;
 /** A store in memory: a project built without a file system, written out afterwards. */
 export function memoryStore(): MemoryStore;
+/** An error a store throws, with the `code` the core reads: `ENOENT`, `EEXIST` or `LINK`. */
+export function storeError(code: string, message: string): Error & { code: string };
+/** Packs the project in a store into one file, `<Name>.tutti.zip` (spec 2.5): its bytes, the document first and stored. */
+export function packZip(store: Store): Uint8Array;
+/** Unpacks one file's bytes into a store that holds no project, refusing what a reader must refuse (spec 2.5): the number of files written. */
+export function unpackZip(bytes: Uint8Array, store: Store): number;
 /** Node only: a store over a folder on disk, through synchronous file calls. */
 export function nodeStore(root: string): Store;
 /** Node only: the project in a folder on disk. */

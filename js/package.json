@@ -6,17 +6,40 @@
   "private": true,
   "main": "index.js",
   "types": "index.d.ts",
-  "files": ["index.js", "index.d.ts", "schema.d.ts", "api.d.ts", "pkg/"],
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./browser": {
+      "types": "./browser.d.mts",
+      "default": "./browser.mjs"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "core.mjs",
+    "browser.mjs",
+    "browser.d.mts",
+    "schema.d.ts",
+    "api.d.ts",
+    "pkg/",
+    "pkg-web/"
+  ],
   "scripts": {
     "build": "wasm-pack build ../crates/tutti-wasm --target nodejs --out-dir ../../js/pkg --out-name tutti --no-pack",
+    "build:web": "wasm-pack build ../crates/tutti-wasm --target web --out-dir ../../js/pkg-web --out-name tutti --no-pack",
     "types": "json2ts ../schema/1.0/tutti.schema.json -o schema.d.ts --bannerComment \"/* Generated from schema/1.0/tutti.schema.json by npm run types; do not edit. */\"",
-    "test": "node --test"
+    "test": "node --test",
+    "test:browser": "node test-browser/run.mjs"
   },
   "devDependencies": {
-    "json-schema-to-typescript": "16.0.0"
+    "json-schema-to-typescript": "16.0.0",
+    "playwright": "1.64.1"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "repository": {
     "type": "git",

@@ -1,3 +1,4 @@
 /target
 /js/node_modules/
 /js/pkg/
+/js/pkg-web/

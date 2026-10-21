@@ -63,6 +63,16 @@ pub trait Folder {
         let _ = reference;
         Ok(None)
     }
+
+    /// Copies the file into `out`, giving its length: how a project is packed into one file
+    /// (`tutti-zip`). An implementation that can stream overrides this so a large file is never
+    /// held whole.
+    fn copy_to(&self, reference: &str, out: &mut dyn io::Write) -> Result<u64, FolderError> {
+        let bytes = self.read(reference)?;
+        out.write_all(&bytes)
+            .map_err(|e| FolderError::Other(e.to_string()))?;
+        Ok(bytes.len() as u64)
+    }
 }
 
 /// What an entry of a folder is.

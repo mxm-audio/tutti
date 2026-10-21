@@ -19,8 +19,10 @@ Owns `Cargo.toml` and `src/`.
 
 - **No file IO, no platform code.** Documents are bytes in and bytes out; a folder is a trait the
   host implements: `folder::Folder` to read, `folder::Store` to write, primitive operations
-  each one a point where a crash can happen, which `Project` composes. The crate builds for
-  `wasm32-unknown-unknown` unchanged, and CI proves it.
+  each one a point where a crash can happen, which `Project` composes; `Folder::copy_to`
+  copies a file into a writer (whole by default, streamed where the store overrides it), which
+  `tutti-zip` packs through. The crate builds for `wasm32-unknown-unknown` unchanged, and CI
+  proves it.
 - **What `Project::save` guarantees is stated in `project.rs`'s module doc, exactly**, and
   nowhere wider: every newly referenced file present, else a refusal before the document is
   touched; the index built from the files (a file's length and modification time read at every

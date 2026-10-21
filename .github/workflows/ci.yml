@@ -27,6 +27,8 @@ jobs:
       - run: cargo test --workspace --locked
       # The core has no file IO and no platform code: it must keep building for the web.
       - run: cargo build -p tutti --locked --target wasm32-unknown-unknown
+      # The one-file form runs in a browser too (the JavaScript package's packZip and unpackZip).
+      - run: cargo build -p tutti-zip --locked --target wasm32-unknown-unknown
       # The npm package: the wasm build, the generated document types current, the Node tests.
       - uses: actions/setup-node@v4
         with:
@@ -39,4 +41,14 @@ jobs:
       - run: npm run types && git diff --exit-code -- schema.d.ts
         working-directory: js
       - run: npm test
+        working-directory: js
+      # The browser build and its test, in WebKit and Chromium: once, on Linux.
+      - run: npm run build:web
+        if: runner.os == 'Linux'
+        working-directory: js
+      - run: npx playwright install --with-deps webkit chromium
+        if: runner.os == 'Linux'
+        working-directory: js
+      - run: npm run test:browser
+        if: runner.os == 'Linux'
         working-directory: js

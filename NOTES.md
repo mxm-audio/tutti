@@ -223,3 +223,16 @@ designed from is `docs/research.md`.
   string, a nanosecond count overflowing a number; the DOX says what the crate removes.
   Declined: streaming the copy's reads (the store trait reads whole today; the copy now
   remembers what it wrote, so the save hashes nothing again).
+- 2026-10-21: the package in a browser, for a web app's trial of the format (newDAWn's web
+  tracker plan, its W1). The one-file form moved from `tutti-fs` into `tutti-zip`, over any
+  store, so the disk and bytes in memory share one implementation (the zip crate builds for
+  wasm32); `Folder::copy_to` keeps the disk's pack streamed. `pack` and `unpack` reach
+  JavaScript as `packZip` and `unpackZip`. The wrapper is `core.mjs`, made over either build:
+  `index.js` loads it for Node (`require` of an ES module, so Node 20.19 is the floor) and
+  `browser.mjs` for a browser, with `browserFolder`: a project read whole into a memory store,
+  and a save written back other files first, the document last under a temporary name moved
+  into place (`move(folder, name)`, the form WebKit takes). Measured the same day: on an iPhone
+  (iOS 27), `createWritable` and that `move` work; in Playwright's WebKit for Windows,
+  `createWritable` keeps nothing and a fresh context gives no storage at all, so the browser
+  test runs in a profile of its own and its storage check skips there, saying so, and runs in
+  Chromium.

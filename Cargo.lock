@@ -775,7 +775,7 @@ version = "0.1.0"
 dependencies = [
  "sha2",
  "tutti",
- "zip",
+ "tutti-zip",
 ]
 
 [[package]]
@@ -796,7 +796,16 @@ dependencies = [
  "serde",
  "serde_json",
  "tutti",
+ "tutti-zip",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "tutti-zip"
+version = "0.1.0"
+dependencies = [
+ "tutti",
+ "zip",
 ]
 
 [[package]]

@@ -61,7 +61,8 @@ the index is below.
   disk store and `open`/`create`, nowhere else: the command, the example generator and the
   tests go through it, and the save procedure itself is the core's `Project`, which `tutti-fs`
   only lends a disk to (the owner, 2026-10-21: an implementer never writes file-system code
-  against the spec).
+  against the spec). **The one-file form is `crates/tutti-zip`'s**, over any store, so a file on
+  disk and bytes in a browser are packed and refused by the same code.
 - **MSRV is per crate, compiled against**: the core at 1.87 (`cargo +1.87.0 test -p tutti` when its
   language use changes); a crate that needs more says so in its `Cargo.toml` and `AGENTS.md`.
 - **Windows, macOS and Linux, and the web.** Work and verify on Windows; the other platforms are
@@ -98,7 +99,8 @@ build.
 | [`docs/AGENTS.md`](docs/AGENTS.md) | The research, the implementers' guide, the agent guide (`agent-guide.md`), the generated field reference |
 | [`crates/tutti/AGENTS.md`](crates/tutti/AGENTS.md) | The reference implementation: model, read, write, validate, the time arithmetic, `Project` (the save procedure over a store trait); no file IO |
 | [`crates/tutti-fs/AGENTS.md`](crates/tutti-fs/AGENTS.md) | tutti on disk: the store over `std::fs`, `open` and `create`; the one place with file IO |
+| [`crates/tutti-zip/AGENTS.md`](crates/tutti-zip/AGENTS.md) | A project as one file, `<Name>.tutti.zip`: packed from and unpacked into any store, on disk or in memory |
 | [`crates/tutti-schema/AGENTS.md`](crates/tutti-schema/AGENTS.md) | The tests that hold spec, schema, examples, docs and code together; the field-reference generator |
 | [`crates/tutti-cli/AGENTS.md`](crates/tutti-cli/AGENTS.md) | The `tutti` command: check, inspect, deps, archive, fmt, over `tutti-fs` |
 | [`crates/tutti-wasm/AGENTS.md`](crates/tutti-wasm/AGENTS.md) | The core for JavaScript: wasm-bindgen functions, strings in and out, no file IO |
-| [`js/AGENTS.md`](js/AGENTS.md) | `@mxm-audio/tutti`, the npm package: the wasm build, the wrapper, the generated document types, the Node tests over the examples |
+| [`js/AGENTS.md`](js/AGENTS.md) | `@mxm-audio/tutti`, the npm package: the wasm builds for Node and the web, the wrapper, a project in the browser's storage, the generated document types, the Node tests and the browser test |

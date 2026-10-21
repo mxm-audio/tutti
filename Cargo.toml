@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/tutti",
     "crates/tutti-fs",
+    "crates/tutti-zip",
     "crates/tutti-schema",
     "crates/tutti-cli",
     "crates/tutti-wasm",
@@ -30,4 +31,5 @@ js-sys = "=0.3.106"
 
 tutti = { path = "crates/tutti" }
 tutti-fs = { path = "crates/tutti-fs" }
+tutti-zip = { path = "crates/tutti-zip" }
 tutti-cli = { path = "crates/tutti-cli" }

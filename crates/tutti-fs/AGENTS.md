@@ -4,10 +4,11 @@
 
 tutti on disk: `DirStore`, the core's `Store` over `std::fs`, the one-call entry points an
 implementer uses, `open(folder)` and `create(folder, title, generator)`, each giving a `Project`
-that does the rest, and `zip`, a project as one file (spec 2.5): `pack` and `unpack`, refusing
-what a reader must refuse (a name that leaves the folder, a link, a length not as declared,
-a length beyond the limit), nothing written outside the folder being made (the core's `project` module: the save procedure, the files a program puts
-in, the checks). The one place in tutti's crates with file IO: the core has none and builds for
+that does the rest, and `zip`, a project as one file on disk (spec 2.5): `pack` and `unpack`
+over `tutti-zip`, which decides what is packed and refused; here, the file written under a
+temporary name and renamed into place, nothing overwritten, and a folder made for an unpack
+removed again on a refusal. The save procedure, the files a program puts in and the checks are
+the core's `project` module. The one place in tutti's crates with file IO: the core has none and builds for
 the web, and a program on a disk goes through here rather than writing the spec's procedure
 itself.
 
@@ -22,7 +23,8 @@ Owns `Cargo.toml`, `src/` and `tests/`.
   core does without.
 - **The procedure is the core's; this crate is the disk.** Nothing here decides what a save
   does: `DirStore` implements the primitive operations (`list`, `exists`, `make_folder`,
-  `write_new`, `open_new` and `close`, `rename_over`, `sync_folder`, `remove`) and the reads,
+  `write_new`, `open_new` and `close`, `rename_over`, `sync_folder`, `remove`) and the reads
+  (a hash and `copy_to` streamed),
   each one durable by itself (a new file is flushed and synced before it counts; a rename is
   the commit point, and the folder's flush after it is its own step, so a failure there is
   reported as after the commit), and `Project` composes them. A rule about the format goes in
@@ -32,8 +34,8 @@ Owns `Cargo.toml`, `src/` and `tests/`.
   link, and a link in a file's place is `FolderError::Link` (spec 9).
 - **Streams, never whole**: a hash reads a file in chunks; a recording writes through a
   buffered file the core's handle owns, so a recorder runs on its own thread.
-- Dependencies: `tutti` and `sha2`, pinned by the workspace, and `zip` (deflate only), pinned
-  here; its floor is this crate's (`rust-version` 1.88), above the core's.
+- Dependencies: `tutti`, `tutti-zip` and `sha2`, pinned by the workspace; the floor is
+  `tutti-zip`'s (`rust-version` 1.88), above the core's.
 
 # Work Guidance
 

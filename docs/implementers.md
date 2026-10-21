@@ -16,7 +16,10 @@ This page says how to get there with the least work and the fewest mistakes.
 - **JavaScript.** `@mxm-audio/tutti` (`js/`) is the same core compiled to WebAssembly, with the
   same `Project` over a store you supply: `nodeStore` for Node, `memoryStore` for a host
   without a file system, or your own object with the same synchronous methods. In a browser,
-  prepare the store first; WebAssembly can't wait on a promise.
+  `@mxm-audio/tutti/browser`'s `browserFolder` reads a project from the browser's own storage
+  into a memory store and writes a save back in the format's order; WebAssembly can't wait on a
+  promise, so a store of your own is prepared first the same way. `packZip` and `unpackZip`
+  make and read the one-file form in memory.
 - **Any other language.** The document is JSON; the schema
   ([`schema/1.0/tutti.schema.json`](../schema/1.0/tutti.schema.json)) is what to generate and
   validate against; the spec's section 10 is the procedure, and section 9 what to check. Run

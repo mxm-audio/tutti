@@ -113,6 +113,13 @@ impl Folder for DirStore {
         }
         Ok((format!("{:x}", hasher.finalize()), length))
     }
+
+    /// Streamed, as the hash is.
+    fn copy_to(&self, reference: &str, out: &mut dyn Write) -> Result<u64, FolderError> {
+        let file = File::open(self.path_of(reference)?).map_err(io_error)?;
+        let mut reader = BufReader::with_capacity(CHUNK, file);
+        io::copy(&mut reader, out).map_err(io_error)
+    }
 }
 
 impl Store for DirStore {

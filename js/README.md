@@ -10,10 +10,12 @@ folder's README. The format itself is in the repository's `spec/`; the document 
 Pre-alpha: not published to npm; built from the repository.
 
 ```sh
-npm install            # json-schema-to-typescript
-npm run build          # wasm-pack build of ../crates/tutti-wasm into pkg/ (needs wasm-pack and the wasm32 target)
+npm install            # json-schema-to-typescript, playwright
+npm run build          # wasm-pack build of ../crates/tutti-wasm into pkg/, for Node (needs wasm-pack and the wasm32 target)
+npm run build:web      # the same into pkg-web/, for a browser
 npm run types          # schema.d.ts from ../schema/1.0/tutti.schema.json
 npm test               # node --test over the repository's examples, and projects in memory and on disk
+npm run test:browser   # the browser test, in WebKit and Chromium (npx playwright install webkit chromium)
 ```
 
 ```js
@@ -51,7 +53,27 @@ is the one over Node's files and `memoryStore` the one in memory. A browser host
 own first, since WebAssembly can't block on a promise: directory discovery and handle
 acquisition are asynchronous in every browser, and synchronous access handles exist only in a
 worker; so either a handle-backed store in a worker, or a memory store written out afterwards.
-The package proves Node; it has no browser test.
+In a browser, `browserFolder` does that for you (below).
+
+**In a browser.** Import `@mxm-audio/tutti/browser` and `await load()`: the same functions, but
+Node's own, plus `browserFolder`, a project in the browser's own storage:
+
+```js
+import { load } from '@mxm-audio/tutti/browser';
+
+const tutti = await load();                                  // starts the WebAssembly, once
+const root = await navigator.storage.getDirectory();
+const folder = await tutti.browserFolder(await root.getDirectoryHandle('Sketch', { create: true }));
+const project = tutti.Project.create(folder.store, 'Sketch', { name: 'my-app' });
+await folder.flush();                                        // other files first, the document last, in one step
+
+const bytes = tutti.packZip(folder.store);                   // Sketch.tutti.zip, to share
+tutti.unpackZip(bytes, tutti.memoryStore());                 // and back, refused if it's hostile
+```
+
+The folder is read whole into a memory store, since WebAssembly can't wait on the browser's
+promises; `flush` writes back what a save changed, the old document staying until the new one is
+in place.
 
 **What `save` verifies.** A file is hashed again only when its length or modification time
 differs from the record of its last verification; `verified()` gives the records to keep in a

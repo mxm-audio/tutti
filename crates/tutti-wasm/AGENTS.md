@@ -20,10 +20,11 @@ Owns `Cargo.toml` and `src/`. The package that wraps it, its types and its tests
   the core's `Folder` and `Store` over the imported `JsStore`, mapping a thrown error's `code`
   (`ENOENT`, `EEXIST`, `LINK`) to the core's; a recording buffers in Rust and is written at
   `finish`, the store writing whole files. `check_files_with` takes what the host found
-  (reference to `{sha256, bytes}`) and runs the core's files check over it.
-- **wasm-bindgen and js-sys are this crate's only dependencies beyond the core** (and serde,
-  the core's), pinned in the workspace; the crate's floor is wasm-bindgen's (`rust-version` in
-  `Cargo.toml`), never the core's.
+  (reference to `{sha256, bytes}`) and runs the core's files check over it. `pack` and
+  `unpack` are `tutti-zip`'s over the host's store, the one file as bytes.
+- **wasm-bindgen and js-sys are this crate's only dependencies beyond tutti's own crates** (the
+  core and `tutti-zip`, and serde, the core's), pinned in the workspace; the crate's floor is
+  wasm-bindgen's (`rust-version` in `Cargo.toml`), never the core's.
 - A function that can refuse returns `Result<_, JsError>` with the core's own message, so a
   JavaScript caller sees the same reason the command prints.
 - Not published to crates.io (`publish = false`): the npm package is the product.

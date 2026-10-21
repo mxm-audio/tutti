@@ -1,0 +1,14 @@
+[package]
+name = "tutti-zip"
+description = "tutti's one-file form, <Name>.tutti.zip: a project packed from any store and unpacked into any store, on disk or in memory"
+version.workspace = true
+edition.workspace = true
+# The zip crate's floor, above the core's (1.87).
+rust-version = "1.88"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+tutti.workspace = true
+zip = { version = "=9.0.5", default-features = false, features = ["deflate"] }
