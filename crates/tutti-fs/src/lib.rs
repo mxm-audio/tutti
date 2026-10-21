@@ -44,6 +44,7 @@ impl DirStore {
                 || part == "."
                 || part == ".."
                 || part.contains('\\')
+                || part.contains(':')
                 || part.contains('\0')
             {
                 return Err(FolderError::Other(format!("{reference}: not a reference")));

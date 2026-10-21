@@ -39,7 +39,9 @@ pub fn check_entry_name(name: &str) -> Result<(), String> {
     if name.chars().any(char::is_control) {
         return Err("a control character in the name".to_owned());
     }
-    if name.as_bytes().get(1) == Some(&b':') {
+    if name.contains(':') {
+        // `C:evil` is drive-relative on Windows, in any part, and replaces the path it is
+        // pushed onto.
         return Err("a drive letter".to_owned());
     }
     let folder_entry = name.ends_with('/');
@@ -84,6 +86,7 @@ mod tests {
             ("./x.wav", "leaves"),
             ("audio//x.wav", "empty part"),
             ("C:/x.wav", "drive"),
+            ("audio/C:evil.wav", "drive"),
             ("audio/x\u{0}.wav", "control"),
         ] {
             let reason = check_entry_name(bad).unwrap_err();

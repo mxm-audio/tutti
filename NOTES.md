@@ -193,3 +193,12 @@ designed from is `docs/research.md`.
 - 2026-10-21: stage 16, the closeout: `docs/implementers.md`; the README says the spec is the
   authority, `check` the gate and the crate the one implementation we ship; newDAWn states in
   its `AGENTS.md` that it claims no conformance level yet. CI by hand is the owner's.
+- 2026-10-21: a code review of the day's commits (ten findings, nine taken): a part with `:`
+  is drive-relative on Windows and is refused in every path (a zip-slip the fixtures missed);
+  plain values must be finite; a torn state file is written again; every file in a live
+  device's folder is indexed, however it got there; a folder with two documents refuses an
+  unpack or a copy; an unpack leaves the reserved paths out; the JavaScript `readOnly` is
+  computed for an adopted or copied project; `modified` crosses to JavaScript as a decimal
+  string, a nanosecond count overflowing a number; the DOX says what the crate removes.
+  Declined: streaming the copy's reads (the store trait reads whole today; the copy now
+  remembers what it wrote, so the save hashes nothing again).

@@ -529,20 +529,34 @@ impl<S: Store> Project<S> {
     /// paths are its own to copy.
     pub fn copy_into<T: Store>(&self, store: T) -> Result<Project<T>, ProjectError> {
         store.make_folder("").map_err(store_error(""))?;
-        if let Ok(name) = document_in(&store) {
-            return Err(ProjectError::DocumentExists(name));
+        match document_in(&store) {
+            Ok(name) => return Err(ProjectError::DocumentExists(name)),
+            Err(ProjectError::SeveralDocuments(names)) => {
+                return Err(ProjectError::DocumentExists(names.join(", ")));
+            }
+            Err(ProjectError::NoDocument) => {}
+            Err(e) => return Err(e),
         }
         for folder in [AUDIO, STATES] {
             store.make_folder(folder).map_err(store_error(folder))?;
         }
-        for entry in &self.document.files {
-            let bytes = self.read(&entry.path)?;
-            store
-                .write_new(&entry.path, &bytes)
-                .map_err(store_error(&entry.path))?;
-        }
         let mut copy = Project::adopt(store, &self.document_name, self.document.clone())?;
         copy.document_hash = String::new();
+        // Each file whole, as the store trait reads today; its facts remembered, so the copy's
+        // save trusts what it just wrote rather than hashing it again.
+        for entry in &self.document.files {
+            let bytes = self.read(&entry.path)?;
+            copy.store
+                .write_new(&entry.path, &bytes)
+                .map_err(store_error(&entry.path))?;
+            remember(
+                &copy.store,
+                &copy.shared,
+                &entry.path,
+                &entry.sha256,
+                entry.bytes,
+            );
+        }
         let generator = self.document.generator.clone();
         copy.save(&generator)?;
         Ok(copy)
@@ -695,7 +709,30 @@ impl<S: Store> Project<S> {
             .make_folder(STATES)
             .map_err(store_error(STATES))?;
         match self.store.write_new(&reference, bytes) {
-            Ok(()) | Err(FolderError::Exists) => {}
+            Ok(()) => {}
+            Err(FolderError::Exists) => {
+                // Named by its content: one there already is the same bytes, unless a crash
+                // left it torn, and then it is written again.
+                let same = self
+                    .store
+                    .size(&reference)
+                    .map_err(store_error(&reference))?
+                    == bytes.len() as u64
+                    && self
+                        .store
+                        .sha256(&reference)
+                        .map_err(store_error(&reference))?
+                        .0
+                        == state.sha256;
+                if !same {
+                    self.store
+                        .remove(&reference)
+                        .map_err(store_error(&reference))?;
+                    self.store
+                        .write_new(&reference, bytes)
+                        .map_err(store_error(&reference))?;
+                }
+            }
             Err(e) => return Err(store_error(&reference)(e)),
         }
         remember(
@@ -812,12 +849,41 @@ impl<S: Store> Project<S> {
             });
             done.insert(reference);
         }
+        // A live device's own files, every one in its folder, however it got there (a plugin
+        // may have written them itself): an index entry each, kept as it was when it was.
+        let mut device_entries: Vec<FileEntry> = Vec::new();
+        for device in &devices {
+            let files = self.device_files(device)?;
+            for relative in files.list()? {
+                let reference = files.reference(&relative);
+                if done.contains(&reference) {
+                    continue;
+                }
+                let was = existing.get(reference.as_str()).copied();
+                let (sha256, bytes) = match was {
+                    Some(entry) => {
+                        self.verify(&reference, &entry.sha256, Some(entry.bytes), rehash)?
+                    }
+                    None => self.fresh(&reference)?,
+                };
+                device_entries.push(FileEntry {
+                    path: reference.clone(),
+                    sha256,
+                    bytes,
+                    unknown: was.map(|f| f.unknown.clone()).unwrap_or_default(),
+                });
+                done.insert(reference);
+            }
+        }
+        entries.extend(device_entries);
         for entry in &self.document.files {
             if done.contains(&entry.path) {
                 continue;
             }
+            // A device's file is indexed above while its device lives; one of a device that
+            // is gone goes from the index.
             let claimed = match device_file(&entry.path) {
-                Some((device, _)) => devices.contains(device),
+                Some(_) => false,
                 None => mentioned(&mentions, entry),
             };
             if !claimed {
@@ -833,6 +899,23 @@ impl<S: Store> Project<S> {
             });
         }
         Ok(entries)
+    }
+
+    /// A file the index did not have yet: its hash and length, as the store has them, the hash
+    /// trusted from a record of this session when the length and time are still the record's.
+    fn fresh(&self, reference: &str) -> Result<(String, u64), ProjectError> {
+        let size = self.store.size(reference).map_err(store_error(reference))?;
+        let sha256 = match trusted(&self.store, &self.shared, reference, size) {
+            Some(hash) => hash,
+            None => {
+                self.store
+                    .sha256(reference)
+                    .map_err(store_error(reference))?
+                    .0
+            }
+        };
+        remember(&self.store, &self.shared, reference, &sha256, size);
+        Ok((sha256, size))
     }
 
     /// A referenced file, present with the expected hash (and length, when the index had one):
@@ -1442,6 +1525,41 @@ mod tests {
     }
 
     #[test]
+    fn a_torn_state_file_is_written_again_and_a_plain_value_must_be_finite() {
+        let store = MemoryStore::new();
+        let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
+        let state = project.put_state("clap", b"whole state").unwrap();
+        store.put(&state.path(), b"whole".to_vec());
+        let again = project.put_state("clap", b"whole state").unwrap();
+        assert_eq!(again, state);
+        assert_eq!(store.read(&state.path()).unwrap(), b"whole state");
+        let mut track = Track::new(Id::new("trk_1").unwrap(), "Lead");
+        let mut pattern = Pattern {
+            id: Id::new("pat_1").unwrap(),
+            name: String::new(),
+            length: 960,
+            key: None,
+            events: Vec::new(),
+            extensions: Default::default(),
+            unknown: Unknown::new(),
+        };
+        pattern.events.push(Event::Param(crate::model::ParamEvent {
+            id: Id::new("evt_1").unwrap(),
+            at: 0,
+            param: "cutoff".to_owned(),
+            value: f64::NAN,
+            extensions: Default::default(),
+            unknown: Unknown::new(),
+        }));
+        track.patterns.push(pattern);
+        project.document_mut().tracks.push(track);
+        assert!(matches!(
+            project.save(&generator()),
+            Err(ProjectError::Invalid(_))
+        ));
+    }
+
+    #[test]
     fn a_devices_own_files_are_indexed_by_its_id_copied_with_it_and_dropped_with_it() {
         let store = MemoryStore::new();
         let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
@@ -1471,7 +1589,7 @@ mod tests {
         ));
         assert_eq!(files.list().unwrap(), ["kits/Kick.wav", "map.json"]);
         assert_eq!(files.read("kits/Kick.wav").unwrap(), b"RIFF");
-        // Indexed at the save, by the device's id; the index entry verified like any other.
+        // Indexed at the save, by the device's id, pushed or not: every file in the folder.
         project.document_mut().files.push(entry);
         project.save(&generator()).unwrap();
         let paths: Vec<&str> = project
@@ -1482,23 +1600,23 @@ mod tests {
             .collect();
         assert_eq!(
             paths,
-            ["plugins/files/dev_1/kits/Kick.wav"],
-            "map.json was not indexed"
+            [
+                "plugins/files/dev_1/kits/Kick.wav",
+                "plugins/files/dev_1/map.json"
+            ]
         );
-        project.document_mut().files.push(FileEntry {
-            path: "plugins/files/dev_1/map.json".to_owned(),
-            sha256: sha256_hex(b"{}"),
-            bytes: 2,
-            unknown: Unknown::new(),
-        });
-        project.save(&generator()).unwrap();
         assert!(project.check().is_valid());
-        assert_eq!(project.document().files.len(), 2);
+        // A file the plugin wrote itself is found at the next save.
+        store
+            .write_new("plugins/files/dev_1/own.bin", b"xyz")
+            .unwrap();
+        project.save(&generator()).unwrap();
+        assert_eq!(project.document().files.len(), 3);
         // Duplicated: the files go with the copy.
-        assert_eq!(project.copy_device_files("dev_1", "dev_2").unwrap(), 2);
+        assert_eq!(project.copy_device_files("dev_1", "dev_2").unwrap(), 3);
         assert_eq!(
             project.device_files("dev_2").unwrap().list().unwrap(),
-            ["kits/Kick.wav", "map.json"]
+            ["kits/Kick.wav", "map.json", "own.bin"]
         );
         // The device gone, its entries go from the index; the files stay for the program.
         project.document_mut().tracks[0].devices.clear();

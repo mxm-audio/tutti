@@ -875,6 +875,9 @@ fn check_event(r: &mut Report, p: &str, e: &Event, promoted: &HashSet<&str>, doc
         Event::Param(pe) => {
             check_tick(r, &format!("{p}/at"), pe.at);
             // `value` is the plain value (spec 6.7, 7.3): any finite number.
+            if !pe.value.is_finite() {
+                r.error(&format!("{p}/value"), "not a finite number");
+            }
             if !promoted.contains(pe.param.as_str()) {
                 r.warn(
                     &format!("{p}/param"),
@@ -1054,7 +1057,9 @@ fn check_lane(
     );
     for (i, pt) in lane.points.iter().enumerate() {
         check_tick(r, &format!("{p}/points/{i}/at"), pt.at);
-        if pt.value < lo || pt.value > hi {
+        if !pt.value.is_finite() {
+            r.error(&format!("{p}/points/{i}/value"), "not a finite number");
+        } else if pt.value < lo || pt.value > hi {
             r.error(
                 &format!("{p}/points/{i}/value"),
                 format!("not within {lo} and {hi}"),

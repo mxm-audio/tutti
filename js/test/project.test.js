@@ -111,7 +111,7 @@ test('a save refuses a missing or changed file, and verified records cross sessi
   const next = tutti.Project.open(store);
   next.save(generator);
   const records = next.verified();
-  assert.ok(records['audio/Loop.wav'] && typeof records['audio/Loop.wav'].modified === 'number');
+  assert.ok(records['audio/Loop.wav'] && typeof records['audio/Loop.wav'].modified === 'string');
   const trusting = tutti.Project.open(store);
   trusting.trust(records);
   trusting.save(generator);
@@ -134,9 +134,14 @@ test('a project on disk round-trips, and a copy is complete', () => {
   const again = tutti.openFolder(folder);
   assert.deepEqual(again.check(), []);
   assert.equal(tutti.equal(again.text, project.text), true);
+  // The records cross sessions exactly, nanoseconds and all.
+  again.save(generator);
   const records = again.verified();
-  assert.equal(typeof again.verified, 'function');
-  assert.ok(Object.keys(records).length >= 0);
+  const record = records['audio/Take.wav'];
+  assert.ok(record && /^[0-9]+$/.test(record.modified), JSON.stringify(record));
+  const trusting = tutti.openFolder(folder);
+  trusting.trust(records);
+  assert.deepEqual(trusting.verified(), records);
 
   const copy = project.copyInto(tutti.memoryStore());
   assert.deepEqual(copy.check(), []);

@@ -257,12 +257,13 @@ impl Project {
     /// `documentName` (`<Name>.tutti`): nothing is read or written until `save`.
     pub fn adopt(store: JsStore, document_name: &str, text: &str) -> Result<Project, JsError> {
         let document = tutti::read(text.as_bytes()).map_err(|e| JsError::new(&e.to_string()))?;
+        let read_only = tutti::is_read_only(&document);
         let inner = tutti::Project::adopt(HostStore::new(store), document_name, document)
             .map_err(js_error)?;
         Ok(Project {
             inner,
             report: "[]".to_owned(),
-            read_only: false,
+            read_only,
         })
     }
 
@@ -394,18 +395,49 @@ impl Project {
         self.inner.forget_file(path);
     }
 
-    /// Every file verified so far, as JSON `{reference: {sha256, bytes, modified}}`: for the host
-    /// to keep between sessions and give back with `trust`.
+    /// Every file verified so far, as JSON `{reference: {sha256, bytes, modified}}`, `modified`
+    /// a decimal string (nanoseconds since the epoch overflow a JavaScript number): for the
+    /// host to keep between sessions and give back with `trust`.
     pub fn verified(&self) -> String {
-        let records: BTreeMap<String, Verified> = self.inner.verified().into_iter().collect();
-        serde_json::to_string(&records).unwrap_or_else(|_| "{}".to_owned())
+        let records: serde_json::Map<String, Value> = self
+            .inner
+            .verified()
+            .into_iter()
+            .map(|(reference, v)| {
+                let mut record = json!({"sha256": v.sha256, "bytes": v.bytes});
+                if let Some(modified) = v.modified {
+                    record["modified"] = Value::String(modified.to_string());
+                }
+                (reference, record)
+            })
+            .collect();
+        Value::Object(records).to_string()
     }
 
-    /// Takes records the host kept (the JSON `verified` gave).
+    /// Takes records the host kept (the JSON `verified` gave; `modified` a decimal string or a
+    /// number).
     pub fn trust(&self, records: &str) -> Result<(), JsError> {
-        let records: BTreeMap<String, Verified> =
+        let given: BTreeMap<String, Value> =
             serde_json::from_str(records).map_err(|e| JsError::new(&e.to_string()))?;
-        self.inner.trust(records);
+        let mut out: Vec<(String, Verified)> = Vec::new();
+        for (reference, record) in given {
+            let sha256 = record["sha256"].as_str().unwrap_or_default().to_owned();
+            let bytes = record["bytes"].as_u64().unwrap_or(0);
+            let modified = match &record["modified"] {
+                Value::String(text) => text.parse::<u64>().ok(),
+                Value::Number(n) => n.as_u64(),
+                _ => None,
+            };
+            out.push((
+                reference,
+                Verified {
+                    sha256,
+                    bytes,
+                    modified,
+                },
+            ));
+        }
+        self.inner.trust(out);
         Ok(())
     }
 
@@ -422,10 +454,11 @@ impl Project {
             .inner
             .copy_into(HostStore::new(store))
             .map_err(js_error)?;
+        let read_only = tutti::is_read_only(inner.document());
         Ok(Project {
             inner,
             report: "[]".to_owned(),
-            read_only: false,
+            read_only,
         })
     }
 }

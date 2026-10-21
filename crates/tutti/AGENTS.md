@@ -37,8 +37,10 @@ Owns `Cargo.toml` and `src/`.
   from the index with the device; `copy_device_files` for a duplicate.
 - **A recording streams through `Project::new_audio`'s handle**, a `Write` that hashes as the
   bytes pass into the store's own writer; it borrows nothing from the project, and is `Send`
-  exactly when the store is. The crate never deletes a file; a program's cleanup consults
-  `Project::unnamed` before touching `audio/`.
+  exactly when the store is. The crate never deletes a file of the project, one the document
+  does or could refer to; it removes only what it made itself and nothing names, an unfinished
+  recording when its handle is dropped and a stale temporary file before writing a new one.
+  A program's cleanup consults `Project::unnamed` before touching `audio/`.
 - **Dependencies: serde, serde_json, sha2**, pinned; nothing else without a reason in `NOTES.md`.
 - **MSRV 1.87**, compiled against (`cargo +1.87.0 test -p tutti`) whenever the crate takes a
   language feature it did not have before: Cargo never checks a crate's own `rust-version`.

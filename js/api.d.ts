@@ -40,11 +40,14 @@ export interface StoredState {
   path: string;
 }
 
-/** A file as last verified: its hash, and the length and time it had then. */
+/**
+ * A file as last verified: its hash, and the length and time it had then (nanoseconds since
+ * the Unix epoch as a decimal string: they overflow a number).
+ */
 export interface Verified {
   sha256: string;
   bytes: number;
-  modified?: number;
+  modified?: string;
 }
 
 /** One entry of a folder, as a store lists it. */

@@ -175,7 +175,9 @@ pub fn unpack(file: &Path, into: &Path) -> Result<usize, ZipError> {
         if let Err(reason) = check_entry_name(&name) {
             return Err(ZipError::Entry { name, reason });
         }
-        if entry.is_dir() {
+        if entry.is_dir() || reserved(&name) {
+            // A folder entry says nothing; a reserved or private path is the writing
+            // program's own, and a reader ignores it (spec 2.3, 2.5).
             continue;
         }
         entries.push((i, name, entry.size()));
@@ -206,8 +208,13 @@ pub fn unpack(file: &Path, into: &Path) -> Result<usize, ZipError> {
 
     let store = DirStore::new(into);
     let existed = into.exists();
-    if existed && tutti::project::document_in(&store).is_ok() {
-        return Err(ZipError::FolderExists(into.to_path_buf()));
+    if existed {
+        match tutti::project::document_in(&store) {
+            Ok(_) | Err(tutti::ProjectError::SeveralDocuments(_)) => {
+                return Err(ZipError::FolderExists(into.to_path_buf()));
+            }
+            Err(_) => {}
+        }
     }
     fs::create_dir_all(into)?;
     let mut written: Vec<String> = Vec::new();
@@ -258,6 +265,13 @@ pub fn unpack(file: &Path, into: &Path) -> Result<usize, ZipError> {
         return Err(e);
     }
     Ok(written.len())
+}
+
+/// Whether an entry is under a reserved path (spec 2.3): `versions/`, `exports/`, `trash/`,
+/// `log/` or `lock`.
+fn reserved(name: &str) -> bool {
+    let first = name.split('/').next().unwrap_or(name);
+    matches!(first, "versions" | "exports" | "trash" | "log" | "lock")
 }
 
 fn too_large(name: &str, declared: u64) -> ZipError {
