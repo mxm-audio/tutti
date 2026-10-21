@@ -240,8 +240,10 @@ My-Project/
 ## Status
 
 Pre-alpha. The spec's first version is a draft: nothing is released, and the format may still
-change in every detail. The first program to read and write it is
-[newDAWn](https://github.com/maxmcorp/newDAWn). The DAWproject bridge, a Standard MIDI File
+change in every detail. The first programs to read and write it are
+[newDAWn](https://github.com/maxmcorp/newDAWn) and
+[MXM Player](https://github.com/mxm-audio/mxm-player), whose instrument, effects and sequence save
+as a project newDAWn opens. The DAWproject bridge, a Standard MIDI File
 converter and bindings for more languages are planned.
 
 ## Licence
