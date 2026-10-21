@@ -194,6 +194,27 @@ impl Document {
         walk(&self.tracks, &mut out);
         out
     }
+
+    /// The track with this id, wherever it is in the tree.
+    pub fn track(&self, id: &Id) -> Option<&Track> {
+        self.all_tracks().into_iter().find(|track| &track.id == id)
+    }
+
+    /// The track with this id, wherever it is in the tree, to change.
+    pub fn track_mut(&mut self, id: &Id) -> Option<&mut Track> {
+        fn find<'a>(tracks: &'a mut [Track], id: &Id) -> Option<&'a mut Track> {
+            for track in tracks {
+                if &track.id == id {
+                    return Some(track);
+                }
+                if let Some(found) = find(&mut track.children, id) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        find(&mut self.tracks, id)
+    }
 }
 
 /// A `min_version` of `<major>.0` is the default (spec 3.2) and is left out when written.
@@ -269,6 +290,18 @@ pub struct Dependency {
     pub unknown: Unknown,
 }
 
+impl Dependency {
+    /// A plugin the project needs, by its id in the scheme form of spec 7.2 and the name it shows.
+    pub fn plugin(id: &str, name: &str) -> Self {
+        Self {
+            id: id.to_owned(),
+            kind: "plugin".to_owned(),
+            name: name.to_owned(),
+            ..Self::default()
+        }
+    }
+}
+
 /// Who and what the project is (spec 3.2).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Metadata {
@@ -340,6 +373,18 @@ pub struct TempoPoint {
     pub unknown: Unknown,
 }
 
+impl TempoPoint {
+    /// A tempo from `at`, held to the next point.
+    pub fn new(at: Ticks, bpm: f64) -> Self {
+        Self {
+            at,
+            bpm,
+            curve: Curve::Hold,
+            unknown: Unknown::new(),
+        }
+    }
+}
+
 fn hold() -> Curve {
     Curve::Hold
 }
@@ -356,6 +401,18 @@ pub struct MeterPoint {
     pub denominator: u32,
     #[serde(flatten)]
     pub unknown: Unknown,
+}
+
+impl MeterPoint {
+    /// A bar of `numerator/denominator` from `at`.
+    pub fn new(at: Ticks, numerator: u32, denominator: u32) -> Self {
+        Self {
+            at,
+            numerator,
+            denominator,
+            unknown: Unknown::new(),
+        }
+    }
 }
 
 /// A scale: a name from the spec's list, or a custom set of semitones above the tonic.
@@ -650,6 +707,24 @@ pub struct Device {
 }
 
 impl Device {
+    /// A device in its role (`instrument`, `note_effect`, `audio_effect`, `analyzer`), playing
+    /// `plugin` in the scheme form of spec 7.2, with no state yet: on, as the spec's default is.
+    pub fn new(id: Id, role: &str, plugin: &str) -> Self {
+        Self {
+            id,
+            role: role.to_owned(),
+            name: String::new(),
+            plugin: plugin.to_owned(),
+            aliases: Vec::new(),
+            state: None,
+            params: Vec::new(),
+            overrides: Vec::new(),
+            enabled: true,
+            extensions: Extensions::new(),
+            unknown: Unknown::new(),
+        }
+    }
+
     fn normalise(&mut self) {
         self.params.sort_by(|a, b| a.id.cmp(&b.id));
         self.overrides.sort_by(|a, b| a.param.cmp(&b.param));
@@ -767,6 +842,21 @@ pub struct Pattern {
     pub unknown: Unknown,
 }
 
+impl Pattern {
+    /// An empty pattern `length` ticks long.
+    pub fn new(id: Id, length: Ticks) -> Self {
+        Self {
+            id,
+            name: String::new(),
+            length,
+            key: None,
+            events: Vec::new(),
+            extensions: Extensions::new(),
+            unknown: Unknown::new(),
+        }
+    }
+}
+
 /// A window on a pattern, placed on a track (spec 6.6).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Part {
@@ -786,6 +876,24 @@ pub struct Part {
     pub extensions: Extensions,
     #[serde(flatten)]
     pub unknown: Unknown,
+}
+
+impl Part {
+    /// The pattern `pattern` from its start, at `at` on the track, for `length` ticks, once.
+    pub fn new(id: Id, pattern: Id, at: Ticks, length: Ticks) -> Self {
+        Self {
+            id,
+            pattern,
+            at,
+            length,
+            offset: 0,
+            r#loop: None,
+            mute: false,
+            name: None,
+            extensions: Extensions::new(),
+            unknown: Unknown::new(),
+        }
+    }
 }
 
 /// A loop inside a pattern, in pattern ticks (spec 6.6, 6.10).
@@ -907,6 +1015,25 @@ pub struct Note {
     pub extensions: Extensions,
     #[serde(flatten)]
     pub unknown: Unknown,
+}
+
+impl Note {
+    /// A note of `pitch` from `at` for `length` ticks at `velocity` (0 to 1), released at the
+    /// spec's default.
+    pub fn new(id: Id, at: Ticks, length: Ticks, pitch: u8, velocity: f64) -> Self {
+        Self {
+            id,
+            at,
+            length,
+            pitch,
+            velocity,
+            release: half(),
+            expressions: None,
+            audio: None,
+            extensions: Extensions::new(),
+            unknown: Unknown::new(),
+        }
+    }
 }
 
 fn half() -> f64 {

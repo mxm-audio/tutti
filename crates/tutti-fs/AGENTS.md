@@ -17,6 +17,9 @@ Owns `Cargo.toml`, `src/` and `tests/`.
 
 # Local Contracts
 
+- **`ulid(prefix)` gives a native program new ids** in the recommended form, as the JavaScript
+  package's `ulid` does: here because it needs the clock and the system's randomness, which the
+  core does without.
 - **The procedure is the core's; this crate is the disk.** Nothing here decides what a save
   does: `DirStore` implements the primitive operations (`list`, `exists`, `make_folder`,
   `write_new`, `open_new` and `close`, `rename_over`, `sync_folder`, `remove`) and the reads,

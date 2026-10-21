@@ -53,10 +53,12 @@ In the order the save happens (conformance 2; `Project::save` does exactly this)
    renamed or overwritten; states under `plugins/states/` by content hash with their kind; a
    plugin's own files under `plugins/files/<device id>/`.
 2. The index (`files`) names each of them with its hash and length, built from the files, not
-   from what the document claims. A disagreement is a refusal, not a repair.
-3. `generator`, `dependencies` (every plugin you host, with its version and where it comes
-   from), `extensions_used`, and `extensions_required` only for what the sound depends on, each
-   with a core fallback.
+   from what the document claims. A new reference to a file that isn't there is refused; a file
+   the index already listed that went missing or changed keeps its entry as it was and is
+   reported, never repaired by indexing what is there now.
+3. `generator`, `dependencies` (every plugin a device uses, with its version and where it comes
+   from; one no device uses goes), `extensions_used`, and `extensions_required` only for what
+   the sound depends on, each with a core fallback.
 4. The document in the pretty form: the spec's key order, two-space indent, an event, a point
    and a file entry each on one line, defaults left out, numbers as JavaScript renders them.
 5. `README.md` from the template.
@@ -65,6 +67,13 @@ In the order the save happens (conformance 2; `Project::save` does exactly this)
 
 Ids: keep every id you read; give your own objects ids of your own form, `<kind>_<ULID>`
 recommended, and never change one on copy, move or save.
+
+Through the crate, most of this is done for you: `Project::save` builds the index, keeps
+`dependencies` in step with the devices (fill an entry's vendor, version and URL before you
+save; the crate adds the least the spec asks for any you don't, and drops one no device uses),
+computes `extensions_used`, writes the README and commits. The model's constructors
+(`Device::new`, `Note::new` and the rest) carry the spec's defaults, and `tutti_fs::ulid` (or the
+JavaScript package's `ulid`) gives a new id.
 
 ## Verification, cheaply
 

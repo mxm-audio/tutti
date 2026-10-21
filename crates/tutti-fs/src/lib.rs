@@ -202,6 +202,29 @@ impl Store for DirStore {
     }
 }
 
+/// A new id in the recommended form (spec 4): a kind prefix (`trk`, `pat`, `prt`, `evt`, `dev`,
+/// `aut`, `mrk`, `scn`) and a ULID of now and eighty random bits, as the JavaScript package's
+/// `ulid` gives. Here, beside the disk, because it needs the clock and the system's randomness,
+/// which the core does without.
+pub fn ulid(prefix: &str) -> tutti::Id {
+    use std::hash::{BuildHasher, Hasher};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNT: AtomicU64 = AtomicU64::new(0);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    // `RandomState` is keyed from the system's randomness; the time and a count make every call's
+    // input differ, so two ids from one process differ too.
+    let mut first = std::collections::hash_map::RandomState::new().build_hasher();
+    first.write_u128(now.as_nanos());
+    first.write_u64(COUNT.fetch_add(1, Ordering::Relaxed));
+    let mut second = std::collections::hash_map::RandomState::new().build_hasher();
+    second.write_u64(first.finish());
+    second.write_u64(COUNT.fetch_add(1, Ordering::Relaxed));
+    let random = (u128::from(first.finish()) << 64) | u128::from(second.finish());
+    tutti::Id::ulid(prefix, now.as_millis() as u64, random)
+}
+
 /// Opens the project in a folder: its one document, read and validated, with the report and
 /// whether it is read-only on this version.
 pub fn open(folder: &Path) -> Result<Opened<DirStore>, ProjectError> {

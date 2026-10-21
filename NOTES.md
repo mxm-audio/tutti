@@ -37,6 +37,17 @@ designed from is `docs/research.md`.
   records outlive a session through the program (`Project::verified`, `trust`), never the
   document, which must not carry a file system's times. This closed the question Pi had
   pressed (rehash at every save).
+- **2026-10-21:** **The player, the second consumer, showed what every writer repeated, and
+  the crate now does it** (the owner: "If something in tutti makes adding the tutti to the
+  player [hard], then we should think about changing tutti too. Without changing what tutti
+  is for."). Four things, none of them a change to the format: `Project::save` keeps
+  `dependencies` in step with the devices, as spec 3.5 already asks (newDAWn never dropped the
+  entry of a plugin it removed, and the player had to write the same upkeep); the model's
+  constructors carry the spec's defaults (a writer had to know that a note releases at 0.5
+  and a device is on); `Document::track` and `track_mut` find a track through folders; and
+  `tutti_fs::ulid` gives native programs new ids, as the JavaScript package already did (both
+  consumers had written their own). An entry another program's extension names is kept, by
+  the same rule as an index entry nothing claims.
 - **2026-10-21:** **A save never leaves a project less complete than it found it, and never
   blesses a change.** A file the index already lists that has gone missing or changed behind
   the writer's back keeps its entry as it was, and the save goes on and says so; only a new

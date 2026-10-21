@@ -17,7 +17,10 @@
 //! silence for it and warns (spec 9). An entry of the index that no known field claims stays
 //! as long as the document mentions the file anywhere else (its path, its name or its hash:
 //! an unknown extension's sidecar), and goes when nothing does or the program forgets it on
-//! purpose ([`Project::forget_file`]); a device's own files are what its folder holds. The
+//! purpose ([`Project::forget_file`]); a device's own files are what its folder holds.
+//! `dependencies` is in step with the devices (spec 3.5): every device's plugin has an entry,
+//! the program's own or else the least the spec asks, and a plugin's entry no device uses goes
+//! unless the document names the plugin elsewhere. The
 //! document is valid; `README.md` is current; the document is written to a temporary name
 //! and renamed over the old one, so a crash leaves the old document or the new, never a torn
 //! one, and a failure after that rename is reported as [`ProjectError::Unconfirmed`], the save
@@ -504,6 +507,7 @@ impl<S: Store> Project<S> {
         }
         self.document.generator = generator.clone();
         self.bring_manifest();
+        keep_dependencies(&mut self.document);
         let (files, kept) = self.index(rehash)?;
         self.document.files = files;
         let mut used: BTreeSet<String> = self.document.extensions_used.iter().cloned().collect();
@@ -1170,6 +1174,50 @@ fn claims(doc: &Document) -> Vec<(String, String)> {
 
 /// The text of everything in the document but its files index, in which a file an unknown
 /// extension or a later field refers to is mentioned by path, by name or by hash.
+/// `dependencies` in step with the devices (spec 3.5: one entry per distinct plugin id a device
+/// uses). Every device's plugin has an entry: the program's own, filled from what the plugin
+/// declares, or else the least the spec asks (the id, `plugin`, the device's name). A plugin's
+/// entry no device uses goes, unless the document names the plugin anywhere else (another
+/// program's extension), as an index entry nothing claims stays while the document mentions its
+/// file. Other kinds of entry are left as they are.
+fn keep_dependencies(doc: &mut Document) {
+    let mut used: Vec<(String, String)> = doc
+        .master
+        .devices
+        .iter()
+        .chain(doc.all_tracks().into_iter().flat_map(|t| t.devices.iter()))
+        .filter(|device| !device.plugin.starts_with("builtin:"))
+        .map(|device| {
+            let name = if device.name.is_empty() {
+                device.plugin.clone()
+            } else {
+                device.name.clone()
+            };
+            (device.plugin.clone(), name)
+        })
+        .collect();
+    let elsewhere = {
+        let mut value = crate::to_value(doc);
+        if let Value::Object(map) = &mut value {
+            map.remove("dependencies");
+        }
+        value.to_string()
+    };
+    doc.dependencies.retain(|entry| {
+        entry.kind != "plugin"
+            || used.iter().any(|(id, _)| *id == entry.id)
+            || elsewhere.contains(&entry.id)
+    });
+    used.sort();
+    used.dedup_by(|a, b| a.0 == b.0);
+    for (id, name) in used {
+        if !doc.dependencies.iter().any(|entry| entry.id == id) {
+            doc.dependencies.push(crate::Dependency::plugin(&id, &name));
+        }
+    }
+    doc.dependencies.sort_by(|a, b| a.id.cmp(&b.id));
+}
+
 fn mentions(doc: &Document) -> String {
     let mut value = crate::to_value(doc);
     if let Value::Object(map) = &mut value {
@@ -1358,6 +1406,75 @@ mod tests {
         let x = project.new_audio("Pair", "wav").unwrap();
         let y = project.new_audio("Pair", "wav").unwrap();
         assert_ne!(x.reference(), y.reference());
+    }
+
+    #[test]
+    fn a_save_keeps_the_dependencies_in_step_with_the_devices() {
+        use crate::{Dependency, Device, Track};
+        let store = MemoryStore::new();
+        let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
+        let doc = project.document_mut();
+        let mut track = Track::new(Id::new("trk_1").unwrap(), "Synth");
+        let mut synth = Device::new(
+            Id::new("dev_1").unwrap(),
+            "instrument",
+            "clap:org.example.synth",
+        );
+        synth.name = "Synth".to_owned();
+        track.devices.push(synth);
+        track.devices.push(Device::new(
+            Id::new("dev_2").unwrap(),
+            "audio_effect",
+            "clap:org.example.echo",
+        ));
+        track.devices.push(Device::new(
+            Id::new("dev_3").unwrap(),
+            "audio_effect",
+            "builtin:example:gain",
+        ));
+        doc.tracks.push(track);
+        // The program's own entry, filled from the plugin, is kept as it is.
+        let mut echo = Dependency::plugin("clap:org.example.echo", "Echo");
+        echo.vendor = Some("Example".to_owned());
+        doc.dependencies.push(echo.clone());
+        // A plugin no device uses any more, and one only another program's extension names.
+        doc.dependencies
+            .push(Dependency::plugin("clap:org.example.gone", "Gone"));
+        doc.dependencies
+            .push(Dependency::plugin("clap:org.example.theirs", "Theirs"));
+        doc.extensions.insert(
+            "org.example.daw".to_owned(),
+            serde_json::json!({"sampler": "clap:org.example.theirs"}),
+        );
+        project.save(&generator()).unwrap();
+
+        let ids: Vec<&str> = project
+            .document()
+            .dependencies
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                "clap:org.example.echo",
+                "clap:org.example.synth",
+                "clap:org.example.theirs"
+            ]
+        );
+        let deps = &project.document().dependencies;
+        assert_eq!(deps[0], echo, "the program's own entry, as it was");
+        assert_eq!(
+            deps[1].name, "Synth",
+            "the least the spec asks, from the device"
+        );
+        assert!(
+            project
+                .check()
+                .warnings()
+                .all(|w| !w.message.contains("no dependencies entry")),
+            "every device's plugin has its entry"
+        );
     }
 
     #[test]

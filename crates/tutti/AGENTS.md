@@ -30,10 +30,18 @@ Owns `Cargo.toml` and `src/`.
   the index as it was and reported in `Saved::warnings` (a save never leaves a project less
   complete than it found it, nor blesses a change); an entry no known field claims kept while
   the document mentions the file (by path, name or hash) and dropped when nothing does or on
-  purpose (`forget_file`); the document valid, the README current, the document renamed into
+  purpose (`forget_file`); `dependencies` in step with the devices (an entry for every device's
+  plugin, the least the spec asks where the program gave none; a plugin's entry no device uses
+  dropped unless the document names it elsewhere); the document valid, the README current, the
+  document renamed into
   place, and a failure after that rename reported as `Unconfirmed`, the save being on disk and
   the hash the new one. `save_verified` hashes everything again and refuses a missing or changed
   file, for an export.
+- **The model's constructors carry the spec's defaults** (`Device::new` on, `Note::new` released
+  at 0.5, `TempoPoint::new` held, `Pattern::new`, `Part::new`, `MeterPoint::new`,
+  `Dependency::plugin`), and `Document::track` and `track_mut` find a track through folders: a
+  writer never restates a default the spec sets (the owner, 2026-10-21, when the player became
+  the second consumer).
 - **A device's own files are `Project::device_files`'s** (spec 7.8): put, list and read by
   their path inside `plugins/files/<device id>/`, safety required and portability advised
   (`validate::check_device_file_path`), indexed by the device's id at the save and dropped

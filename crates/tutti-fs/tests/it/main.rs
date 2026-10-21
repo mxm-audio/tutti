@@ -79,6 +79,19 @@ fn track_with_piece(reference: &str, sha256: &str) -> Track {
 }
 
 #[test]
+fn a_new_id_is_the_formats_and_never_repeats() {
+    let ids: Vec<tutti::Id> = (0..1000).map(|_| tutti_fs::ulid("evt")).collect();
+    for id in &ids {
+        assert!(tutti::Id::new(id.as_str()).is_ok(), "{id:?}");
+        assert!(id.as_str().starts_with("evt_"));
+    }
+    let mut unique: Vec<&str> = ids.iter().map(tutti::Id::as_str).collect();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(unique.len(), ids.len());
+}
+
+#[test]
 fn a_project_on_disk_is_created_filled_saved_and_reopened() {
     let dir = temp("round-trip");
     let mut project = tutti_fs::create(&dir, "Min sang", &generator()).unwrap();
