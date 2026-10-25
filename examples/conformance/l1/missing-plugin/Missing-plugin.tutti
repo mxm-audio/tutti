@@ -1,0 +1,72 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "plugins/states/1e8b987802939130b582ced1704065bd44fd7fa6dbbb26bb4b83e0b88c427592.clap", "sha256": "1e8b987802939130b582ced1704065bd44fd7fa6dbbb26bb4b83e0b88c427592", "bytes": 48},
+    {"path": "renders/Synth_000.wav", "sha256": "5a2b80f47dbceb8b705479b1d0c7a425f4ac79ed11429f139db03a2b292eb040", "bytes": 176444}
+  ],
+  "dependencies": [
+    {"id": "clap:org.example.missing-synth", "kind": "plugin", "name": "Missing synth", "vendor": "Example", "version": "1.0.0", "url": "https://example.org/missing-synth", "formats": ["clap"]}
+  ],
+  "metadata": {
+    "title": "Missing plugin"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SG9VB9D000000000009V",
+      "name": "Synth",
+      "channel": {
+        "gain": 0.5
+      },
+      "devices": [
+        {
+          "id": "dev_01K742SG9WB9D000000000009W",
+          "role": "instrument",
+          "name": "Missing synth",
+          "plugin": "clap:org.example.missing-synth",
+          "state": {
+            "sha256": "1e8b987802939130b582ced1704065bd44fd7fa6dbbb26bb4b83e0b88c427592",
+            "kind": "clap"
+          },
+          "params": [
+            {"id": "0", "name": "Level", "value": 0.5, "normalized": 0.5, "min": 0, "max": 1, "unit": "linear", "text": "50 %"}
+          ]
+        }
+      ],
+      "patterns": [
+        {
+          "id": "pat_01K742SGA1B9D00000000000A1",
+          "name": "Notes",
+          "length": 1920,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG9XB9D000000000009X", "at": 0, "length": 420, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SG9YB9D000000000009Y", "at": 480, "length": 420, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SG9ZB9D000000000009Z", "at": 960, "length": 420, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGA0B9D00000000000A0", "at": 1440, "length": 420, "pitch": 69, "velocity": 0.8}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SGA2B9D00000000000A2", "pattern": "pat_01K742SGA1B9D00000000000A1", "at": 0, "length": 1920}
+      ],
+      "renders": [
+        {"file": "renders/Synth_000.wav", "sha256": "5a2b80f47dbceb8b705479b1d0c7a425f4ac79ed11429f139db03a2b292eb040", "from": 0, "to": 1920, "fingerprint": "affec4ace56c178be4814458dadc9b0819f044f2cd3caaddeac7a1e2c1657baf"}
+      ]
+    }
+  ]
+}

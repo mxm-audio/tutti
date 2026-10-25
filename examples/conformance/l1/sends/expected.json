@@ -1,0 +1,33 @@
+{
+  "what": "Each source sounds alone in its own seconds (no solo), and the master's RMS per output channel over each window is within 0.5 dB of these: a pre-fader send is heard with its source's fader down; a post-fader send follows the source's fader, and its return's fader after it; a disabled send sends nothing. The tone is stereo, left 0.5 and right 0.25, at the centre, so no pan law enters.",
+  "tolerance_db": 0.5,
+  "heard": [
+    {
+      "track": "trk_01K742SG8YB9D000000000008Y",
+      "name": "Pre-fader",
+      "from_seconds": 0.1,
+      "to_seconds": 0.9,
+      "rms_left": 0.17677669529663687,
+      "rms_right": 0.08838834764831843,
+      "path": "the pre-fader send at 0.5 into Return A at 1"
+    },
+    {
+      "track": "trk_01K742SG92B9D0000000000092",
+      "name": "Post-fader",
+      "from_seconds": 2.1,
+      "to_seconds": 2.9,
+      "rms_left": 0.044194173824159216,
+      "rms_right": 0.022097086912079608,
+      "path": "the fader at 0.5, the post-fader send at 0.5, Return B at 0.5"
+    },
+    {
+      "track": "trk_01K742SG96B9D0000000000096",
+      "name": "Disabled",
+      "from_seconds": 4.1,
+      "to_seconds": 4.9,
+      "rms_left": 0.0,
+      "rms_right": 0.0,
+      "path": "a disabled send: nothing"
+    }
+  ]
+}

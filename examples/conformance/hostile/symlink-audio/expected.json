@@ -1,0 +1,8 @@
+{
+  "what": "the audio folder is a link (to link-target/ beside it, which holds the file the index names): refused, nothing read through it. Git keeps no link on every system, so the runner makes it before the check: a copy of this folder, its `audio` a link to `link-target`",
+  "error": "error /files/0/path: audio/Tone.wav: a link",
+  "link": {
+    "path": "audio",
+    "target": "link-target"
+  }
+}

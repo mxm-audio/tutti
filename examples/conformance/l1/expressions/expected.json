@@ -1,0 +1,89 @@
+{
+  "what": "Two notes at once on a track without a device, sounded by the reader's own instrument as Level 0's notes are: A4 (69) bends by its own pitch curve (6.7: held at 0 for a beat, up an octave over the next two, held there), A3 (57) carries none and stays: a note's curve, not the channel's bend. The pitch heard, in semitones above each note's own pitch and as a frequency ratio, at these times, within 10 cents.",
+  "rate": 48000,
+  "tolerance_cents": 10,
+  "notes": [
+    {
+      "note": "evt_01K742SG9PB9D000000000009P",
+      "pitch": 69,
+      "times": [
+        {
+          "tick": 480,
+          "seconds": 0.25,
+          "sample_48000": 12000,
+          "semitones": 0.0,
+          "ratio": 1.0
+        },
+        {
+          "tick": 1440,
+          "seconds": 0.75,
+          "sample_48000": 36000,
+          "semitones": 3.0,
+          "ratio": 1.189207115002721
+        },
+        {
+          "tick": 1920,
+          "seconds": 1.0,
+          "sample_48000": 48000,
+          "semitones": 6.0,
+          "ratio": 1.4142135623730951
+        },
+        {
+          "tick": 2400,
+          "seconds": 1.25,
+          "sample_48000": 60000,
+          "semitones": 9.0,
+          "ratio": 1.681792830507429
+        },
+        {
+          "tick": 3360,
+          "seconds": 1.75,
+          "sample_48000": 84000,
+          "semitones": 12.0,
+          "ratio": 2.0
+        }
+      ]
+    },
+    {
+      "note": "evt_01K742SG9QB9D000000000009Q",
+      "pitch": 57,
+      "times": [
+        {
+          "tick": 480,
+          "seconds": 0.25,
+          "sample_48000": 12000,
+          "semitones": 0.0,
+          "ratio": 1.0
+        },
+        {
+          "tick": 1440,
+          "seconds": 0.75,
+          "sample_48000": 36000,
+          "semitones": 0.0,
+          "ratio": 1.0
+        },
+        {
+          "tick": 1920,
+          "seconds": 1.0,
+          "sample_48000": 48000,
+          "semitones": 0.0,
+          "ratio": 1.0
+        },
+        {
+          "tick": 2400,
+          "seconds": 1.25,
+          "sample_48000": 60000,
+          "semitones": 0.0,
+          "ratio": 1.0
+        },
+        {
+          "tick": 3360,
+          "seconds": 1.75,
+          "sample_48000": 84000,
+          "semitones": 0.0,
+          "ratio": 1.0
+        }
+      ]
+    }
+  ]
+}

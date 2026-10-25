@@ -23,6 +23,52 @@ pub fn schema() -> Value {
     serde_json::from_str(&text).expect("the schema is JSON")
 }
 
+/// Every id a document holds, of every kind (spec 5.1: tracks, patterns, parts, events, devices,
+/// automation lanes, markers, scenes), sorted: what a Level 2 round trip keeps.
+pub fn ids_of(doc: &tutti::Document) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    out.extend(doc.markers.iter().map(|m| m.id.as_str().to_owned()));
+    out.extend(doc.scenes.iter().map(|s| s.id.as_str().to_owned()));
+    out.extend(doc.master.devices.iter().map(|d| d.id.as_str().to_owned()));
+    for t in doc.all_tracks() {
+        out.push(t.id.as_str().to_owned());
+        out.extend(t.devices.iter().map(|d| d.id.as_str().to_owned()));
+        for p in &t.patterns {
+            out.push(p.id.as_str().to_owned());
+            out.extend(
+                p.events
+                    .iter()
+                    .map(|e| e.id().to_owned())
+                    .filter(|id| !id.is_empty()),
+            );
+        }
+        out.extend(t.parts.iter().map(|p| p.id.as_str().to_owned()));
+        out.extend(t.automation.iter().map(|a| a.id.as_str().to_owned()));
+    }
+    out.sort();
+    out
+}
+
+/// Each pattern more than one part plays, with those parts' ids, in document order (spec 6.4):
+/// what a Level 2 writer keeps one pattern.
+pub fn shared_patterns(doc: &tutti::Document) -> Vec<(String, Vec<String>)> {
+    let mut out = Vec::new();
+    for t in doc.all_tracks() {
+        for p in &t.patterns {
+            let parts: Vec<String> = t
+                .parts
+                .iter()
+                .filter(|part| part.pattern == p.id)
+                .map(|part| part.id.as_str().to_owned())
+                .collect();
+            if parts.len() > 1 {
+                out.push((p.id.as_str().to_owned(), parts));
+            }
+        }
+    }
+    out
+}
+
 /// `docs/field-reference.md` from the schema: the document's keys, then every object under
 /// `$defs`, each a table of key, type, required, default and meaning.
 pub fn field_reference(schema: &Value) -> String {

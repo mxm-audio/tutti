@@ -1,0 +1,373 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "extensions_used": ["dk.mxm.newdawn", "org.example.lyrics"],
+  "extensions_required": ["org.example.lyrics"],
+  "private": ["notes/"],
+  "files": [
+    {"path": "audio/Click-loop_95.wav", "sha256": "577b3812879b547705ccf885d90d3213f8104a1ad772dfdb09ddfef8e6086bfb", "bytes": 445686},
+    {"path": "audio/Pad-220.wav", "sha256": "1bb532bc8670e2f49644c119afa82f6197270d40c6245aa8958622aa09849593", "bytes": 132344},
+    {"path": "plugins/files/dev_01K742SGAYB9D00000000000AY/presets/Init.txt", "sha256": "4645da8fbdfaaa0c562db3ca4007c1e683a56a628ac6a8dd93f571f7d453667b", "bytes": 11},
+    {"path": "plugins/states/2e783022508ce1b4eb42266e2e4ca6455892d14425db64b4c4129a04475bd03e.clap", "sha256": "2e783022508ce1b4eb42266e2e4ca6455892d14425db64b4c4129a04475bd03e", "bytes": 41},
+    {"path": "renders/Loop_000.wav", "sha256": "3a9800d7d549eb3211fd922d8aab53d9e8e6873618e3e32f6471b6db4c61be24", "bytes": 176444}
+  ],
+  "dependencies": [
+    {"id": "clap:dk.mxm.mxm-mono-01", "kind": "plugin", "name": "mxm-mono-01", "vendor": "MXM", "version": "0.1.1", "url": "https://github.com/mxm-audio/mxm-mono-01", "repository": "https://github.com/mxm-audio/mxm-mono-01.git", "commit": "0000000000000000000000000000000000000000", "license": "GPL-3.0-or-later", "formats": ["clap", "vst3"], "platforms": ["windows", "macos", "linux"]}
+  ],
+  "metadata": {
+    "title": "Everything",
+    "artist": "tutti",
+    "album": "Examples",
+    "year": "2026",
+    "genre": "test",
+    "comment": "Every feature of the format, once.",
+    "copyright": "MIT",
+    "created": "2026-10-20"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 87},
+    {"at": 23040, "bpm": 87, "curve": "linear"},
+    {"at": 30720, "bpm": 92}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4},
+    {"at": 30720, "numerator": 3, "denominator": 4}
+  ],
+  "key": [
+    {"at": 0, "tonic": 9, "scale": "minor"},
+    {"at": 23040, "tonic": 2, "scale": {"custom": [0, 2, 3, 5, 7, 9, 10]}}
+  ],
+  "markers": [
+    {"id": "mrk_01K742SGA3B9D00000000000A3", "at": 0, "name": "Intro", "kind": "section", "length": 7680},
+    {"id": "mrk_01K742SGA4B9D00000000000A4", "at": 7680, "name": "Verse", "kind": "section", "length": 15360},
+    {"id": "mrk_01K742SGA5B9D00000000000A5", "at": 23040, "name": "Chorus", "kind": "section", "length": 15360},
+    {"id": "mrk_01K742SGC1B9D00000000000C1", "at": 38400, "name": "Drop"}
+  ],
+  "loop": {
+    "start": 7680,
+    "end": 23040,
+    "enabled": true
+  },
+  "master": {
+    "gain": 0.891,
+    "devices": [
+      {
+        "id": "dev_01K742SGC2B9D00000000000C2",
+        "role": "audio_effect",
+        "name": "Example limiter",
+        "plugin": "builtin:example:limiter"
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "trk_01K742SGC8B9D00000000000C8",
+      "name": "Rhythm",
+      "color": "#777777",
+      "children": [
+        {
+          "id": "trk_01K742SGA6B9D00000000000A6",
+          "name": "Drums",
+          "color": "#d94a4a",
+          "channel": {
+            "pan": -0.1,
+            "channels": 1,
+            "destination": "master"
+          },
+          "devices": [
+            {
+              "id": "dev_01K742SGA7B9D00000000000A7",
+              "role": "instrument",
+              "name": "Example drums",
+              "plugin": "builtin:example:drums"
+            }
+          ],
+          "drum_map": [
+            {"pitch": 36, "name": "Kick"},
+            {"pitch": 38, "name": "Snare"},
+            {"pitch": 42, "name": "Hat"}
+          ],
+          "patterns": [
+            {
+              "id": "pat_01K742SGAMB9D00000000000AM",
+              "name": "Beat",
+              "length": 3840,
+              "events": [
+                {"type": "note", "id": "evt_01K742SGA8B9D00000000000A8", "at": 0, "length": 240, "pitch": 36, "velocity": 0.9},
+                {"type": "note", "id": "evt_01K742SGA9B9D00000000000A9", "at": 0, "length": 120, "pitch": 42, "velocity": 0.5},
+                {"type": "note", "id": "evt_01K742SGAAB9D00000000000AA", "at": 480, "length": 120, "pitch": 42, "velocity": 0.35},
+                {"type": "note", "id": "evt_01K742SGABB9D00000000000AB", "at": 960, "length": 240, "pitch": 38, "velocity": 0.85},
+                {"type": "note", "id": "evt_01K742SGACB9D00000000000AC", "at": 960, "length": 120, "pitch": 42, "velocity": 0.5},
+                {"type": "note", "id": "evt_01K742SGADB9D00000000000AD", "at": 1440, "length": 120, "pitch": 42, "velocity": 0.35},
+                {"type": "note", "id": "evt_01K742SGAEB9D00000000000AE", "at": 1920, "length": 240, "pitch": 36, "velocity": 0.9},
+                {"type": "note", "id": "evt_01K742SGAFB9D00000000000AF", "at": 1920, "length": 120, "pitch": 42, "velocity": 0.5},
+                {"type": "note", "id": "evt_01K742SGAGB9D00000000000AG", "at": 2400, "length": 120, "pitch": 42, "velocity": 0.35},
+                {"type": "note", "id": "evt_01K742SGAHB9D00000000000AH", "at": 2880, "length": 240, "pitch": 38, "velocity": 0.85},
+                {"type": "note", "id": "evt_01K742SGAJB9D00000000000AJ", "at": 2880, "length": 120, "pitch": 42, "velocity": 0.5},
+                {"type": "note", "id": "evt_01K742SGAKB9D00000000000AK", "at": 3360, "length": 120, "pitch": 42, "velocity": 0.35}
+              ]
+            }
+          ],
+          "parts": [
+            {"id": "prt_01K742SGANB9D00000000000AN", "pattern": "pat_01K742SGAMB9D00000000000AM", "at": 7680, "length": 3840},
+            {"id": "prt_01K742SGAPB9D00000000000AP", "pattern": "pat_01K742SGAMB9D00000000000AM", "at": 11520, "length": 3840},
+            {"id": "prt_01K742SGAQB9D00000000000AQ", "pattern": "pat_01K742SGAMB9D00000000000AM", "at": 15360, "length": 3840},
+            {"id": "prt_01K742SGARB9D00000000000AR", "pattern": "pat_01K742SGAMB9D00000000000AM", "at": 19200, "length": 3840},
+            {"id": "prt_01K742SGASB9D00000000000AS", "pattern": "pat_01K742SGAMB9D00000000000AM", "at": 23040, "length": 3840},
+            {"id": "prt_01K742SGATB9D00000000000AT", "pattern": "pat_01K742SGAMB9D00000000000AM", "at": 26880, "length": 3840},
+            {"id": "prt_01K742SGAVB9D00000000000AV", "pattern": "pat_01K742SGAMB9D00000000000AM", "at": 30720, "length": 3840},
+            {"id": "prt_01K742SGAWB9D00000000000AW", "pattern": "pat_01K742SGAMB9D00000000000AM", "at": 34560, "length": 3840}
+          ],
+          "slots": [
+            {"scene": "scn_01K742SGC3B9D00000000000C3", "pattern": "pat_01K742SGAMB9D00000000000AM"}
+          ],
+          "extensions": {
+            "dk.mxm.newdawn": {
+              "armed": true
+            }
+          }
+        },
+        {
+          "id": "trk_01K742SGAXB9D00000000000AX",
+          "name": "Bass",
+          "color": "#4a90d9",
+          "channel": {
+            "gain": 0.7943
+          },
+          "devices": [
+            {
+              "id": "dev_01K742SGAYB9D00000000000AY",
+              "role": "instrument",
+              "name": "mxm-mono-01",
+              "plugin": "clap:dk.mxm.mxm-mono-01",
+              "aliases": [
+                {"plugin": "vst3:5653545A4D4F4E6F6D786D2D6D6F6E6F", "state_compatible": true}
+              ],
+              "state": {
+                "sha256": "2e783022508ce1b4eb42266e2e4ca6455892d14425db64b4c4129a04475bd03e",
+                "kind": "clap"
+              },
+              "params": [
+                {"id": "374", "name": "Cutoff", "value": 218.4, "normalized": 0.37, "min": 20, "max": 20000, "unit": "hertz", "text": "218 Hz"}
+              ],
+              "overrides": [
+                {"param": "374", "value": 440, "normalized": 0.45}
+              ]
+            },
+            {
+              "id": "dev_01K742SGC5B9D00000000000C5",
+              "role": "audio_effect",
+              "name": "Example compressor",
+              "plugin": "builtin:example:compressor"
+            }
+          ],
+          "parameters": [
+            {"name": "cutoff", "device": "dev_01K742SGAYB9D00000000000AY", "param": "374"}
+          ],
+          "patterns": [
+            {
+              "id": "pat_01K742SGB8B9D00000000000B8",
+              "name": "Verse bass",
+              "length": 3840,
+              "events": [
+                {"type": "note", "id": "evt_01K742SGAZB9D00000000000AZ", "at": 0, "length": 420, "pitch": 45, "velocity": 0.8, "release": 0.6, "expressions": {"pitch": [{"at": 0, "value": -0.5}, {"at": 240, "value": 0, "curve": "hold"}], "pressure": [{"at": 0, "value": 0.6, "curve": "hold"}], "timbre": [{"at": 0, "value": 0.3, "curve": "hold"}], "volume": [{"at": 0, "value": 0.9}]}},
+                {"type": "note", "id": "evt_01K742SGB0B9D00000000000B0", "at": 480, "length": 420, "pitch": 45, "velocity": 0.8},
+                {"type": "note", "id": "evt_01K742SGB1B9D00000000000B1", "at": 960, "length": 420, "pitch": 52, "velocity": 0.8},
+                {"type": "note", "id": "evt_01K742SGB2B9D00000000000B2", "at": 1440, "length": 420, "pitch": 48, "velocity": 0.8},
+                {"type": "note", "id": "evt_01K742SGB3B9D00000000000B3", "at": 1920, "length": 420, "pitch": 45, "velocity": 0.8},
+                {"type": "note", "id": "evt_01K742SGB4B9D00000000000B4", "at": 2400, "length": 420, "pitch": 45, "velocity": 0.8},
+                {"type": "note", "id": "evt_01K742SGB5B9D00000000000B5", "at": 2880, "length": 420, "pitch": 43, "velocity": 0.8},
+                {"type": "note", "id": "evt_01K742SGB6B9D00000000000B6", "at": 3360, "length": 420, "pitch": 48, "velocity": 0.8},
+                {"type": "param", "id": "evt_01K742SGB7B9D00000000000B7", "at": 1920, "param": "cutoff", "value": 440}
+              ]
+            }
+          ],
+          "parts": [
+            {"id": "prt_01K742SGB9B9D00000000000B9", "pattern": "pat_01K742SGB8B9D00000000000B8", "at": 7680, "length": 3840, "mute": true},
+            {"id": "prt_01K742SGBAB9D00000000000BA", "pattern": "pat_01K742SGB8B9D00000000000B8", "at": 11520, "length": 3840},
+            {"id": "prt_01K742SGBBB9D00000000000BB", "pattern": "pat_01K742SGB8B9D00000000000B8", "at": 15360, "length": 3840},
+            {"id": "prt_01K742SGBCB9D00000000000BC", "pattern": "pat_01K742SGB8B9D00000000000B8", "at": 19200, "length": 3840},
+            {"id": "prt_01K742SGBDB9D00000000000BD", "pattern": "pat_01K742SGB8B9D00000000000B8", "at": 23040, "length": 3840, "offset": 480, "loop": {"start": 0, "end": 1920}, "name": "Half bass"},
+            {"id": "prt_01K742SGBEB9D00000000000BE", "pattern": "pat_01K742SGB8B9D00000000000B8", "at": 26880, "length": 3840, "offset": 480, "loop": {"start": 0, "end": 1920}, "name": "Half bass"},
+            {"id": "prt_01K742SGBFB9D00000000000BF", "pattern": "pat_01K742SGB8B9D00000000000B8", "at": 30720, "length": 3840, "offset": 480, "loop": {"start": 0, "end": 1920}, "name": "Half bass"},
+            {"id": "prt_01K742SGBGB9D00000000000BG", "pattern": "pat_01K742SGB8B9D00000000000B8", "at": 34560, "length": 3840, "offset": 480, "loop": {"start": 0, "end": 1920}, "name": "Half bass"}
+          ],
+          "automation": [
+            {
+              "id": "aut_01K742SGBHB9D00000000000BH",
+              "target": {
+                "parameter": "cutoff"
+              },
+              "points": [
+                {"at": 23040, "value": 120},
+                {"at": 38400, "value": 2400, "curve": "hold"}
+              ]
+            },
+            {
+              "id": "aut_01K742SGC6B9D00000000000C6",
+              "target": {
+                "device": "dev_01K742SGC5B9D00000000000C5",
+                "param": "1"
+              },
+              "points": [
+                {"at": 0, "value": 0.2, "curve": "hold"}
+              ]
+            },
+            {
+              "id": "aut_01K742SGC7B9D00000000000C7",
+              "target": {
+                "channel": "gain"
+              },
+              "points": [
+                {"at": 0, "value": 0.5},
+                {"at": 7680, "value": 0.7943, "curve": "hold"}
+              ]
+            }
+          ],
+          "slots": [
+            {"scene": "scn_01K742SGC4B9D00000000000C4", "pattern": "pat_01K742SGB8B9D00000000000B8", "loop": {"start": 0, "end": 3840}}
+          ]
+        }
+      ],
+      "channel": {
+        "gain": 0.9,
+        "sends": [
+          {"to": "trk_01K742SGBZB9D00000000000BZ", "gain": 0.1, "pre_fader": true, "enabled": false}
+        ]
+      },
+      "devices": [
+        {
+          "id": "dev_01K742SGC9B9D00000000000C9",
+          "role": "audio_effect",
+          "name": "Example glue",
+          "plugin": "builtin:example:glue"
+        }
+      ],
+      "automation": [
+        {
+          "id": "aut_01K742SGCAB9D00000000000CA",
+          "target": {
+            "channel": "send",
+            "to": "trk_01K742SGBZB9D00000000000BZ"
+          },
+          "points": [
+            {"at": 0, "value": 0.1, "curve": "hold"}
+          ]
+        },
+        {
+          "id": "aut_01K742SGCBB9D00000000000CB",
+          "target": {
+            "channel": "mute"
+          },
+          "points": [
+            {"at": 34560, "value": 1, "curve": "hold"},
+            {"at": 38400, "value": 0, "curve": "hold"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trk_01K742SGBJB9D00000000000BJ",
+      "name": "Loop",
+      "channel": {
+        "sends": [
+          {"to": "trk_01K742SGBZB9D00000000000BZ", "gain": 0.15}
+        ]
+      },
+      "patterns": [
+        {
+          "id": "pat_01K742SGBMB9D00000000000BM",
+          "name": "Click loop",
+          "length": 7680,
+          "events": [
+            {"type": "note", "id": "evt_01K742SGBKB9D00000000000BK", "at": 0, "length": 7680, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Click-loop_95.wav", "sha256": "577b3812879b547705ccf885d90d3213f8104a1ad772dfdb09ddfef8e6086bfb", "sample_rate": 44100, "channels": 1, "frames": 222821, "from": 0, "to": 222821, "map": [{"frame": 0, "tick": 0}], "bpm": 95, "gain": 0.5, "fade_in": {"length": 48, "shape": "equal_power"}}}
+          ]
+        },
+        {
+          "id": "pat_01K742SGCEB9D00000000000CE",
+          "name": "More audio",
+          "length": 23040,
+          "events": [
+            {"type": "note", "id": "evt_01K742SGCCB9D00000000000CC", "at": 7680, "length": 7680, "pitch": 60, "velocity": 0.9, "audio": {"file": "audio/Click-loop_95.wav", "sha256": "577b3812879b547705ccf885d90d3213f8104a1ad772dfdb09ddfef8e6086bfb", "sample_rate": 44100, "channels": 1, "frames": 222821, "from": 0, "to": 222821, "map": [{"frame": 0, "tick": 0}, {"frame": 111410, "tick": 4080}], "bpm": 95, "polarity": true, "channel_mode": "mono", "fade_out": {"length": 96, "outside": 48, "shape": "s_curve"}}},
+            {"type": "note", "id": "evt_01K742SGCDB9D00000000000CD", "at": 15360, "length": 960, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Pad-220.wav", "sha256": "1bb532bc8670e2f49644c119afa82f6197270d40c6245aa8958622aa09849593", "sample_rate": 44100, "channels": 1, "frames": 66150, "name": "Pad 220 Hz.wav", "from": 0, "to": 66150, "map": [{"frame": 0, "tick": 0}], "bpm": null, "channel_mode": "left", "reverse": true}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SGBNB9D00000000000BN", "pattern": "pat_01K742SGBMB9D00000000000BM", "at": 0, "length": 7680},
+        {"id": "prt_01K742SGCFB9D00000000000CF", "pattern": "pat_01K742SGCEB9D00000000000CE", "at": 7680, "length": 23040}
+      ],
+      "renders": [
+        {"file": "renders/Loop_000.wav", "sha256": "3a9800d7d549eb3211fd922d8aab53d9e8e6873618e3e32f6471b6db4c61be24", "from": 0, "to": 7680, "fingerprint": "5a4107151c7eb3744437f57793af44141bf2630c388daaefa50631711f20495a"}
+      ]
+    },
+    {
+      "id": "trk_01K742SGBPB9D00000000000BP",
+      "name": "Chords",
+      "channel": {
+        "solo": true,
+        "sends": [
+          {"to": "trk_01K742SGBZB9D00000000000BZ", "gain": 0.3}
+        ]
+      },
+      "devices": [
+        {
+          "id": "dev_01K742SGBQB9D00000000000BQ",
+          "role": "instrument",
+          "name": "Example piano",
+          "plugin": "builtin:example:piano"
+        }
+      ],
+      "patterns": [
+        {
+          "id": "pat_01K742SGBWB9D00000000000BW",
+          "name": "Progression",
+          "length": 15360,
+          "events": [
+            {"type": "chord", "id": "evt_01K742SGBRB9D00000000000BR", "at": 0, "length": 3840, "root": 9, "quality": "min", "bass": 4, "symbol": "Am/E", "notes": [57, 60, 64], "velocity": 0.7},
+            {"type": "chord", "id": "evt_01K742SGBSB9D00000000000BS", "at": 3840, "length": 3840, "root": 5, "quality": "maj", "symbol": "F", "notes": [53, 57, 60], "velocity": 0.7},
+            {"type": "chord", "id": "evt_01K742SGBTB9D00000000000BT", "at": 7680, "length": 3840, "root": 0, "quality": "maj", "symbol": "C", "notes": [48, 52, 55], "velocity": 0.7},
+            {"type": "chord", "id": "evt_01K742SGBVB9D00000000000BV", "at": 11520, "length": 3840, "root": 7, "quality": "maj", "symbol": "G", "notes": [55, 59, 62], "velocity": 0.7}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SGBXB9D00000000000BX", "pattern": "pat_01K742SGBWB9D00000000000BW", "at": 7680, "length": 15360},
+        {"id": "prt_01K742SGBYB9D00000000000BY", "pattern": "pat_01K742SGBWB9D00000000000BW", "at": 23040, "length": 15360}
+      ]
+    },
+    {
+      "id": "trk_01K742SGBZB9D00000000000BZ",
+      "name": "Reverb",
+      "devices": [
+        {
+          "id": "dev_01K742SGC0B9D00000000000C0",
+          "role": "audio_effect",
+          "name": "Example reverb",
+          "plugin": "builtin:example:reverb"
+        }
+      ]
+    }
+  ],
+  "scenes": [
+    {"id": "scn_01K742SGC3B9D00000000000C3", "name": "Verse"},
+    {"id": "scn_01K742SGC4B9D00000000000C4", "name": "Chorus"}
+  ],
+  "extensions": {
+    "org.example.lyrics": {
+      "language": "en",
+      "lines": [
+        {"at": 0, "text": "la"}
+      ]
+    }
+  }
+}

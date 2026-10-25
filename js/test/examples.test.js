@@ -6,24 +6,37 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 const tutti = require('..');
 
 const examples = path.join(__dirname, '..', '..', 'examples');
 const folders = (dir) =>
-  fs
-    .readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .map((e) => path.join(dir, e.name))
-    .sort();
+  fs.existsSync(dir)
+    ? fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => path.join(dir, e.name))
+        .sort()
+    : [];
 
 const exampleFolders = [
   path.join(examples, 'minimal'),
   path.join(examples, 'typical'),
   path.join(examples, 'every-feature'),
-  ...folders(path.join(examples, 'conformance', 'l0')),
+  ...['l0', 'l1', 'l2'].flatMap((level) => folders(path.join(examples, 'conformance', level))),
 ];
+
+// A hostile case with a link (its expected.json's `link`), as a runner makes it: git keeps no
+// link on every system, so the folder is copied and the link made in the copy (a junction on
+// Windows, which needs no privilege; a symbolic link elsewhere).
+const linkedCopy = (folder, link) => {
+  const into = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tutti-link-')), path.basename(folder));
+  fs.cpSync(folder, into, { recursive: true });
+  fs.symlinkSync(link.target, path.join(into, link.path), 'junction');
+  return into;
+};
 
 test('the version and the about sentence', () => {
   assert.equal(tutti.version(), '1.0');
@@ -68,15 +81,17 @@ test('every hostile fixture is refused as its expectation says', () => {
     // A project as one file is the command's to unpack; the package reads folders.
     if (fs.readdirSync(folder).some((name) => name.endsWith('.tutti.zip'))) continue;
     const expected = JSON.parse(fs.readFileSync(path.join(folder, 'expected.json'), 'utf8'));
+    const at = expected.link ? linkedCopy(folder, expected.link) : folder;
     let message;
     try {
-      const project = tutti.openFolder(folder);
+      const project = tutti.openFolder(at);
       const first = project.report.find((i) => i.severity === 'error') || project.check().find((i) => i.severity === 'error');
       message = first ? `error ${first.pointer}: ${first.message}` : 'accepted';
     } catch (e) {
       message = e.message;
     }
     assert.ok(message.includes(expected.error), `${folder}: expected ${JSON.stringify(expected.error)}, got ${JSON.stringify(message)}`);
+    if (at !== folder) fs.rmSync(path.dirname(at), { recursive: true, force: true });
   }
 });
 

@@ -1,0 +1,214 @@
+{
+  "what": "A click loop recorded at 100 bpm (a 1 kHz click every 26460 frames at 44100 Hz), three ways, each track soloed in turn, under the tempo ramp of 5.2 (120 to 60 bpm over four beats, then 60): warped by a three-point map (two clicks squeezed into a beat and a half, the next two stretched over three beats, the rest at its bpm); anchored by one point at its bpm; unwarped (bpm null). Each click starts at these seconds and samples at 48000 Hz. The warped and anchored loops follow the map and the ramp, stretched with the pitch kept (the clicks stay 1 kHz); the unwarped one plays at its own speed whatever the tempo.",
+  "rate": 48000,
+  "click_hz": 1000,
+  "tracks": [
+    {
+      "track": "trk_01K742SG9AB9D000000000009A",
+      "name": "Warped",
+      "map": [
+        {
+          "frame": 0,
+          "tick": 0
+        },
+        {
+          "frame": 52920,
+          "tick": 1440
+        },
+        {
+          "frame": 105840,
+          "tick": 4320
+        }
+      ],
+      "bpm": 100.0,
+      "clicks": [
+        {
+          "click": 0,
+          "source_frame": 0,
+          "tick": 0,
+          "seconds": 0.0,
+          "sample_48000": 0
+        },
+        {
+          "click": 1,
+          "source_frame": 26460,
+          "tick": 720,
+          "seconds": 0.3937602912530101,
+          "sample_48000": 18900
+        },
+        {
+          "click": 2,
+          "source_frame": 52920,
+          "tick": 1440,
+          "seconds": 0.830557459112978,
+          "sample_48000": 39867
+        },
+        {
+          "click": 3,
+          "source_frame": 79380,
+          "tick": 2880,
+          "seconds": 1.8800145169829423,
+          "sample_48000": 90241
+        },
+        {
+          "click": 4,
+          "source_frame": 105840,
+          "tick": 4320,
+          "seconds": 3.272588722239781,
+          "sample_48000": 157084
+        },
+        {
+          "click": 5,
+          "source_frame": 132300,
+          "tick": 5280,
+          "seconds": 4.272588722239782,
+          "sample_48000": 205084
+        },
+        {
+          "click": 6,
+          "source_frame": 158760,
+          "tick": 6240,
+          "seconds": 5.272588722239782,
+          "sample_48000": 253084
+        },
+        {
+          "click": 7,
+          "source_frame": 185220,
+          "tick": 7200,
+          "seconds": 6.272588722239782,
+          "sample_48000": 301084
+        }
+      ]
+    },
+    {
+      "track": "trk_01K742SG9EB9D000000000009E",
+      "name": "Anchored",
+      "map": [
+        {
+          "frame": 0,
+          "tick": 0
+        }
+      ],
+      "bpm": 100.0,
+      "clicks": [
+        {
+          "click": 0,
+          "source_frame": 0,
+          "tick": 0,
+          "seconds": 0.0,
+          "sample_48000": 0
+        },
+        {
+          "click": 1,
+          "source_frame": 26460,
+          "tick": 960,
+          "seconds": 0.5341255704980905,
+          "sample_48000": 25638
+        },
+        {
+          "click": 2,
+          "source_frame": 52920,
+          "tick": 1920,
+          "seconds": 1.1507282898071236,
+          "sample_48000": 55235
+        },
+        {
+          "click": 3,
+          "source_frame": 79380,
+          "tick": 2880,
+          "seconds": 1.8800145169829423,
+          "sample_48000": 90241
+        },
+        {
+          "click": 4,
+          "source_frame": 105840,
+          "tick": 3840,
+          "seconds": 2.772588722239781,
+          "sample_48000": 133084
+        },
+        {
+          "click": 5,
+          "source_frame": 132300,
+          "tick": 4800,
+          "seconds": 3.772588722239781,
+          "sample_48000": 181084
+        },
+        {
+          "click": 6,
+          "source_frame": 158760,
+          "tick": 5760,
+          "seconds": 4.772588722239782,
+          "sample_48000": 229084
+        },
+        {
+          "click": 7,
+          "source_frame": 185220,
+          "tick": 6720,
+          "seconds": 5.772588722239782,
+          "sample_48000": 277084
+        }
+      ]
+    },
+    {
+      "track": "trk_01K742SG9JB9D000000000009J",
+      "name": "Unwarped",
+      "map": [
+        {
+          "frame": 0,
+          "tick": 0
+        }
+      ],
+      "bpm": null,
+      "clicks": [
+        {
+          "click": 0,
+          "source_frame": 0,
+          "seconds": 0.0,
+          "sample_48000": 0
+        },
+        {
+          "click": 1,
+          "source_frame": 26460,
+          "seconds": 0.6,
+          "sample_48000": 28800
+        },
+        {
+          "click": 2,
+          "source_frame": 52920,
+          "seconds": 1.2,
+          "sample_48000": 57600
+        },
+        {
+          "click": 3,
+          "source_frame": 79380,
+          "seconds": 1.8,
+          "sample_48000": 86400
+        },
+        {
+          "click": 4,
+          "source_frame": 105840,
+          "seconds": 2.4,
+          "sample_48000": 115200
+        },
+        {
+          "click": 5,
+          "source_frame": 132300,
+          "seconds": 3.0,
+          "sample_48000": 144000
+        },
+        {
+          "click": 6,
+          "source_frame": 158760,
+          "seconds": 3.6,
+          "sample_48000": 172800
+        },
+        {
+          "click": 7,
+          "source_frame": 185220,
+          "seconds": 4.2,
+          "sample_48000": 201600
+        }
+      ]
+    }
+  ]
+}

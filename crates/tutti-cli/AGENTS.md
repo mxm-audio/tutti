@@ -33,9 +33,10 @@ Owns `Cargo.toml`, `src/` and `tests/`.
 
 # Verification
 
-- `cargo test -p tutti-cli`: `check` over every example and every hostile fixture (exit 1 with
-  the named error), its notes on the `preserve` fixture's unknown keys, `inspect` and `deps` on
-  the typical project, `archive` and `fmt` on a copy.
+- `cargo test -p tutti-cli`: `check` over every example and every fixture of Levels 0 to 2 and
+  every hostile fixture (exit 1 with the named error; a case with a `link` in a copy where the
+  link is made), its notes on the `preserve` fixture's unknown keys, `inspect` and `deps` on the
+  typical project, `archive` and `fmt` on a copy.
 
 # Child DOX Index
 

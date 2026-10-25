@@ -1,0 +1,79 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "audio/Click-loop_100.wav", "sha256": "5ac2d8d61e72d2b67d86b3aab7b7b11e8b497bf2bef5b856405dd3463009a505", "bytes": 423404}
+  ],
+  "metadata": {
+    "title": "Warps"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120, "curve": "linear"},
+    {"at": 3840, "bpm": 60}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SG9AB9D000000000009A",
+      "name": "Warped",
+      "patterns": [
+        {
+          "id": "pat_01K742SG9CB9D000000000009C",
+          "name": "Warped",
+          "length": 8160,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG9BB9D000000000009B", "at": 0, "length": 8160, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Click-loop_100.wav", "sha256": "5ac2d8d61e72d2b67d86b3aab7b7b11e8b497bf2bef5b856405dd3463009a505", "sample_rate": 44100, "channels": 1, "frames": 211680, "from": 0, "to": 211680, "map": [{"frame": 0, "tick": 0}, {"frame": 52920, "tick": 1440}, {"frame": 105840, "tick": 4320}], "bpm": 100}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG9DB9D000000000009D", "pattern": "pat_01K742SG9CB9D000000000009C", "at": 0, "length": 8160}
+      ]
+    },
+    {
+      "id": "trk_01K742SG9EB9D000000000009E",
+      "name": "Anchored",
+      "patterns": [
+        {
+          "id": "pat_01K742SG9GB9D000000000009G",
+          "name": "Anchored",
+          "length": 8160,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG9FB9D000000000009F", "at": 0, "length": 8160, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Click-loop_100.wav", "sha256": "5ac2d8d61e72d2b67d86b3aab7b7b11e8b497bf2bef5b856405dd3463009a505", "sample_rate": 44100, "channels": 1, "frames": 211680, "from": 0, "to": 211680, "map": [{"frame": 0, "tick": 0}], "bpm": 100}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG9HB9D000000000009H", "pattern": "pat_01K742SG9GB9D000000000009G", "at": 0, "length": 8160}
+      ]
+    },
+    {
+      "id": "trk_01K742SG9JB9D000000000009J",
+      "name": "Unwarped",
+      "patterns": [
+        {
+          "id": "pat_01K742SG9MB9D000000000009M",
+          "name": "Unwarped",
+          "length": 8160,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG9KB9D000000000009K", "at": 0, "length": 8160, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Click-loop_100.wav", "sha256": "5ac2d8d61e72d2b67d86b3aab7b7b11e8b497bf2bef5b856405dd3463009a505", "sample_rate": 44100, "channels": 1, "frames": 211680, "from": 0, "to": 211680, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG9NB9D000000000009N", "pattern": "pat_01K742SG9MB9D000000000009M", "at": 0, "length": 8160}
+      ]
+    }
+  ]
+}

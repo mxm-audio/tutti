@@ -179,6 +179,17 @@ designed from is `docs/research.md`.
   must name an immutable text.
 - **Three conformance levels** (plays, hosts, round-trips), claimed by passing fixtures: DAWproject's
   implementers "ignore parts of each other's data" with no way to say what they support.
+- **A fixture's table asks only what the spec pins** (2026-10-25, writing Levels 1 and 2): where
+  the text is silent (what solo does to a return's inputs, where a send taps the pan, how a
+  stereo source's balance runs between the centre and the side, a lane before its first point),
+  the case is built so every reading gives the same numbers, and the gap goes to the owner as a
+  question, never into a table as a guess. A table that guessed would fail a conforming program.
+- **`symlink-audio` links the `audio` folder, not a file, and the runner makes the link**: git
+  on Windows checks a link out as a file and making a file link there needs a privilege, while
+  a junction needs none and is a link to every reader; and a reader that checks only a path's
+  last part misses a folder link, which is the harder test. The target lies inside the case's
+  copy, so a reader that follows links "only inside the folder" fails it too: the spec refuses
+  every link.
 - Decided against, one line each: per-object schema tags (bloat; the tree says what an object
   is); a JSON Schema in every project (the README and URLs do it; `archive` snapshots); `extras`
   beside `extensions` (one namespaced container); second-anchored positions in 1.0 (`bpm: null`
@@ -285,3 +296,9 @@ in newDAWn come back.
   Level 2); `unknown_keys` (`unknown.rs`), a walk of the document's own serialisation in which
   an unknown key is a `Key` newtype, noted by `tutti check` and reaching JavaScript as
   `unknownKeys`; spec 8.2 lets a checker note such a key, never as an error.
+- 2026-10-25: the fixtures' gaps filled, on the owner's word ("start the work that needs no
+  decision"), toward declaring 1.0: Level 1's `automation`, `sends`, `warps`, `expressions` and
+  `missing-plugin`; Level 2's `everything` and `merge-different-tracks`; the hostile
+  `symlink-audio`, and `duplicate-key` listed in `conformance.md`. Level 1's `plugin` waits for
+  its reference CLAP. Written by the generator; their tests written, to be run in one batch
+  later (the owner: "lets get everything as ready as possible. Just dont do the tests yet").

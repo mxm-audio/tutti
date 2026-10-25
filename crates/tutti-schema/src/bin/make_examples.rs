@@ -1,7 +1,9 @@
 //! Writes `examples/`: the example projects (`minimal`, `typical`, `every-feature`) and the
-//! Level 0 conformance fixtures, from the crate itself, so every document is the pretty form and
-//! every hash and fingerprint is real. Deterministic: ids from fixed times, audio from closed
-//! forms, so running it again changes nothing (`cargo run -p tutti-schema --bin examples`).
+//! conformance fixtures of Levels 0, 1 and 2 and the hostile ones, from the crate itself, so
+//! every document is the pretty form and every hash and fingerprint is real. Deterministic: ids
+//! from fixed times, audio from closed forms, so running it again changes nothing (`cargo run -p
+//! tutti-schema --bin make-examples`). A new case goes after the ones before it, so their ids
+//! stay as they are.
 
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
@@ -45,16 +47,33 @@ fn main() {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, bytes).unwrap();
         }
+        let mut expected = json!({"what": case.what, "error": case.error});
+        if let Some((path, target)) = case.link {
+            expected["link"] = json!({"path": path, "target": target});
+        }
         write_text(
             &folder.join("expected.json"),
-            &format!(
-                "{}\n",
-                serde_json::to_string_pretty(&json!({"what": case.what, "error": case.error}))
-                    .unwrap()
-            ),
+            &format!("{}\n", serde_json::to_string_pretty(&expected).unwrap()),
         );
     }
+    // After the hostile cases, so the ids of everything above stay as they were.
+    let l1 = examples.join("conformance/l1");
+    for fixture in level_1(&mut ids) {
+        let folder = l1.join(fixture.name);
+        write_project(&folder, &title_case(fixture.name), fixture.project);
+        write_json(&folder.join("expected.json"), &fixture.expected);
+    }
+    let l2 = examples.join("conformance/l2");
+    everything(&l2.join("everything"), &mut ids);
+    merge_different_tracks(&l2.join("merge-different-tracks"), &mut ids);
     println!("examples written under {}", examples.display());
+}
+
+fn write_json(path: &Path, value: &Value) {
+    write_text(
+        path,
+        &format!("{}\n", serde_json::to_string_pretty(value).unwrap()),
+    );
 }
 
 fn title_case(name: &str) -> String {
@@ -1173,6 +1192,9 @@ struct Hostile {
     error: &'static str,
     /// Reference to bytes; the document among them.
     files: Vec<(String, Vec<u8>)>,
+    /// A link the runner makes before the check, `(path, target)`, the target relative to the
+    /// link's folder: git keeps no link on every system (Windows checks one out as a file).
+    link: Option<(&'static str, &'static str)>,
 }
 
 /// A zip of stored entries, written by hand so a fixture can declare any length: each entry
@@ -1306,6 +1328,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 d.tracks.push(twin);
             }),
         )],
+        link: None,
     });
     out.push(Hostile {
         name: "send-cycle",
@@ -1326,6 +1349,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 d.tracks.push(b);
             }),
         )],
+        link: None,
     });
     out.push(Hostile {
         name: "huge-tick",
@@ -1345,6 +1369,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 });
             }),
         )],
+        link: None,
     });
     out.push(Hostile {
         name: "map-unordered",
@@ -1364,6 +1389,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 }
             }),
         )],
+        link: None,
     });
     out.push(Hostile {
         name: "path-escape",
@@ -1377,6 +1403,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 }
             }),
         )],
+        link: None,
     });
     let (tone, _) = sine(440.0, 0.1, 0.5, RATE);
     let tone_bytes = wav(1, RATE, &tone);
@@ -1399,6 +1426,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
             ),
             ("audio/Tone.wav".to_owned(), tone_bytes.clone()),
         ],
+        link: None,
     });
     out.push(Hostile {
         name: "two-documents",
@@ -1412,6 +1440,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 ("Other.tutti".to_owned(), second),
             ]
         },
+        link: None,
     });
     out.push(Hostile {
         name: "higher-major",
@@ -1423,6 +1452,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 d.version = "2.0".to_owned();
             }),
         )],
+        link: None,
     });
     out.push(Hostile {
         name: "nan-token",
@@ -1435,6 +1465,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
 "#
             .to_vec(),
         )],
+        link: None,
     });
     out.push(Hostile {
         name: "duplicate-key",
@@ -1443,6 +1474,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
         files: vec![(doc_name, br#"{"format": "tutti", "version": "1.0", "generator": {"name": "x"}, "ppq": 960,
   "tempo": [{"at": 0, "bpm": 120, "bpm": 130}], "meter": [{"at": 0, "numerator": 4, "denominator": 4}]}
 "#.to_vec())],
+        link: None,
     });
     // A project as one file (spec 2.5): an entry that leaves the folder, and one that
     // declares more than a project file may be.
@@ -1458,6 +1490,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 ("../escape.wav", b"RIFF", None),
             ]),
         )],
+        link: None,
     });
     let bomb_document = hostile_document(ids, |_, _| {});
     out.push(Hostile {
@@ -1471,6 +1504,7 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 ("analysis/big.bin", b"ten bytes!", Some(0xF000_0000)),
             ]),
         )],
+        link: None,
     });
     out.push(Hostile {
         name: "device-files-escape",
@@ -1487,6 +1521,940 @@ fn hostile(ids: &mut Ids) -> Vec<Hostile> {
                 });
             }),
         )],
+        link: None,
+    });
+    // A link in place of a folder the reader reads (spec 9): `audio` a link to a folder beside
+    // it that holds the very file the index names, so only the link is wrong. A folder link,
+    // not a file link: a junction makes it on Windows without a privilege, and a reader that
+    // looks only at the last part of a path misses it.
+    let tone_frames = (tone_bytes.len() as u64 - 44) / 2;
+    out.push(Hostile {
+        name: "symlink-audio",
+        what: "the audio folder is a link (to link-target/ beside it, which holds the file the index names): refused, nothing read through it. Git keeps no link on every system, so the runner makes it before the check: a copy of this folder, its `audio` a link to `link-target`",
+        error: "error /files/0/path: audio/Tone.wav: a link",
+        files: vec![
+            (
+                "Hostile.tutti".to_owned(),
+                hostile_document(ids, |d, _| {
+                    if let Event::Note(n) = &mut d.tracks[0].patterns[0].events[0] {
+                        let mut a = piece("audio/Tone.wav");
+                        a.sha256 = tone_hash.clone();
+                        a.frames = tone_frames;
+                        a.to = tone_frames;
+                        a.bpm = None;
+                        n.audio = Some(a);
+                    }
+                    d.files.push(FileEntry {
+                        path: "audio/Tone.wav".to_owned(),
+                        sha256: tone_hash.clone(),
+                        bytes: tone_bytes.len() as u64,
+                        unknown: Unknown::new(),
+                    });
+                }),
+            ),
+            ("link-target/Tone.wav".to_owned(), tone_bytes.clone()),
+        ],
+        link: Some(("audio", "link-target")),
     });
     out
+}
+
+// --- the Level 1 fixtures ------------------------------------------------------------------------
+
+/// A Level 1 fixture: its name, the project, and the expected table a reader is checked against.
+struct Fixture {
+    name: &'static str,
+    project: Project,
+    expected: Value,
+}
+
+/// Ticks in a second at the fixtures' 120 bpm and `ppq` 960.
+const SECOND: i64 = 1920;
+
+/// The fictitious plugins: no one has them, so what they are given is a table, not a sound.
+const PROBE: &str = "clap:org.example.parameter-probe";
+const MISSING: &str = "clap:org.example.missing-synth";
+
+fn level_1(ids: &mut Ids) -> Vec<Fixture> {
+    vec![
+        automation(ids),
+        sends(ids),
+        warps(ids),
+        expressions(ids),
+        missing_plugin(ids),
+    ]
+}
+
+/// A sine on two channels, each at its own amplitude, interleaved.
+fn stereo_sine(hz: f64, seconds: f64, left: f64, right: f64, rate: u32) -> (Vec<f32>, u64) {
+    let frames = (seconds * rate as f64).round() as u64;
+    let mut out = Vec::with_capacity(frames as usize * 2);
+    for i in 0..frames {
+        let s = (2.0 * PI * hz * i as f64 / rate as f64).sin();
+        out.push((left * s) as f32);
+        out.push((right * s) as f32);
+    }
+    (out, frames)
+}
+
+/// The RMS of a sine of `amplitude` under a gain running linearly from `g0` to `g1` across a
+/// window of many cycles: the sine's mean square times the mean of the squared line,
+/// `amplitude / √2 · √((g0² + g0·g1 + g1²) / 3)`; a constant gain when the two are equal.
+fn rms_under_ramp(amplitude: f64, g0: f64, g1: f64) -> f64 {
+    amplitude / 2f64.sqrt() * ((g0 * g0 + g0 * g1 + g1 * g1) / 3.0).sqrt()
+}
+
+/// A value that is zero but for rounding (`cos(π/2)`), written as zero.
+fn clean(x: f64) -> f64 {
+    if x.abs() < 1e-12 { 0.0 } else { x }
+}
+
+/// A tick that is whole but for rounding, written whole.
+fn snap(tick: f64) -> f64 {
+    if (tick - tick.round()).abs() < 1e-6 {
+        tick.round()
+    } else {
+        tick
+    }
+}
+
+/// A curve's value at a tick (spec 6.8, and 6.7's expressions): `hold` keeps a point's value
+/// until the next point, `linear` runs to it. The fixtures ask nothing before a curve's first
+/// point or after its last, which the spec leaves unsaid.
+fn curve_value(points: &[Point], tick: f64) -> f64 {
+    let i = points
+        .iter()
+        .rposition(|p| p.at as f64 <= tick)
+        .expect("a tick at or after the first point");
+    let p = &points[i];
+    match (p.curve.effective(), points.get(i + 1)) {
+        (Curve::Linear, Some(next)) => {
+            p.value + (next.value - p.value) * (tick - p.at as f64) / (next.at - p.at) as f64
+        }
+        _ => p.value,
+    }
+}
+
+fn point(at: i64, value: f64, curve: Curve) -> Point {
+    Point {
+        at,
+        value,
+        curve,
+        unknown: Unknown::new(),
+    }
+}
+
+fn target() -> Target {
+    Target {
+        device: None,
+        param: None,
+        channel: None,
+        to: None,
+        parameter: None,
+        unknown: Unknown::new(),
+    }
+}
+
+fn channel_target(channel: &str, to: Option<Id>) -> Target {
+    Target {
+        channel: Some(channel.to_owned()),
+        to,
+        ..target()
+    }
+}
+
+fn lane(ids: &mut Ids, target: Target, points: Vec<Point>) -> AutomationLane {
+    AutomationLane {
+        id: ids.next("aut"),
+        target,
+        points,
+        extensions: Extensions::new(),
+        unknown: Unknown::new(),
+    }
+}
+
+fn send_to(to: &Id, gain: f64, pre_fader: bool, enabled: bool) -> Send {
+    Send {
+        to: to.clone(),
+        gain,
+        pre_fader,
+        enabled,
+        unknown: Unknown::new(),
+    }
+}
+
+/// `b`'s keys after `a`'s, in one object.
+fn join(mut a: Value, b: Value) -> Value {
+    if let (Value::Object(a), Value::Object(b)) = (&mut a, b) {
+        a.extend(b);
+    }
+    a
+}
+
+/// A time on the tempo map, as the tables give it: the tick (an integer when it is whole), its
+/// seconds, its sample at 48 kHz.
+fn when(map: &time::TempoMap, tick: f64) -> Value {
+    let at = if tick.fract() == 0.0 {
+        json!(tick as i64)
+    } else {
+        json!(tick)
+    };
+    json!({"tick": at, "seconds": map.seconds_at(tick), "sample_48000": map.samples_at(tick, 48_000)})
+}
+
+/// A lane's value at each of `ticks`, one row each.
+fn lane_rows(map: &time::TempoMap, lane: &AutomationLane, ticks: &[i64], out: &mut Vec<Value>) {
+    for &tick in ticks {
+        out.push(join(
+            join(
+                json!({"lane": lane.id.as_str(), "target": serde_json::to_value(&lane.target).unwrap()}),
+                when(map, tick as f64),
+            ),
+            json!({"value": curve_value(&lane.points, tick as f64)}),
+        ));
+    }
+}
+
+/// What the master carries over a window of seconds while one track sounds: the RMS of each
+/// output channel.
+fn heard(track: &Track, from: f64, to: f64, left: f64, right: f64) -> Value {
+    json!({"track": track.id.as_str(), "name": track.name, "from_seconds": from, "to_seconds": to,
+        "rms_left": clean(left), "rms_right": clean(right)})
+}
+
+/// A track playing `piece` `times` times back to back, a second each (the tones are whole
+/// cycles, so they join without a seam), from `at` on the track.
+fn tone_track(ids: &mut Ids, name: &str, at: i64, times: i64, piece: &AudioPiece) -> Track {
+    let mut t = Track::new(ids.next("trk"), name);
+    let mut events = Vec::new();
+    for k in 0..times {
+        let mut n = note(ids, k * SECOND, SECOND, 60, 1.0);
+        if let Event::Note(x) = &mut n {
+            x.audio = Some(piece.clone());
+        }
+        events.push(n);
+    }
+    let pat = pattern(ids, name, times * SECOND, events);
+    let pat_id = pat.id.clone();
+    t.patterns.push(pat);
+    t.parts.push(part(ids, &pat_id, at, times * SECOND));
+    t
+}
+
+fn param(id: &str, name: &str, value: f64, min: f64, max: f64, unit: &str) -> Param {
+    Param {
+        id: id.to_owned(),
+        name: Some(name.to_owned()),
+        value,
+        normalized: None,
+        min: Some(min),
+        max: Some(max),
+        unit: Some(unit.to_owned()),
+        text: None,
+        unknown: Unknown::new(),
+    }
+}
+
+fn example_dependency(id: &str, name: &str, page: &str) -> Dependency {
+    Dependency {
+        vendor: Some("Example".to_owned()),
+        version: Some("1.0.0".to_owned()),
+        url: Some(format!("https://example.org/{page}")),
+        formats: vec!["clap".to_owned()],
+        ..Dependency::plugin(id, name)
+    }
+}
+
+/// automation: channel targets heard (gain held then linear, pan held, mute linear and muted
+/// from 0.5, a send's gain), each track alone in its own seconds so no solo enters; and every
+/// lane's value at stated ticks, a device target, a promoted name and a parameter event through
+/// one included.
+fn automation(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let (mono, mono_frames) = sine(440.0, 1.0, 0.5, RATE);
+    let mono_hash = p.add_file("audio/Tone-440.wav", wav(1, RATE, &mono));
+    let (stereo, stereo_frames) = stereo_sine(440.0, 1.0, 0.5, 0.25, RATE);
+    let stereo_hash = p.add_file("audio/Tone-440-stereo.wav", wav(2, RATE, &stereo));
+    let mono_piece = audio_piece("audio/Tone-440.wav", &mono_hash, mono_frames, None);
+    let mut stereo_piece = audio_piece(
+        "audio/Tone-440-stereo.wav",
+        &stereo_hash,
+        stereo_frames,
+        None,
+    );
+    stereo_piece.channels = 2;
+    let map = time::TempoMap::new(960, &p.document.tempo);
+    let rms = 0.5 / 2f64.sqrt();
+    // A mono source at the centre, each side (equal power, spec 6.2).
+    let centre = (PI / 4.0).cos();
+    let mut heard_rows = Vec::new();
+    let mut values = Vec::new();
+    let windows = |base: f64| {
+        [
+            (base + 0.1, base + 0.9),
+            (base + 1.1, base + 1.9),
+            (base + 2.1, base + 2.9),
+        ]
+    };
+
+    // Gain, from second 0: held at 1, then a line from 0.5 down to 0.25 over two seconds.
+    let mut gain = tone_track(ids, "Gain", 0, 3, &mono_piece);
+    let gain_lane = lane(
+        ids,
+        channel_target("gain", None),
+        vec![
+            point(0, 1.0, Curve::Hold),
+            point(SECOND, 0.5, Curve::Linear),
+            point(3 * SECOND, 0.25, Curve::Hold),
+        ],
+    );
+    for (from, to) in windows(0.0) {
+        let g0 = curve_value(&gain_lane.points, map.tick_at(from));
+        let g1 = curve_value(&gain_lane.points, map.tick_at(to));
+        let each = centre * rms_under_ramp(0.5, g0, g1);
+        heard_rows.push(heard(&gain, from, to, each, each));
+    }
+    lane_rows(
+        &map,
+        &gain_lane,
+        &[0, SECOND - 1, SECOND, 2 * SECOND, 3 * SECOND],
+        &mut values,
+    );
+    gain.automation.push(gain_lane);
+
+    // Pan, from second 4: hard left, hard right, centre, each held.
+    let b = 4 * SECOND;
+    let mut pan = tone_track(ids, "Pan", b, 3, &mono_piece);
+    let pan_lane = lane(
+        ids,
+        channel_target("pan", None),
+        vec![
+            point(b, -1.0, Curve::Hold),
+            point(b + SECOND, 1.0, Curve::Hold),
+            point(b + 2 * SECOND, 0.0, Curve::Hold),
+            point(b + 3 * SECOND, 0.0, Curve::Hold),
+        ],
+    );
+    for (from, to) in windows(4.0) {
+        let theta = (curve_value(&pan_lane.points, map.tick_at(from)) + 1.0) * PI / 4.0;
+        heard_rows.push(heard(&pan, from, to, rms * theta.cos(), rms * theta.sin()));
+    }
+    lane_rows(
+        &map,
+        &pan_lane,
+        &[b, b + SECOND - 1, b + SECOND, b + 2 * SECOND],
+        &mut values,
+    );
+    pan.automation.push(pan_lane);
+
+    // Mute, from second 8: a line from 0 to 1 over two seconds, muted from 0.5 (second 9) on,
+    // then held at 1, and 0 again from second 10.5.
+    let b = 8 * SECOND;
+    let mut mute = tone_track(ids, "Mute", b, 3, &mono_piece);
+    let mute_lane = lane(
+        ids,
+        channel_target("mute", None),
+        vec![
+            point(b, 0.0, Curve::Linear),
+            point(b + 2 * SECOND, 1.0, Curve::Hold),
+            point(b + 2 * SECOND + SECOND / 2, 0.0, Curve::Hold),
+            point(b + 3 * SECOND, 0.0, Curve::Hold),
+        ],
+    );
+    for (from, to) in [(8.1, 8.9), (9.1, 10.4), (10.6, 10.9)] {
+        let muted = curve_value(&mute_lane.points, map.tick_at(from)) >= 0.5;
+        assert_eq!(
+            muted,
+            curve_value(&mute_lane.points, map.tick_at(to)) >= 0.5,
+            "a window the mute does not change in"
+        );
+        let each = if muted { 0.0 } else { centre * rms };
+        heard_rows.push(heard(&mute, from, to, each, each));
+    }
+    let first = values.len();
+    lane_rows(
+        &map,
+        &mute_lane,
+        &[
+            b,
+            b + SECOND - 1,
+            b + SECOND,
+            b + 2 * SECOND,
+            b + 2 * SECOND + SECOND / 2 - 1,
+            b + 2 * SECOND + SECOND / 2,
+        ],
+        &mut values,
+    );
+    for row in &mut values[first..] {
+        let muted = row["value"].as_f64().unwrap() >= 0.5;
+        row["muted"] = json!(muted);
+    }
+    mute.automation.push(mute_lane);
+
+    // A send's gain, from second 12: a stereo tone (so no pan law enters), the fader down and a
+    // pre-fader send, so only the return is heard; the send held at 1, then a line from 0.5 to
+    // 0 over a second, then held at 0.
+    let b = 12 * SECOND;
+    let ret = Track::new(ids.next("trk"), "Return");
+    let mut send = tone_track(ids, "Send", b, 3, &stereo_piece);
+    send.channel.gain = 0.0;
+    send.channel.sends.push(send_to(&ret.id, 1.0, true, true));
+    let send_lane = lane(
+        ids,
+        channel_target("send", Some(ret.id.clone())),
+        vec![
+            point(b, 1.0, Curve::Hold),
+            point(b + SECOND, 0.5, Curve::Linear),
+            point(b + 2 * SECOND, 0.0, Curve::Hold),
+            point(b + 3 * SECOND, 0.0, Curve::Hold),
+        ],
+    );
+    for (from, to) in windows(12.0) {
+        let g0 = curve_value(&send_lane.points, map.tick_at(from));
+        let g1 = curve_value(&send_lane.points, map.tick_at(to));
+        heard_rows.push(heard(
+            &send,
+            from,
+            to,
+            rms_under_ramp(0.5, g0, g1),
+            rms_under_ramp(0.25, g0, g1),
+        ));
+    }
+    lane_rows(
+        &map,
+        &send_lane,
+        &[
+            b,
+            b + SECOND - 1,
+            b + SECOND,
+            b + SECOND + SECOND / 2,
+            b + 2 * SECOND,
+        ],
+        &mut values,
+    );
+    send.automation.push(send_lane);
+
+    // A device of a fictitious plugin, on a track that sounds nothing: a device target (a line),
+    // a promoted name (held steps) and a parameter event through another promoted name.
+    let mut device_track = Track::new(ids.next("trk"), "Device");
+    let mut probe = device(ids, "audio_effect", "Parameter probe", PROBE);
+    probe.params = vec![
+        param("1", "Amount", 0.0, 0.0, 1.0, "linear"),
+        param("2", "Frequency", 220.0, 20.0, 20000.0, "hertz"),
+        param("3", "Steps", 0.0, 0.0, 16.0, "other"),
+    ];
+    let probe_id = probe.id.clone();
+    device_track.devices.push(probe);
+    for (name, param) in [("frequency", "2"), ("steps", "3")] {
+        device_track.parameters.push(Promoted {
+            name: name.to_owned(),
+            device: probe_id.clone(),
+            param: param.to_owned(),
+            unknown: Unknown::new(),
+        });
+    }
+    let device_lane = lane(
+        ids,
+        Target {
+            device: Some(probe_id.clone()),
+            param: Some("1".to_owned()),
+            ..target()
+        },
+        vec![
+            point(0, 0.0, Curve::Linear),
+            point(2 * SECOND, 1.0, Curve::Hold),
+            point(3 * SECOND, 1.0, Curve::Hold),
+        ],
+    );
+    lane_rows(
+        &map,
+        &device_lane,
+        &[
+            0,
+            SECOND / 2,
+            SECOND,
+            3 * SECOND / 2,
+            2 * SECOND,
+            5 * SECOND / 2,
+        ],
+        &mut values,
+    );
+    let promoted_lane = lane(
+        ids,
+        Target {
+            parameter: Some("frequency".to_owned()),
+            ..target()
+        },
+        vec![
+            point(0, 220.0, Curve::Hold),
+            point(SECOND, 440.0, Curve::Hold),
+            point(2 * SECOND, 880.0, Curve::Hold),
+            point(3 * SECOND, 880.0, Curve::Hold),
+        ],
+    );
+    let first = values.len();
+    lane_rows(
+        &map,
+        &promoted_lane,
+        &[
+            0,
+            SECOND - 1,
+            SECOND,
+            2 * SECOND - 1,
+            2 * SECOND,
+            5 * SECOND / 2,
+        ],
+        &mut values,
+    );
+    for row in &mut values[first..] {
+        row["resolves_to"] = json!({"device": probe_id.as_str(), "param": "2"});
+    }
+    let step_at = 3 * SECOND / 2;
+    let step = Event::Param(ParamEvent {
+        id: ids.next("evt"),
+        at: step_at,
+        param: "steps".to_owned(),
+        value: 4.0,
+        extensions: Extensions::new(),
+        unknown: Unknown::new(),
+    });
+    let step_id = step.id().to_owned();
+    let pat = pattern(ids, "Steps", 3 * SECOND, vec![step]);
+    let pat_id = pat.id.clone();
+    device_track.patterns.push(pat);
+    device_track.parts.push(part(ids, &pat_id, 0, 3 * SECOND));
+    for (tick, value, from) in [
+        (step_at - 1, 0.0, "the snapshot"),
+        (step_at, 4.0, "the event"),
+    ] {
+        values.push(join(
+            join(
+                json!({"event": step_id, "parameter": "steps", "resolves_to": {"device": probe_id.as_str(), "param": "3"}}),
+                when(&map, tick as f64),
+            ),
+            json!({"value": value, "from": from}),
+        ));
+    }
+    device_track.automation.push(device_lane);
+    device_track.automation.push(promoted_lane);
+
+    p.document.dependencies.push(example_dependency(
+        PROBE,
+        "Parameter probe",
+        "parameter-probe",
+    ));
+    p.document.tracks = vec![gain, pan, mute, send, ret, device_track];
+    Fixture {
+        name: "automation",
+        project: p,
+        expected: json!({
+            "what": "Channel targets, heard: each track sounds alone in its own seconds (no solo), and the master's RMS per output channel over each window is within 0.5 dB of these: gain held at 1, then a line from 0.5 to 0.25; pan held hard left, hard right, centre (a mono tone, equal power); mute a line from 0 to 1, muted from 0.5 on; a send's gain held at 1, then a line from 0.5 to 0, the source's fader down and its send pre-fader so only the return is heard (a stereo tone, left 0.5 and right 0.25). And every lane's value at these ticks, which is what a host gives its target, the plain value: a device target, and a promoted name resolving to a parameter of the device; a parameter event through a promoted name sets its parameter from the event's tick on, the snapshot's value before. The device's plugin is fictitious: its values are heard only through a plugin that shows them (the `plugin` case's reference CLAP, once there is one); until then a host checks its own evaluation against them.",
+            "rate": 48000,
+            "tolerance_db": 0.5,
+            "heard": heard_rows,
+            "values": values,
+        }),
+    }
+}
+
+/// sends: a send to a return pre-fader with the fader down, post-fader through two faders, and
+/// one switched off; each source alone in its own seconds.
+fn sends(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let (stereo, frames) = stereo_sine(440.0, 1.0, 0.5, 0.25, RATE);
+    let hash = p.add_file("audio/Tone-440-stereo.wav", wav(2, RATE, &stereo));
+    let mut piece = audio_piece("audio/Tone-440-stereo.wav", &hash, frames, None);
+    piece.channels = 2;
+    let (left, right) = (0.5 / 2f64.sqrt(), 0.25 / 2f64.sqrt());
+    let return_a = Track::new(ids.next("trk"), "Return A");
+    let mut return_b = Track::new(ids.next("trk"), "Return B");
+    return_b.channel.gain = 0.5;
+    let mut sink = Track::new(ids.next("trk"), "Sink");
+    sink.channel.mute = true;
+    // From second 0: the fader down, a pre-fader send at 0.5 to Return A, still heard.
+    let mut pre = tone_track(ids, "Pre-fader", 0, 1, &piece);
+    pre.channel.gain = 0.0;
+    pre.channel
+        .sends
+        .push(send_to(&return_a.id, 0.5, true, true));
+    // From second 2: the fader at 0.5, a post-fader send at 0.5 to Return B (fader 0.5); the
+    // source's own output goes to a muted track, so only the return is heard.
+    let mut post = tone_track(ids, "Post-fader", 2 * SECOND, 1, &piece);
+    post.channel.gain = 0.5;
+    post.channel.destination = Some(sink.id.clone());
+    post.channel
+        .sends
+        .push(send_to(&return_b.id, 0.5, false, true));
+    // From second 4: the fader down, a pre-fader send to Return A switched off.
+    let mut off = tone_track(ids, "Disabled", 4 * SECOND, 1, &piece);
+    off.channel.gain = 0.0;
+    off.channel
+        .sends
+        .push(send_to(&return_a.id, 1.0, true, false));
+    let heard_rows = vec![
+        join(
+            heard(&pre, 0.1, 0.9, 0.5 * left, 0.5 * right),
+            json!({"path": "the pre-fader send at 0.5 into Return A at 1"}),
+        ),
+        join(
+            heard(&post, 2.1, 2.9, 0.125 * left, 0.125 * right),
+            json!({"path": "the fader at 0.5, the post-fader send at 0.5, Return B at 0.5"}),
+        ),
+        join(
+            heard(&off, 4.1, 4.9, 0.0, 0.0),
+            json!({"path": "a disabled send: nothing"}),
+        ),
+    ];
+    p.document.tracks = vec![pre, post, off, return_a, return_b, sink];
+    Fixture {
+        name: "sends",
+        project: p,
+        expected: json!({
+            "what": "Each source sounds alone in its own seconds (no solo), and the master's RMS per output channel over each window is within 0.5 dB of these: a pre-fader send is heard with its source's fader down; a post-fader send follows the source's fader, and its return's fader after it; a disabled send sends nothing. The tone is stereo, left 0.5 and right 0.25, at the centre, so no pan law enters.",
+            "tolerance_db": 0.5,
+            "heard": heard_rows,
+        }),
+    }
+}
+
+/// warps: one click loop three ways under the spec's tempo ramp: warped by a three-point map,
+/// anchored by one point at its bpm, and unwarped.
+fn warps(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    p.document.tempo = vec![
+        TempoPoint {
+            at: 0,
+            bpm: 120.0,
+            curve: Curve::Linear,
+            unknown: Unknown::new(),
+        },
+        TempoPoint {
+            at: 3840,
+            bpm: 60.0,
+            curve: Curve::Hold,
+            unknown: Unknown::new(),
+        },
+    ];
+    let (samples, frames) = click_loop(100.0, 2, RATE);
+    let hash = p.add_file("audio/Click-loop_100.wav", wav(1, RATE, &samples));
+    // A click every beat at 100 bpm: 0.6 s, 26 460 frames.
+    let beat = 26_460u64;
+    assert_eq!(frames, 8 * beat);
+    let map = time::TempoMap::new(960, &p.document.tempo);
+    let map_point = |frame: u64, tick: i64| MapPoint {
+        frame,
+        tick,
+        unknown: Unknown::new(),
+    };
+    let mut warped = audio_piece("audio/Click-loop_100.wav", &hash, frames, Some(100.0));
+    // Two clicks squeezed into a beat and a half, the next two stretched over three beats, the
+    // rest at the loop's own 100 bpm.
+    warped.map = vec![
+        map_point(0, 0),
+        map_point(2 * beat, 1440),
+        map_point(4 * beat, 4320),
+    ];
+    let anchored = audio_piece("audio/Click-loop_100.wav", &hash, frames, Some(100.0));
+    let unwarped = audio_piece("audio/Click-loop_100.wav", &hash, frames, None);
+    // The window every piece plays in: the warped loop's last frame falls at tick 8160.
+    let window = 8160;
+    let mut tracks = Vec::new();
+    for (name, piece) in [
+        ("Warped", warped),
+        ("Anchored", anchored),
+        ("Unwarped", unwarped),
+    ] {
+        let placement = time::Placement::new(960, RATE, &piece.map, piece.bpm);
+        let clicks: Vec<Value> = (0..8)
+            .map(|k| {
+                let frame = k * beat;
+                let head = json!({"click": k, "source_frame": frame});
+                match placement.tick_of_frame(frame as f64) {
+                    Some(tick) => join(head, when(&map, snap(tick))),
+                    None => {
+                        // Unwarped: its start follows the grid, its content plays at 1×.
+                        let seconds = map.seconds_at(0.0) + frame as f64 / RATE as f64;
+                        join(
+                            head,
+                            json!({"seconds": seconds, "sample_48000": time::round_half_up(seconds * 48_000.0)}),
+                        )
+                    }
+                }
+            })
+            .collect();
+        let mut t = Track::new(ids.next("trk"), name);
+        tracks.push(json!({"track": t.id.as_str(), "name": name,
+            "map": serde_json::to_value(&piece.map).unwrap(), "bpm": piece.bpm, "clicks": clicks}));
+        let mut n = note(ids, 0, window, 60, 1.0);
+        if let Event::Note(x) = &mut n {
+            x.audio = Some(piece);
+        }
+        let pat = pattern(ids, name, window, vec![n]);
+        let pat_id = pat.id.clone();
+        t.patterns.push(pat);
+        t.parts.push(part(ids, &pat_id, 0, window));
+        p.document.tracks.push(t);
+    }
+    Fixture {
+        name: "warps",
+        project: p,
+        expected: json!({
+            "what": "A click loop recorded at 100 bpm (a 1 kHz click every 26460 frames at 44100 Hz), three ways, each track soloed in turn, under the tempo ramp of 5.2 (120 to 60 bpm over four beats, then 60): warped by a three-point map (two clicks squeezed into a beat and a half, the next two stretched over three beats, the rest at its bpm); anchored by one point at its bpm; unwarped (bpm null). Each click starts at these seconds and samples at 48000 Hz. The warped and anchored loops follow the map and the ramp, stretched with the pitch kept (the clicks stay 1 kHz); the unwarped one plays at its own speed whatever the tempo.",
+            "rate": 48000,
+            "click_hz": 1000,
+            "tracks": tracks,
+        }),
+    }
+}
+
+/// expressions: two notes at once, one bent by its own pitch curve, the other not.
+fn expressions(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let map = time::TempoMap::new(960, &p.document.tempo);
+    let length = 4 * 960;
+    // Held at 0 for a beat, up an octave over the next two, held there.
+    let curve = vec![
+        point(0, 0.0, Curve::Hold),
+        point(960, 0.0, Curve::Linear),
+        point(2880, 12.0, Curve::Hold),
+        point(length, 12.0, Curve::Hold),
+    ];
+    let mut bent = note(ids, 0, length, 69, 0.8);
+    if let Event::Note(n) = &mut bent {
+        n.expressions = Some(Expressions {
+            pitch: curve.clone(),
+            ..Expressions::default()
+        });
+    }
+    let still = note(ids, 0, length, 57, 0.8);
+    let ticks = [480i64, 1440, 1920, 2400, 3360];
+    let rows = |points: Option<&[Point]>| -> Vec<Value> {
+        ticks
+            .iter()
+            .map(|&tick| {
+                let semitones = points.map_or(0.0, |p| curve_value(p, tick as f64));
+                join(
+                    when(&map, tick as f64),
+                    json!({"semitones": semitones, "ratio": 2f64.powf(semitones / 12.0)}),
+                )
+            })
+            .collect()
+    };
+    let notes = vec![
+        json!({"note": bent.id(), "pitch": 69, "times": rows(Some(curve.as_slice()))}),
+        json!({"note": still.id(), "pitch": 57, "times": rows(None)}),
+    ];
+    let mut t = Track::new(ids.next("trk"), "Bend");
+    let pat = pattern(ids, "Bend", length, vec![bent, still]);
+    let pat_id = pat.id.clone();
+    t.patterns.push(pat);
+    t.parts.push(part(ids, &pat_id, 0, length));
+    p.document.tracks.push(t);
+    Fixture {
+        name: "expressions",
+        project: p,
+        expected: json!({
+            "what": "Two notes at once on a track without a device, sounded by the reader's own instrument as Level 0's notes are: A4 (69) bends by its own pitch curve (6.7: held at 0 for a beat, up an octave over the next two, held there), A3 (57) carries none and stays: a note's curve, not the channel's bend. The pitch heard, in semitones above each note's own pitch and as a frequency ratio, at these times, within 10 cents.",
+            "rate": 48000,
+            "tolerance_cents": 10,
+            "notes": notes,
+        }),
+    }
+}
+
+/// missing-plugin: a device of a fictitious plugin with a state, a snapshot, a dependency entry
+/// and a current render.
+fn missing_plugin(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let state = p.add_state(
+        b"tutti fixture: the state of a plugin no one has\n".to_vec(),
+        "clap",
+    );
+    let dependency = example_dependency(MISSING, "Missing synth", "missing-synth");
+    p.document.dependencies.push(dependency.clone());
+    let mut t = Track::new(ids.next("trk"), "Synth");
+    t.channel.gain = 0.5;
+    let mut synth = device(ids, "instrument", "Missing synth", MISSING);
+    synth.state = Some(state.clone());
+    let mut level = param("0", "Level", 0.5, 0.0, 1.0, "linear");
+    level.normalized = Some(0.5);
+    level.text = Some("50 %".to_owned());
+    synth.params.push(level);
+    let synth_json = serde_json::to_value(&synth).unwrap();
+    let synth_id = synth.id.clone();
+    t.devices.push(synth);
+    let events: Vec<Event> = (0..4).map(|i| note(ids, i * 480, 420, 69, 0.8)).collect();
+    let pat = pattern(ids, "Notes", SECOND, events);
+    let pat_id = pat.id.clone();
+    t.patterns.push(pat);
+    t.parts.push(part(ids, &pat_id, 0, SECOND));
+    // The chain's output over the part, before the fader: a stereo sine, both sides 0.5.
+    let (render, _) = stereo_sine(440.0, 1.0, 0.5, 0.5, RATE);
+    let render_bytes = wav(2, RATE, &render);
+    let fingerprint = render_fingerprint(&p.document, &t, 0, SECOND);
+    t.renders.push(Render {
+        file: "renders/Synth_000.wav".to_owned(),
+        sha256: sha256_hex(&render_bytes),
+        from: 0,
+        to: SECOND,
+        fingerprint,
+        unknown: Unknown::new(),
+    });
+    p.add_file("renders/Synth_000.wav", render_bytes);
+    let each = 0.5 * 0.5 / 2f64.sqrt();
+    let heard_rows = vec![heard(&t, 0.1, 0.9, each, each)];
+    p.document.tracks.push(t);
+    Fixture {
+        name: "missing-plugin",
+        project: p,
+        expected: json!({
+            "what": "A device of a plugin no one has (fictitious), with a state, a snapshot, a dependency entry and a current render (7.6, 7.7). A reader opens the project; names the missing plugin from its dependencies entry; plays the render in the device's place, through the track's fader at 0.5, so the master's RMS per output channel over the window is within 0.5 dB of these; keeps the device, its state file and its snapshot as they are; and writes an edit it makes to that device into overrides only, after which the render is stale (the fingerprint covers the device).",
+            "plugin": MISSING,
+            "reports": {"name": dependency.name, "vendor": dependency.vendor, "version": dependency.version, "url": dependency.url},
+            "tolerance_db": 0.5,
+            "heard": heard_rows,
+            "keeps": {"device": synth_json, "state_file": state.path()},
+            "edit": {"device": synth_id.as_str(), "param": "0", "value": 0.25},
+            "after_edit": {"overrides": [{"param": "0", "value": 0.25}], "render_stale": true},
+        }),
+    }
+}
+
+// --- the Level 2 fixtures ------------------------------------------------------------------------
+
+/// The document a fixture's folder holds, as written.
+fn written(folder: &Path, title: &str) -> Document {
+    tutti::read(&fs::read(folder.join(format!("{title}.tutti"))).unwrap()).unwrap()
+}
+
+/// everything: every feature (the every-feature example's project, with ids of its own), and
+/// what a round trip keeps of it.
+fn everything(folder: &Path, ids: &mut Ids) {
+    write_project(folder, "Everything", every_feature(ids));
+    let doc = written(folder, "Everything");
+    let shared: Vec<Value> = tutti_schema::shared_patterns(&doc)
+        .into_iter()
+        .map(|(pattern, parts)| json!({"pattern": pattern, "parts": parts}))
+        .collect();
+    write_json(
+        &folder.join("expected.json"),
+        &json!({
+            "what": "Every feature of the format. Read, written back by another program, read again: equal (3.1) to what was read, generator left out; every id kept; each pattern several parts play still one pattern; the files index complete and valid; README.md written by the new writer; the required extension kept, a reader that lacks it writing the project all the same, preserving (8.1, 8.3).",
+            "equal": true,
+            "ids": tutti_schema::ids_of(&doc),
+            "shared_patterns": shared,
+            "files": doc.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>(),
+            "extensions_required": doc.extensions_required,
+            "readme": "README.md",
+        }),
+    );
+}
+
+/// merge-different-tracks: a project, two branches each editing one track, and their merge.
+fn merge_different_tracks(folder: &Path, ids: &mut Ids) {
+    let title = "Merge-different-tracks";
+    let mut p = Project::new(generator());
+    let mut drums = Track::new(ids.next("trk"), "Drums");
+    let beat: Vec<Event> = [
+        (0, 36, 0.9),
+        (480, 42, 0.5),
+        (960, 38, 0.85),
+        (1440, 42, 0.5),
+        (1920, 36, 0.9),
+        (2400, 42, 0.5),
+        (2880, 38, 0.85),
+        (3360, 42, 0.5),
+    ]
+    .iter()
+    .map(|&(at, pitch, velocity)| note(ids, at, 120, pitch, velocity))
+    .collect();
+    let beat = pattern(ids, "Beat", 3840, beat);
+    let beat_id = beat.id.clone();
+    drums.patterns.push(beat);
+    for at in [0, 3840] {
+        drums.parts.push(part(ids, &beat_id, at, 3840));
+    }
+    let mut bass = Track::new(ids.next("trk"), "Bass");
+    let line: Vec<Event> = [45u8, 45, 52, 48]
+        .iter()
+        .enumerate()
+        .map(|(i, &pitch)| note(ids, i as i64 * 960, 840, pitch, 0.8))
+        .collect();
+    let line = pattern(ids, "Line", 3840, line);
+    let line_id = line.id.clone();
+    bass.patterns.push(line);
+    for at in [0, 3840] {
+        bass.parts.push(part(ids, &line_id, at, 3840));
+    }
+    let (drums_id, bass_id) = (drums.id.clone(), bass.id.clone());
+    p.document.tracks = vec![drums, bass];
+    write_project(folder, title, p);
+    let base = written(folder, title);
+
+    // The drums branch: the first kick softer, a ghost snare added, the drums' fader down a bit.
+    let kick_id = base.track(&drums_id).unwrap().patterns[0].events[0]
+        .id()
+        .to_owned();
+    let ghost = note(ids, 3600, 120, 38, 0.4);
+    let drums_edit = |doc: &mut Document| {
+        let t = doc.track_mut(&drums_id).unwrap();
+        if let Event::Note(n) = &mut t.patterns[0].events[0] {
+            n.velocity = 0.7;
+        }
+        t.patterns[0].events.push(ghost.clone());
+        t.channel.gain = 0.8;
+    };
+    // The bass branch: the third note down a tone, the second part moved, a part added.
+    let bass_note_id = base.track(&bass_id).unwrap().patterns[0].events[2]
+        .id()
+        .to_owned();
+    let moved_id = base.track(&bass_id).unwrap().parts[1].id.clone();
+    let added = part(ids, &line_id, 11520, 3840);
+    let bass_edit = |doc: &mut Document| {
+        let t = doc.track_mut(&bass_id).unwrap();
+        if let Event::Note(n) = &mut t.patterns[0].events[2] {
+            n.pitch = 50;
+        }
+        t.parts[1].at = 7680;
+        t.parts.push(added.clone());
+    };
+    let branch = |edits: &[&dyn Fn(&mut Document)]| {
+        let mut doc = base.clone();
+        for edit in edits {
+            edit(&mut doc);
+        }
+        doc.normalise();
+        write(&doc)
+    };
+    let branches = folder.join("branches");
+    fs::create_dir_all(&branches).unwrap();
+    write_text(&branches.join("drums.tutti"), &branch(&[&drums_edit]));
+    write_text(&branches.join("bass.tutti"), &branch(&[&bass_edit]));
+    write_text(
+        &branches.join("merged.tutti"),
+        &branch(&[&drums_edit, &bass_edit]),
+    );
+    let set = |id: &str, key: &str, from: Value, value: Value| json!({"op": "set", "id": id, "key": key, "from": from, "value": value});
+    let add = |id: &str, key: &str, value: Value| json!({"op": "add", "id": id, "key": key, "value": value});
+    write_json(
+        &folder.join("expected.json"),
+        &json!({
+            "what": "Two branches of this project, each one writer's edit of one track (the drums on one, the bass on the other; what either adds has a new id), both in the pretty form: git merges them without a conflict, this document their base, and the result is the document with both edits, valid. A Level 2 writer that makes these edits to this project, each from the base, writes documents that merge the same way. An edit: `set` puts `value` at `key` (keys with `/` between) in the object with the id, where `from` was (absent: the default); `add` appends `value` to the array at `key` in the object with the id.",
+            "base": format!("{title}.tutti"),
+            "branches": [
+                {"name": "drums", "document": "branches/drums.tutti", "edits": [
+                    set(&kick_id, "velocity", json!(0.9), json!(0.7)),
+                    add(beat_id.as_str(), "events", serde_json::to_value(&ghost).unwrap()),
+                    set(drums_id.as_str(), "channel/gain", json!(1.0), json!(0.8)),
+                ]},
+                {"name": "bass", "document": "branches/bass.tutti", "edits": [
+                    set(&bass_note_id, "pitch", json!(52), json!(50)),
+                    set(moved_id.as_str(), "at", json!(3840), json!(7680)),
+                    add(bass_id.as_str(), "parts", serde_json::to_value(&added).unwrap()),
+                ]},
+            ],
+            "merged": "branches/merged.tutti",
+            "git": format!("git merge-file -p branches/drums.tutti {title}.tutti branches/bass.tutti"),
+        }),
+    );
 }

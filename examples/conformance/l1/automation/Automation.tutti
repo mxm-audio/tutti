@@ -1,0 +1,233 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "audio/Tone-440-stereo.wav", "sha256": "2bf9d092e3106170d464b9d7d16e892db441b7323aec1d681de11ba23780421f", "bytes": 176444},
+    {"path": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "bytes": 88244}
+  ],
+  "dependencies": [
+    {"id": "clap:org.example.parameter-probe", "kind": "plugin", "name": "Parameter probe", "vendor": "Example", "version": "1.0.0", "url": "https://example.org/parameter-probe", "formats": ["clap"]}
+  ],
+  "metadata": {
+    "title": "Automation"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SG7QB9D000000000007Q",
+      "name": "Gain",
+      "patterns": [
+        {
+          "id": "pat_01K742SG7VB9D000000000007V",
+          "name": "Gain",
+          "length": 5760,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG7RB9D000000000007R", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SG7SB9D000000000007S", "at": 1920, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SG7TB9D000000000007T", "at": 3840, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG7WB9D000000000007W", "pattern": "pat_01K742SG7VB9D000000000007V", "at": 0, "length": 5760}
+      ],
+      "automation": [
+        {
+          "id": "aut_01K742SG7XB9D000000000007X",
+          "target": {
+            "channel": "gain"
+          },
+          "points": [
+            {"at": 0, "value": 1, "curve": "hold"},
+            {"at": 1920, "value": 0.5},
+            {"at": 5760, "value": 0.25, "curve": "hold"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trk_01K742SG7YB9D000000000007Y",
+      "name": "Pan",
+      "patterns": [
+        {
+          "id": "pat_01K742SG82B9D0000000000082",
+          "name": "Pan",
+          "length": 5760,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG7ZB9D000000000007Z", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SG80B9D0000000000080", "at": 1920, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SG81B9D0000000000081", "at": 3840, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG83B9D0000000000083", "pattern": "pat_01K742SG82B9D0000000000082", "at": 7680, "length": 5760}
+      ],
+      "automation": [
+        {
+          "id": "aut_01K742SG84B9D0000000000084",
+          "target": {
+            "channel": "pan"
+          },
+          "points": [
+            {"at": 7680, "value": -1, "curve": "hold"},
+            {"at": 9600, "value": 1, "curve": "hold"},
+            {"at": 11520, "value": 0, "curve": "hold"},
+            {"at": 13440, "value": 0, "curve": "hold"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trk_01K742SG85B9D0000000000085",
+      "name": "Mute",
+      "patterns": [
+        {
+          "id": "pat_01K742SG89B9D0000000000089",
+          "name": "Mute",
+          "length": 5760,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG86B9D0000000000086", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SG87B9D0000000000087", "at": 1920, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SG88B9D0000000000088", "at": 3840, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG8AB9D000000000008A", "pattern": "pat_01K742SG89B9D0000000000089", "at": 15360, "length": 5760}
+      ],
+      "automation": [
+        {
+          "id": "aut_01K742SG8BB9D000000000008B",
+          "target": {
+            "channel": "mute"
+          },
+          "points": [
+            {"at": 15360, "value": 0},
+            {"at": 19200, "value": 1, "curve": "hold"},
+            {"at": 20160, "value": 0, "curve": "hold"},
+            {"at": 21120, "value": 0, "curve": "hold"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trk_01K742SG8DB9D000000000008D",
+      "name": "Send",
+      "channel": {
+        "gain": 0,
+        "sends": [
+          {"to": "trk_01K742SG8CB9D000000000008C", "pre_fader": true}
+        ]
+      },
+      "patterns": [
+        {
+          "id": "pat_01K742SG8HB9D000000000008H",
+          "name": "Send",
+          "length": 5760,
+          "events": [
+            {"type": "note", "id": "evt_01K742SG8EB9D000000000008E", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440-stereo.wav", "sha256": "2bf9d092e3106170d464b9d7d16e892db441b7323aec1d681de11ba23780421f", "sample_rate": 44100, "channels": 2, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SG8FB9D000000000008F", "at": 1920, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440-stereo.wav", "sha256": "2bf9d092e3106170d464b9d7d16e892db441b7323aec1d681de11ba23780421f", "sample_rate": 44100, "channels": 2, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SG8GB9D000000000008G", "at": 3840, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440-stereo.wav", "sha256": "2bf9d092e3106170d464b9d7d16e892db441b7323aec1d681de11ba23780421f", "sample_rate": 44100, "channels": 2, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG8JB9D000000000008J", "pattern": "pat_01K742SG8HB9D000000000008H", "at": 23040, "length": 5760}
+      ],
+      "automation": [
+        {
+          "id": "aut_01K742SG8KB9D000000000008K",
+          "target": {
+            "channel": "send",
+            "to": "trk_01K742SG8CB9D000000000008C"
+          },
+          "points": [
+            {"at": 23040, "value": 1, "curve": "hold"},
+            {"at": 24960, "value": 0.5},
+            {"at": 26880, "value": 0, "curve": "hold"},
+            {"at": 28800, "value": 0, "curve": "hold"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trk_01K742SG8CB9D000000000008C",
+      "name": "Return"
+    },
+    {
+      "id": "trk_01K742SG8MB9D000000000008M",
+      "name": "Device",
+      "devices": [
+        {
+          "id": "dev_01K742SG8NB9D000000000008N",
+          "role": "audio_effect",
+          "name": "Parameter probe",
+          "plugin": "clap:org.example.parameter-probe",
+          "params": [
+            {"id": "1", "name": "Amount", "value": 0, "min": 0, "max": 1, "unit": "linear"},
+            {"id": "2", "name": "Frequency", "value": 220, "min": 20, "max": 20000, "unit": "hertz"},
+            {"id": "3", "name": "Steps", "value": 0, "min": 0, "max": 16, "unit": "other"}
+          ]
+        }
+      ],
+      "parameters": [
+        {"name": "frequency", "device": "dev_01K742SG8NB9D000000000008N", "param": "2"},
+        {"name": "steps", "device": "dev_01K742SG8NB9D000000000008N", "param": "3"}
+      ],
+      "patterns": [
+        {
+          "id": "pat_01K742SG8SB9D000000000008S",
+          "name": "Steps",
+          "length": 5760,
+          "events": [
+            {"type": "param", "id": "evt_01K742SG8RB9D000000000008R", "at": 2880, "param": "steps", "value": 4}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SG8TB9D000000000008T", "pattern": "pat_01K742SG8SB9D000000000008S", "at": 0, "length": 5760}
+      ],
+      "automation": [
+        {
+          "id": "aut_01K742SG8PB9D000000000008P",
+          "target": {
+            "device": "dev_01K742SG8NB9D000000000008N",
+            "param": "1"
+          },
+          "points": [
+            {"at": 0, "value": 0},
+            {"at": 3840, "value": 1, "curve": "hold"},
+            {"at": 5760, "value": 1, "curve": "hold"}
+          ]
+        },
+        {
+          "id": "aut_01K742SG8QB9D000000000008Q",
+          "target": {
+            "parameter": "frequency"
+          },
+          "points": [
+            {"at": 0, "value": 220, "curve": "hold"},
+            {"at": 1920, "value": 440, "curve": "hold"},
+            {"at": 3840, "value": 880, "curve": "hold"},
+            {"at": 5760, "value": 880, "curve": "hold"}
+          ]
+        }
+      ]
+    }
+  ]
+}

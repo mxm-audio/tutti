@@ -1,0 +1,60 @@
+{
+  "what": "A device of a plugin no one has (fictitious), with a state, a snapshot, a dependency entry and a current render (7.6, 7.7). A reader opens the project; names the missing plugin from its dependencies entry; plays the render in the device's place, through the track's fader at 0.5, so the master's RMS per output channel over the window is within 0.5 dB of these; keeps the device, its state file and its snapshot as they are; and writes an edit it makes to that device into overrides only, after which the render is stale (the fingerprint covers the device).",
+  "plugin": "clap:org.example.missing-synth",
+  "reports": {
+    "name": "Missing synth",
+    "vendor": "Example",
+    "version": "1.0.0",
+    "url": "https://example.org/missing-synth"
+  },
+  "tolerance_db": 0.5,
+  "heard": [
+    {
+      "track": "trk_01K742SG9VB9D000000000009V",
+      "name": "Synth",
+      "from_seconds": 0.1,
+      "to_seconds": 0.9,
+      "rms_left": 0.17677669529663687,
+      "rms_right": 0.17677669529663687
+    }
+  ],
+  "keeps": {
+    "device": {
+      "id": "dev_01K742SG9WB9D000000000009W",
+      "role": "instrument",
+      "name": "Missing synth",
+      "plugin": "clap:org.example.missing-synth",
+      "state": {
+        "sha256": "1e8b987802939130b582ced1704065bd44fd7fa6dbbb26bb4b83e0b88c427592",
+        "kind": "clap"
+      },
+      "params": [
+        {
+          "id": "0",
+          "name": "Level",
+          "value": 0.5,
+          "normalized": 0.5,
+          "min": 0.0,
+          "max": 1.0,
+          "unit": "linear",
+          "text": "50 %"
+        }
+      ]
+    },
+    "state_file": "plugins/states/1e8b987802939130b582ced1704065bd44fd7fa6dbbb26bb4b83e0b88c427592.clap"
+  },
+  "edit": {
+    "device": "dev_01K742SG9WB9D000000000009W",
+    "param": "0",
+    "value": 0.25
+  },
+  "after_edit": {
+    "overrides": [
+      {
+        "param": "0",
+        "value": 0.25
+      }
+    ],
+    "render_stale": true
+  }
+}

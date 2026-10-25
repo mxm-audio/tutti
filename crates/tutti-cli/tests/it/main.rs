@@ -42,6 +42,8 @@ fn check_accepts_every_example_and_says_what_it_uses() {
     ]
     .into_iter()
     .chain(folders_under(&examples.join("conformance/l0")))
+    .chain(folders_under(&examples.join("conformance/l1")))
+    .chain(folders_under(&examples.join("conformance/l2")))
     {
         let (code, out, err) = tutti(&["check"], &folder);
         assert_eq!(code, 0, "{}: {err}", folder.display());
@@ -83,12 +85,62 @@ fn zip_in(folder: &Path) -> Option<PathBuf> {
         })
 }
 
+/// Makes `link` a link to the folder `target`, relative to the link's own folder: a symbolic
+/// link where the system gives one, else, on Windows, a junction, which needs no privilege and
+/// which a reader refuses alike (spec 9).
+fn make_folder_link(link: &Path, target: &str) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, link)
+    }
+    #[cfg(windows)]
+    {
+        if std::os::windows::fs::symlink_dir(target, link).is_ok() {
+            return Ok(());
+        }
+        let absolute = link.parent().expect("a link in a folder").join(target);
+        let status = Command::new("cmd")
+            .arg("/C")
+            .arg("mklink")
+            .arg("/J")
+            .arg(link)
+            .arg(&absolute)
+            .stdout(std::process::Stdio::null())
+            .status()?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(std::io::Error::other("mklink /J failed"))
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (link, target);
+        Err(std::io::Error::other("no links on this system"))
+    }
+}
+
 #[test]
 fn check_refuses_every_hostile_fixture_with_its_named_error() {
+    let links = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("cli-hostile-links");
+    let _ = fs::remove_dir_all(&links);
     for folder in folders_under(&repository_root().join("examples/conformance/hostile")) {
         let expected: serde_json::Value =
             serde_json::from_slice(&fs::read(folder.join("expected.json")).unwrap()).unwrap();
         let want = expected["error"].as_str().unwrap();
+        // A case with a link is checked in a copy where the link is made, as a runner does:
+        // git keeps no link on every system.
+        let folder = match expected.get("link") {
+            Some(link) => {
+                let into = links.join(folder.file_name().unwrap());
+                copy_dir(&folder, &into);
+                let path = into.join(link["path"].as_str().unwrap());
+                make_folder_link(&path, link["target"].as_str().unwrap())
+                    .unwrap_or_else(|e| panic!("{}: the link: {e}", path.display()));
+                into
+            }
+            None => folder,
+        };
         // A project as one file is refused by `unzip`, and nothing is unpacked.
         let (code, _, err) = match zip_in(&folder) {
             Some(zip) => {

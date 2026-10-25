@@ -100,13 +100,15 @@ fixture is made (a sine, a click, noise), never taken from anywhere.
 | 1 | `missing-plugin` | A device of a fictitious plugin with a state, a snapshot and a render: opens, plays the render, keeps the state file, writes edits to `overrides` only. |
 | 1 | `plugin` | A tiny reference CLAP (a sine with one parameter and a state) in `fixtures/clap/`, built with the first Level 1 claimant. |
 | 2 | `everything` | Every feature; read and written to an equal document. |
-| 2 | `merge-different-tracks` | Two branches editing different tracks merge in git without conflict and the result validates. |
+| 2 | `merge-different-tracks` | Two branches editing different tracks (their documents in the case's `branches/`) merge in git without conflict and the result validates. |
 
 ### Hostile fixtures
 
 Under `examples/conformance/hostile/<case>/`, each must be refused with the named error, and a
-canary file one level above the project must stay untouched: `path-escape`, `symlink-audio`,
-`size-lie`, `dup-id`, `send-cycle`, `nan-token`, `huge-tick`, `map-unordered`, `two-documents`,
+canary file one level above the project must stay untouched: `path-escape`, `symlink-audio`
+(the `audio` folder a link; git keeps no link on every system, so a runner makes it in a copy of
+the case, as its `expected.json` says), `size-lie`, `dup-id`, `duplicate-key` (one key twice in
+an object), `send-cycle`, `nan-token`, `huge-tick`, `map-unordered`, `two-documents`,
 `higher-major`, and for a project as one file (`tutti.md` 2.5) `zip-slip` (an entry whose name
 leaves the folder) and `zip-bomb` (an entry that declares more than a project file may be),
 each refused before anything is unpacked; `device-files-escape` (a device's own file indexed

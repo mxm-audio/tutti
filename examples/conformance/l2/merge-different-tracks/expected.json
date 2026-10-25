@@ -1,0 +1,72 @@
+{
+  "what": "Two branches of this project, each one writer's edit of one track (the drums on one, the bass on the other; what either adds has a new id), both in the pretty form: git merges them without a conflict, this document their base, and the result is the document with both edits, valid. A Level 2 writer that makes these edits to this project, each from the base, writes documents that merge the same way. An edit: `set` puts `value` at `key` (keys with `/` between) in the object with the id, where `from` was (absent: the default); `add` appends `value` to the array at `key` in the object with the id.",
+  "base": "Merge-different-tracks.tutti",
+  "branches": [
+    {
+      "name": "drums",
+      "document": "branches/drums.tutti",
+      "edits": [
+        {
+          "op": "set",
+          "id": "evt_01K742SGCHB9D00000000000CH",
+          "key": "velocity",
+          "from": 0.9,
+          "value": 0.7
+        },
+        {
+          "op": "add",
+          "id": "pat_01K742SGCSB9D00000000000CS",
+          "key": "events",
+          "value": {
+            "type": "note",
+            "id": "evt_01K742SGD4B9D00000000000D4",
+            "at": 3600,
+            "length": 120,
+            "pitch": 38,
+            "velocity": 0.4
+          }
+        },
+        {
+          "op": "set",
+          "id": "trk_01K742SGCGB9D00000000000CG",
+          "key": "channel/gain",
+          "from": 1.0,
+          "value": 0.8
+        }
+      ]
+    },
+    {
+      "name": "bass",
+      "document": "branches/bass.tutti",
+      "edits": [
+        {
+          "op": "set",
+          "id": "evt_01K742SGCZB9D00000000000CZ",
+          "key": "pitch",
+          "from": 52,
+          "value": 50
+        },
+        {
+          "op": "set",
+          "id": "prt_01K742SGD3B9D00000000000D3",
+          "key": "at",
+          "from": 3840,
+          "value": 7680
+        },
+        {
+          "op": "add",
+          "id": "trk_01K742SGCWB9D00000000000CW",
+          "key": "parts",
+          "value": {
+            "id": "prt_01K742SGD5B9D00000000000D5",
+            "pattern": "pat_01K742SGD1B9D00000000000D1",
+            "at": 11520,
+            "length": 3840
+          }
+        }
+      ]
+    }
+  ],
+  "merged": "branches/merged.tutti",
+  "git": "git merge-file -p branches/drums.tutti Merge-different-tracks.tutti branches/bass.tutti"
+}

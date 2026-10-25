@@ -1,0 +1,492 @@
+{
+  "what": "Channel targets, heard: each track sounds alone in its own seconds (no solo), and the master's RMS per output channel over each window is within 0.5 dB of these: gain held at 1, then a line from 0.5 to 0.25; pan held hard left, hard right, centre (a mono tone, equal power); mute a line from 0 to 1, muted from 0.5 on; a send's gain held at 1, then a line from 0.5 to 0, the source's fader down and its send pre-fader so only the return is heard (a stereo tone, left 0.5 and right 0.25). And every lane's value at these ticks, which is what a host gives its target, the plain value: a device target, and a promoted name resolving to a parameter of the device; a parameter event through a promoted name sets its parameter from the event's tick on, the snapshot's value before. The device's plugin is fictitious: its values are heard only through a plugin that shows them (the `plugin` case's reference CLAP, once there is one); until then a host checks its own evaluation against them.",
+  "rate": 48000,
+  "tolerance_db": 0.5,
+  "heard": [
+    {
+      "track": "trk_01K742SG7QB9D000000000007Q",
+      "name": "Gain",
+      "from_seconds": 0.1,
+      "to_seconds": 0.9,
+      "rms_left": 0.25,
+      "rms_right": 0.25
+    },
+    {
+      "track": "trk_01K742SG7QB9D000000000007Q",
+      "name": "Gain",
+      "from_seconds": 1.1,
+      "to_seconds": 1.9,
+      "rms_left": 0.1096128366494241,
+      "rms_right": 0.1096128366494241
+    },
+    {
+      "track": "trk_01K742SG7QB9D000000000007Q",
+      "name": "Gain",
+      "from_seconds": 2.1,
+      "to_seconds": 2.9,
+      "rms_left": 0.07845762524021062,
+      "rms_right": 0.07845762524021062
+    },
+    {
+      "track": "trk_01K742SG7YB9D000000000007Y",
+      "name": "Pan",
+      "from_seconds": 4.1,
+      "to_seconds": 4.9,
+      "rms_left": 0.35355339059327373,
+      "rms_right": 0.0
+    },
+    {
+      "track": "trk_01K742SG7YB9D000000000007Y",
+      "name": "Pan",
+      "from_seconds": 5.1,
+      "to_seconds": 5.9,
+      "rms_left": 0.0,
+      "rms_right": 0.35355339059327373
+    },
+    {
+      "track": "trk_01K742SG7YB9D000000000007Y",
+      "name": "Pan",
+      "from_seconds": 6.1,
+      "to_seconds": 6.9,
+      "rms_left": 0.25,
+      "rms_right": 0.25
+    },
+    {
+      "track": "trk_01K742SG85B9D0000000000085",
+      "name": "Mute",
+      "from_seconds": 8.1,
+      "to_seconds": 8.9,
+      "rms_left": 0.25,
+      "rms_right": 0.25
+    },
+    {
+      "track": "trk_01K742SG85B9D0000000000085",
+      "name": "Mute",
+      "from_seconds": 9.1,
+      "to_seconds": 10.4,
+      "rms_left": 0.0,
+      "rms_right": 0.0
+    },
+    {
+      "track": "trk_01K742SG85B9D0000000000085",
+      "name": "Mute",
+      "from_seconds": 10.6,
+      "to_seconds": 10.9,
+      "rms_left": 0.25,
+      "rms_right": 0.25
+    },
+    {
+      "track": "trk_01K742SG8DB9D000000000008D",
+      "name": "Send",
+      "from_seconds": 12.1,
+      "to_seconds": 12.9,
+      "rms_left": 0.35355339059327373,
+      "rms_right": 0.17677669529663687
+    },
+    {
+      "track": "trk_01K742SG8DB9D000000000008D",
+      "name": "Send",
+      "from_seconds": 13.1,
+      "to_seconds": 13.9,
+      "rms_left": 0.0973610120462327,
+      "rms_right": 0.04868050602311635
+    },
+    {
+      "track": "trk_01K742SG8DB9D000000000008D",
+      "name": "Send",
+      "from_seconds": 14.1,
+      "to_seconds": 14.9,
+      "rms_left": 0.0,
+      "rms_right": 0.0
+    }
+  ],
+  "values": [
+    {
+      "lane": "aut_01K742SG7XB9D000000000007X",
+      "target": {
+        "channel": "gain"
+      },
+      "tick": 0,
+      "seconds": 0.0,
+      "sample_48000": 0,
+      "value": 1.0
+    },
+    {
+      "lane": "aut_01K742SG7XB9D000000000007X",
+      "target": {
+        "channel": "gain"
+      },
+      "tick": 1919,
+      "seconds": 0.9994791666666667,
+      "sample_48000": 47975,
+      "value": 1.0
+    },
+    {
+      "lane": "aut_01K742SG7XB9D000000000007X",
+      "target": {
+        "channel": "gain"
+      },
+      "tick": 1920,
+      "seconds": 1.0,
+      "sample_48000": 48000,
+      "value": 0.5
+    },
+    {
+      "lane": "aut_01K742SG7XB9D000000000007X",
+      "target": {
+        "channel": "gain"
+      },
+      "tick": 3840,
+      "seconds": 2.0,
+      "sample_48000": 96000,
+      "value": 0.375
+    },
+    {
+      "lane": "aut_01K742SG7XB9D000000000007X",
+      "target": {
+        "channel": "gain"
+      },
+      "tick": 5760,
+      "seconds": 3.0,
+      "sample_48000": 144000,
+      "value": 0.25
+    },
+    {
+      "lane": "aut_01K742SG84B9D0000000000084",
+      "target": {
+        "channel": "pan"
+      },
+      "tick": 7680,
+      "seconds": 4.0,
+      "sample_48000": 192000,
+      "value": -1.0
+    },
+    {
+      "lane": "aut_01K742SG84B9D0000000000084",
+      "target": {
+        "channel": "pan"
+      },
+      "tick": 9599,
+      "seconds": 4.999479166666666,
+      "sample_48000": 239975,
+      "value": -1.0
+    },
+    {
+      "lane": "aut_01K742SG84B9D0000000000084",
+      "target": {
+        "channel": "pan"
+      },
+      "tick": 9600,
+      "seconds": 5.0,
+      "sample_48000": 240000,
+      "value": 1.0
+    },
+    {
+      "lane": "aut_01K742SG84B9D0000000000084",
+      "target": {
+        "channel": "pan"
+      },
+      "tick": 11520,
+      "seconds": 6.0,
+      "sample_48000": 288000,
+      "value": 0.0
+    },
+    {
+      "lane": "aut_01K742SG8BB9D000000000008B",
+      "target": {
+        "channel": "mute"
+      },
+      "tick": 15360,
+      "seconds": 8.0,
+      "sample_48000": 384000,
+      "value": 0.0,
+      "muted": false
+    },
+    {
+      "lane": "aut_01K742SG8BB9D000000000008B",
+      "target": {
+        "channel": "mute"
+      },
+      "tick": 17279,
+      "seconds": 8.999479166666667,
+      "sample_48000": 431975,
+      "value": 0.49973958333333335,
+      "muted": false
+    },
+    {
+      "lane": "aut_01K742SG8BB9D000000000008B",
+      "target": {
+        "channel": "mute"
+      },
+      "tick": 17280,
+      "seconds": 9.0,
+      "sample_48000": 432000,
+      "value": 0.5,
+      "muted": true
+    },
+    {
+      "lane": "aut_01K742SG8BB9D000000000008B",
+      "target": {
+        "channel": "mute"
+      },
+      "tick": 19200,
+      "seconds": 10.0,
+      "sample_48000": 480000,
+      "value": 1.0,
+      "muted": true
+    },
+    {
+      "lane": "aut_01K742SG8BB9D000000000008B",
+      "target": {
+        "channel": "mute"
+      },
+      "tick": 20159,
+      "seconds": 10.499479166666667,
+      "sample_48000": 503975,
+      "value": 1.0,
+      "muted": true
+    },
+    {
+      "lane": "aut_01K742SG8BB9D000000000008B",
+      "target": {
+        "channel": "mute"
+      },
+      "tick": 20160,
+      "seconds": 10.5,
+      "sample_48000": 504000,
+      "value": 0.0,
+      "muted": false
+    },
+    {
+      "lane": "aut_01K742SG8KB9D000000000008K",
+      "target": {
+        "channel": "send",
+        "to": "trk_01K742SG8CB9D000000000008C"
+      },
+      "tick": 23040,
+      "seconds": 12.0,
+      "sample_48000": 576000,
+      "value": 1.0
+    },
+    {
+      "lane": "aut_01K742SG8KB9D000000000008K",
+      "target": {
+        "channel": "send",
+        "to": "trk_01K742SG8CB9D000000000008C"
+      },
+      "tick": 24959,
+      "seconds": 12.999479166666667,
+      "sample_48000": 623975,
+      "value": 1.0
+    },
+    {
+      "lane": "aut_01K742SG8KB9D000000000008K",
+      "target": {
+        "channel": "send",
+        "to": "trk_01K742SG8CB9D000000000008C"
+      },
+      "tick": 24960,
+      "seconds": 13.0,
+      "sample_48000": 624000,
+      "value": 0.5
+    },
+    {
+      "lane": "aut_01K742SG8KB9D000000000008K",
+      "target": {
+        "channel": "send",
+        "to": "trk_01K742SG8CB9D000000000008C"
+      },
+      "tick": 25920,
+      "seconds": 13.5,
+      "sample_48000": 648000,
+      "value": 0.25
+    },
+    {
+      "lane": "aut_01K742SG8KB9D000000000008K",
+      "target": {
+        "channel": "send",
+        "to": "trk_01K742SG8CB9D000000000008C"
+      },
+      "tick": 26880,
+      "seconds": 14.0,
+      "sample_48000": 672000,
+      "value": 0.0
+    },
+    {
+      "lane": "aut_01K742SG8PB9D000000000008P",
+      "target": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "1"
+      },
+      "tick": 0,
+      "seconds": 0.0,
+      "sample_48000": 0,
+      "value": 0.0
+    },
+    {
+      "lane": "aut_01K742SG8PB9D000000000008P",
+      "target": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "1"
+      },
+      "tick": 960,
+      "seconds": 0.5,
+      "sample_48000": 24000,
+      "value": 0.25
+    },
+    {
+      "lane": "aut_01K742SG8PB9D000000000008P",
+      "target": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "1"
+      },
+      "tick": 1920,
+      "seconds": 1.0,
+      "sample_48000": 48000,
+      "value": 0.5
+    },
+    {
+      "lane": "aut_01K742SG8PB9D000000000008P",
+      "target": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "1"
+      },
+      "tick": 2880,
+      "seconds": 1.5,
+      "sample_48000": 72000,
+      "value": 0.75
+    },
+    {
+      "lane": "aut_01K742SG8PB9D000000000008P",
+      "target": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "1"
+      },
+      "tick": 3840,
+      "seconds": 2.0,
+      "sample_48000": 96000,
+      "value": 1.0
+    },
+    {
+      "lane": "aut_01K742SG8PB9D000000000008P",
+      "target": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "1"
+      },
+      "tick": 4800,
+      "seconds": 2.5,
+      "sample_48000": 120000,
+      "value": 1.0
+    },
+    {
+      "lane": "aut_01K742SG8QB9D000000000008Q",
+      "target": {
+        "parameter": "frequency"
+      },
+      "tick": 0,
+      "seconds": 0.0,
+      "sample_48000": 0,
+      "value": 220.0,
+      "resolves_to": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "2"
+      }
+    },
+    {
+      "lane": "aut_01K742SG8QB9D000000000008Q",
+      "target": {
+        "parameter": "frequency"
+      },
+      "tick": 1919,
+      "seconds": 0.9994791666666667,
+      "sample_48000": 47975,
+      "value": 220.0,
+      "resolves_to": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "2"
+      }
+    },
+    {
+      "lane": "aut_01K742SG8QB9D000000000008Q",
+      "target": {
+        "parameter": "frequency"
+      },
+      "tick": 1920,
+      "seconds": 1.0,
+      "sample_48000": 48000,
+      "value": 440.0,
+      "resolves_to": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "2"
+      }
+    },
+    {
+      "lane": "aut_01K742SG8QB9D000000000008Q",
+      "target": {
+        "parameter": "frequency"
+      },
+      "tick": 3839,
+      "seconds": 1.9994791666666667,
+      "sample_48000": 95975,
+      "value": 440.0,
+      "resolves_to": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "2"
+      }
+    },
+    {
+      "lane": "aut_01K742SG8QB9D000000000008Q",
+      "target": {
+        "parameter": "frequency"
+      },
+      "tick": 3840,
+      "seconds": 2.0,
+      "sample_48000": 96000,
+      "value": 880.0,
+      "resolves_to": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "2"
+      }
+    },
+    {
+      "lane": "aut_01K742SG8QB9D000000000008Q",
+      "target": {
+        "parameter": "frequency"
+      },
+      "tick": 4800,
+      "seconds": 2.5,
+      "sample_48000": 120000,
+      "value": 880.0,
+      "resolves_to": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "2"
+      }
+    },
+    {
+      "event": "evt_01K742SG8RB9D000000000008R",
+      "parameter": "steps",
+      "resolves_to": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "3"
+      },
+      "tick": 2879,
+      "seconds": 1.4994791666666667,
+      "sample_48000": 71975,
+      "value": 0.0,
+      "from": "the snapshot"
+    },
+    {
+      "event": "evt_01K742SG8RB9D000000000008R",
+      "parameter": "steps",
+      "resolves_to": {
+        "device": "dev_01K742SG8NB9D000000000008N",
+        "param": "3"
+      },
+      "tick": 2880,
+      "seconds": 1.5,
+      "sample_48000": 72000,
+      "value": 4.0,
+      "from": "the event"
+    }
+  ]
+}
