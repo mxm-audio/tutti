@@ -120,7 +120,10 @@
     "audio/Pad-220.wav",
     "plugins/files/dev_01K742SGAYB9D00000000000AY/presets/Init.txt",
     "plugins/states/2e783022508ce1b4eb42266e2e4ca6455892d14425db64b4c4129a04475bd03e.clap",
-    "renders/Loop_000.wav"
+    "renders/Bass_dry.wav",
+    "renders/Bass_wet.wav",
+    "renders/Loop_000.wav",
+    "renders/Verse-bass_120.wav"
   ],
   "extensions_required": [
     "org.example.lyrics"

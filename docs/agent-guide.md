@@ -37,8 +37,10 @@ A document has `tracks` (a tree through `children`); a track is its channel (`ga
 `plugin` id like `clap:dk.mxm.mxm-mono-01`, a `state` file by hash, a `params` snapshot), owns
 its `patterns` (events: `note`, `chord`, `param`) and places them with `parts` (`at`, `length`,
 `offset`, `loop`), and has `automation` lanes. A note with `audio` sounds frames of a file in
-`audio/` instead of the instrument. `markers`, `loop`, `master`, `scenes` and `metadata` are at
-the top. Every object may carry `extensions` under a reverse-DNS namespace.
+`audio/` instead of the instrument. A track and a pattern may carry `renders`: audio of what
+some of the track's devices made, each listing those `devices`. `markers`, `range` (the span the
+user marks: looped over, exported, rendered), `master`, `scenes` and `metadata` are at the top.
+Every object may carry `extensions` under a reverse-DNS namespace.
 
 ## Writing a project
 
@@ -110,6 +112,13 @@ A track with one pattern played once, one note:
   as one file, `tutti zip <folder>` makes `<Name>.tutti.zip` (the document first and stored,
   every entry's name and length checked by the reader; spec 2.5) and `tutti unzip` makes the
   folder again. Never leave the folder.
+- **Carry stems with it, as a backup**: render each track over the document's `range`, before
+  the fader, exactly the range long, into `renders/`, and add to the track's `renders` the file,
+  its hash, its facts (`sample_rate`, `channels`, `frames`), `devices` (what is in it: the
+  crate's `without_effects` or `with_effects`, or your own list), `from`, `to` and the
+  `fingerprint` (`render_fingerprint`); a pattern's `renders` hold a pattern alone at a `bpm`
+  (spec 7.7). `tutti inspect` then lists each one with the devices in it and left out, whether it
+  can stand in for the chain, and whether it is still current.
 
 ## Pitfalls
 
@@ -120,6 +129,9 @@ A track with one pattern played once, one note:
 - Dropping a key you did not understand is a bug. Writing a key at its default is not a bug, but
   the pretty form leaves it out.
 - `plugins/states/<sha256>.<kind>`: feed a state only to a plugin of the same kind.
+- A render is exactly its range: `frames` is the range's samples, nothing more; a tail is a
+  longer range. Its `devices` say what is in it; a render without effects still holds the
+  instrument. No two renders share a file.
 - `plugins/files/<device id>/`: a plugin's own files, any kind, nested as it likes; every one in
   the index under that path; the index entries go with the device, the folder is the program's
   to remove (spec 7.8).

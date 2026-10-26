@@ -30,15 +30,7 @@ fn temp(name: &str) -> PathBuf {
 
 fn track_with_piece(reference: &str, sha256: &str) -> Track {
     let mut track = Track::new(Id::new("trk_1").unwrap(), "Vox");
-    let mut pattern = Pattern {
-        id: Id::new("pat_1").unwrap(),
-        name: String::new(),
-        length: 960,
-        key: None,
-        events: Vec::new(),
-        extensions: Default::default(),
-        unknown: Unknown::new(),
-    };
+    let mut pattern = Pattern::new(Id::new("pat_1").unwrap(), 960);
     pattern.events.push(Event::Note(Note {
         id: Id::new("evt_1").unwrap(),
         at: 0,

@@ -7,8 +7,9 @@ The core for JavaScript: `wasm-bindgen` functions over `tutti`, strings in and s
 objects, and `Project` (`src/project.rs`): the core's project over a store the host supplies,
 an imported type with synchronous methods, so the format's save procedure runs once, in the
 core, for JavaScript too. Names mirror the Rust API (`fmt`, `jcs`, `validate`, `unknown_keys`,
-`seconds_at`, `tick_of_frame`, `render_fingerprint`, `ulid`, `readme`, `new_document`,
-`Project::open`, `save`, `put_audio`, `new_audio`, …).
+`seconds_at`, `tick_of_frame`, `render_fingerprint`, `pattern_render_fingerprint`,
+`render_devices`, `renders`, `ulid`, `readme`, `new_document`, `Project::open`, `save`,
+`put_audio`, `new_audio`, …); a device list crosses as a JSON array of ids.
 
 # Ownership
 
@@ -31,7 +32,7 @@ Owns `Cargo.toml` and `src/`. The package that wraps it, its types and its tests
 
 # Work Guidance
 
-- A new core function reaches JavaScript by one function here and one line in `js/index.js`
+- A new core function reaches JavaScript by one function here and one line in `js/core.mjs`
   (and `js/api.d.ts`), nothing more.
 
 # Verification

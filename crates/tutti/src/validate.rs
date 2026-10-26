@@ -403,11 +403,11 @@ pub fn validate(doc: &Document) -> Report {
         }
         check_extensions(&mut r, &p, &m.extensions, doc);
     }
-    if let Some(l) = &doc.r#loop {
-        check_tick(&mut r, "/loop/start", l.start);
-        check_tick(&mut r, "/loop/end", l.end);
-        if l.start >= l.end {
-            r.error("/loop", "start is not before end");
+    if let Some(range) = &doc.range {
+        check_tick(&mut r, "/range/start", range.start);
+        check_tick(&mut r, "/range/end", range.end);
+        if range.start >= range.end {
+            r.error("/range", "start is not before end");
         }
     }
 
@@ -436,6 +436,7 @@ pub fn validate(doc: &Document) -> Report {
             format!("routing is not acyclic: {}", cycle.join(" -> ")),
         );
     }
+    check_render_files(&mut r, doc);
     for (i, s) in doc.scenes.iter().enumerate() {
         check_extensions(&mut r, &format!("/scenes/{i}"), &s.extensions, doc);
     }
@@ -614,6 +615,19 @@ fn check_track(
         for (j, e) in pat.events.iter().enumerate() {
             check_event(r, &format!("{pp}/events/{j}"), e, &names, doc);
         }
+        for (j, rd) in pat.renders.iter().enumerate() {
+            let rp = format!("{pp}/renders/{j}");
+            r.issues.extend(check_pattern_render(&rp, rd).issues);
+            check_render_context(
+                r,
+                &rp,
+                &rd.file,
+                &rd.devices,
+                &rd.extensions,
+                &device_ids,
+                doc,
+            );
+        }
         check_extensions(r, &pp, &pat.extensions, doc);
     }
     // Parts.
@@ -665,26 +679,16 @@ fn check_track(
     // Renders.
     for (i, rd) in t.renders.iter().enumerate() {
         let rp = format!("{p}/renders/{i}");
-        if !is_reference(&rd.file, "renders") {
-            r.error(&format!("{rp}/file"), "not a reference into renders/");
-        }
-        if !is_sha256(&rd.sha256) {
-            r.error(
-                &format!("{rp}/sha256"),
-                "not 64 lower-case hexadecimal digits",
-            );
-        }
-        if !is_sha256(&rd.fingerprint) {
-            r.error(
-                &format!("{rp}/fingerprint"),
-                "not 64 lower-case hexadecimal digits",
-            );
-        }
-        check_tick(r, &format!("{rp}/from"), rd.from);
-        check_tick(r, &format!("{rp}/to"), rd.to);
-        if rd.from >= rd.to {
-            r.error(&rp, "from is not before to");
-        }
+        r.issues.extend(check_render(&rp, rd).issues);
+        check_render_context(
+            r,
+            &rp,
+            &rd.file,
+            &rd.devices,
+            &rd.extensions,
+            &device_ids,
+            doc,
+        );
     }
     // Slots.
     let mut slot_scenes = HashSet::new();
@@ -981,6 +985,175 @@ fn check_audio(r: &mut Report, p: &str, a: &AudioPiece, doc: &Document) {
         r.warn(&format!("{p}/file"), "not in the files index");
     }
     check_extensions(r, p, &a.extensions, doc);
+}
+
+/// The fields every render has (spec 7.7), for the checks a render takes on its own.
+struct RenderFields<'a> {
+    file: &'a str,
+    sha256: &'a str,
+    sample_rate: u32,
+    channels: u32,
+    frames: u64,
+    devices: &'a [Id],
+    from: Ticks,
+    to: Ticks,
+    fingerprint: &'a str,
+}
+
+/// What a track render must be on its own (spec 7.7), whatever the document around it: its file
+/// a reference into `renders/`, its hashes in form, its facts and its range within their
+/// bounds, its devices well-formed and each listed once. Errors only; `validate` adds what needs
+/// the document (a device of the track, the files index, one file per render). A program that
+/// takes a render from elsewhere, a command or a client, checks it with this before using it.
+pub fn check_render(pointer: &str, render: &Render) -> Report {
+    let mut r = Report::default();
+    check_render_fields(
+        &mut r,
+        pointer,
+        &RenderFields {
+            file: &render.file,
+            sha256: &render.sha256,
+            sample_rate: render.sample_rate,
+            channels: render.channels,
+            frames: render.frames,
+            devices: &render.devices,
+            from: render.from,
+            to: render.to,
+            fingerprint: &render.fingerprint,
+        },
+    );
+    r
+}
+
+/// What a pattern render must be on its own (spec 7.7): as [`check_render`], and its `bpm`
+/// within 5.2's bounds.
+pub fn check_pattern_render(pointer: &str, render: &PatternRender) -> Report {
+    let mut r = Report::default();
+    check_render_fields(
+        &mut r,
+        pointer,
+        &RenderFields {
+            file: &render.file,
+            sha256: &render.sha256,
+            sample_rate: render.sample_rate,
+            channels: render.channels,
+            frames: render.frames,
+            devices: &render.devices,
+            from: render.from,
+            to: render.to,
+            fingerprint: &render.fingerprint,
+        },
+    );
+    check_bpm(&mut r, &format!("{pointer}/bpm"), render.bpm);
+    r
+}
+
+fn check_render_fields(r: &mut Report, p: &str, f: &RenderFields<'_>) {
+    if !is_reference(f.file, "renders") {
+        r.error(&format!("{p}/file"), "not a reference into renders/");
+    }
+    if !is_sha256(f.sha256) {
+        r.error(
+            &format!("{p}/sha256"),
+            "not 64 lower-case hexadecimal digits",
+        );
+    }
+    if !is_sha256(f.fingerprint) {
+        r.error(
+            &format!("{p}/fingerprint"),
+            "not 64 lower-case hexadecimal digits",
+        );
+    }
+    if f.sample_rate == 0 || f.sample_rate > SAMPLE_RATE_MAX {
+        r.error(
+            &format!("{p}/sample_rate"),
+            format!("not within 1 and {SAMPLE_RATE_MAX}"),
+        );
+    }
+    if f.channels == 0 || f.channels > CHANNELS_MAX {
+        r.error(
+            &format!("{p}/channels"),
+            format!("not within 1 and {CHANNELS_MAX}"),
+        );
+    }
+    if f.frames == 0 {
+        r.error(&format!("{p}/frames"), "not above 0");
+    }
+    let mut seen = HashSet::new();
+    for (i, d) in f.devices.iter().enumerate() {
+        let dp = format!("{p}/devices/{i}");
+        if let Err(e) = id::check(d.as_str()) {
+            r.error(&dp, e.to_string());
+        }
+        if !seen.insert(d.as_str()) {
+            r.error(&dp, "listed twice");
+        }
+    }
+    check_tick(r, &format!("{p}/from"), f.from);
+    check_tick(r, &format!("{p}/to"), f.to);
+    if f.from >= f.to {
+        r.error(p, "from is not before to");
+    }
+}
+
+/// What a render must be in its document (spec 7.7, 3.4): its devices the track's (else
+/// dangling), its file in the files index, its extensions listed.
+fn check_render_context(
+    r: &mut Report,
+    p: &str,
+    file: &str,
+    devices: &[Id],
+    extensions: &Extensions,
+    device_ids: &HashSet<&str>,
+    doc: &Document,
+) {
+    for (i, d) in devices.iter().enumerate() {
+        if !device_ids.contains(d.as_str()) {
+            r.warn(
+                &format!("{p}/devices/{i}"),
+                format!("{:?} is not a device of this track; dangling", d.as_str()),
+            );
+        }
+    }
+    if !doc.files.iter().any(|f| f.path == file) {
+        r.warn(&format!("{p}/file"), "not in the files index");
+    }
+    check_extensions(r, p, extensions, doc);
+}
+
+/// No two renders of the document name the same file (spec 7.7): a file is one render.
+fn check_render_files(r: &mut Report, doc: &Document) {
+    fn walk<'a>(tracks: &'a [Track], prefix: &str, out: &mut Vec<(String, &'a str)>) {
+        for (i, t) in tracks.iter().enumerate() {
+            let tp = format!("{prefix}/{i}");
+            for (j, rd) in t.renders.iter().enumerate() {
+                out.push((format!("{tp}/renders/{j}/file"), rd.file.as_str()));
+            }
+            for (k, pat) in t.patterns.iter().enumerate() {
+                for (j, rd) in pat.renders.iter().enumerate() {
+                    out.push((
+                        format!("{tp}/patterns/{k}/renders/{j}/file"),
+                        rd.file.as_str(),
+                    ));
+                }
+            }
+            walk(&t.children, &format!("{tp}/children"), out);
+        }
+    }
+    let mut files = Vec::new();
+    walk(&doc.tracks, "/tracks", &mut files);
+    let mut first: HashMap<&str, &str> = HashMap::new();
+    for (pointer, file) in &files {
+        match first.get(file) {
+            Some(at) => r.error(
+                pointer,
+                format!("{file} is also the file of the render at {at}: a file is one render"),
+            ),
+            None => {
+                first.insert(file, pointer);
+            }
+        }
+    }
 }
 
 fn check_lane(
@@ -1361,5 +1534,90 @@ mod tests {
               "map": [{"frame": 0, "tick": 0}, {"frame": 50, "tick": 480}], "bpm": null}}]}]}]"#,
         );
         assert_eq!(errors(&d), ["/tracks/0/patterns/0/events/0/audio/bpm"]);
+    }
+
+    const HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+    fn render(file: &str, devices: &str, extra: &str) -> String {
+        let channels = if extra.contains("\"channels\"") {
+            String::new()
+        } else {
+            r#""channels": 2, "#.to_owned()
+        };
+        format!(
+            r#"{{"file": "{file}", "sha256": "{HASH}", "sample_rate": 48000, {channels}
+               "frames": 96000, "devices": {devices}, "from": 0, "to": 3840,
+               "fingerprint": "{HASH}"{extra}}}"#
+        )
+    }
+
+    #[test]
+    fn a_render_is_checked_on_its_own_and_in_its_document() {
+        let d = doc(&format!(
+            r#", "files": [{{"path": "renders/a.wav", "sha256": "{HASH}", "bytes": 1}}],
+            "tracks": [{{"id": "t", "devices": [{{"id": "i", "role": "instrument", "plugin": "clap:x"}}],
+              "renders": [{}, {}],
+              "patterns": [{{"id": "p", "length": 3840, "renders": [{}]}}]}}]"#,
+            render("renders/a.wav", r#"["i"]"#, ""),
+            render(
+                "renders/b.wav",
+                r#"["i", "i", "gone"]"#,
+                r#", "channels": 0"#
+            ),
+            render("renders/c.wav", r#"["i"]"#, r#", "bpm": 0"#),
+        ));
+        assert_eq!(
+            errors(&d),
+            [
+                "/tracks/0/patterns/0/renders/0/bpm",
+                "/tracks/0/renders/1/channels",
+                "/tracks/0/renders/1/devices/1"
+            ]
+        );
+        let r = validate(&d);
+        let warned = |p: &str| r.warnings().any(|w| w.pointer == p);
+        assert!(
+            warned("/tracks/0/renders/1/devices/2"),
+            "a device that isn't the track's"
+        );
+        assert!(
+            warned("/tracks/0/renders/1/file"),
+            "a file not in the index"
+        );
+        assert!(!warned("/tracks/0/renders/0/file"));
+    }
+
+    #[test]
+    fn a_file_is_one_render_in_the_whole_document() {
+        let d = doc(&format!(
+            r#", "tracks": [{{"id": "t", "renders": [{}, {}],
+                              "patterns": [{{"id": "p", "length": 3840, "renders": [{}]}}]}},
+                            {{"id": "u", "renders": [{}]}}]"#,
+            render("renders/a.wav", "[]", ""),
+            render("renders/b.wav", "[]", ""),
+            render("renders/a.wav", "[]", r#", "bpm": 120"#),
+            render("renders/b.wav", "[]", ""),
+        ));
+        assert_eq!(
+            errors(&d),
+            [
+                "/tracks/0/patterns/0/renders/0/file",
+                "/tracks/1/renders/0/file"
+            ]
+        );
+    }
+
+    #[test]
+    fn the_range_has_its_start_before_its_end() {
+        assert!(
+            validate(&doc(
+                r#", "range": {"start": 0, "end": 3840, "loop": true}"#
+            ))
+            .is_valid()
+        );
+        assert_eq!(
+            errors(&doc(r#", "range": {"start": 960, "end": 960}"#)),
+            ["/range"]
+        );
     }
 }

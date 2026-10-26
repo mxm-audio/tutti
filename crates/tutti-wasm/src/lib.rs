@@ -236,26 +236,109 @@ pub fn rate_at(
     Ok(placement(ppq, rate, map, bpm)?.rate_at(tick, project_bpm))
 }
 
-/// A render's fingerprint for a track of the document (spec 7.7).
+fn track_of<'a>(doc: &'a tutti::Document, track_id: &str) -> Result<&'a tutti::Track, JsError> {
+    doc.all_tracks()
+        .into_iter()
+        .find(|t| t.id.as_str() == track_id)
+        .ok_or_else(|| JsError::new("no such track"))
+}
+
+fn device_list(devices: &str) -> Result<Vec<tutti::Id>, JsError> {
+    serde_json::from_str(devices).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// The fingerprint of a track render of `devices` (a JSON array of device ids) from `from` to
+/// `to` on a track of the document (spec 7.7).
 #[wasm_bindgen]
 pub fn render_fingerprint(
     text: &str,
     track_id: &str,
+    devices: &str,
     from: f64,
     to: f64,
 ) -> Result<String, JsError> {
     let doc = read(text)?;
-    let track = doc
-        .all_tracks()
-        .into_iter()
-        .find(|t| t.id.as_str() == track_id)
-        .ok_or_else(|| JsError::new("no such track"))?;
+    let track = track_of(&doc, track_id)?;
     Ok(tutti::render::render_fingerprint(
         &doc,
         track,
+        &device_list(devices)?,
         from as i64,
         to as i64,
     ))
+}
+
+/// The fingerprint of a render of a track's pattern through `devices` (a JSON array of device
+/// ids) from `from` to `to` at `bpm` (spec 7.7).
+#[wasm_bindgen]
+pub fn pattern_render_fingerprint(
+    text: &str,
+    track_id: &str,
+    pattern_id: &str,
+    devices: &str,
+    from: f64,
+    to: f64,
+    bpm: f64,
+) -> Result<String, JsError> {
+    let doc = read(text)?;
+    let track = track_of(&doc, track_id)?;
+    let pattern = track
+        .patterns
+        .iter()
+        .find(|p| p.id.as_str() == pattern_id)
+        .ok_or_else(|| JsError::new("no such pattern on the track"))?;
+    Ok(tutti::render::pattern_render_fingerprint(
+        &doc,
+        track,
+        pattern,
+        &device_list(devices)?,
+        from as i64,
+        to as i64,
+        bpm,
+    ))
+}
+
+/// The devices a render "with_effects" or "without_effects" lists for a track (spec 7.7), as a
+/// JSON array of ids.
+#[wasm_bindgen]
+pub fn render_devices(text: &str, track_id: &str, which: &str) -> Result<String, JsError> {
+    let doc = read(text)?;
+    let track = track_of(&doc, track_id)?;
+    let devices = match which {
+        "with_effects" => tutti::render::with_effects(track),
+        "without_effects" => tutti::render::without_effects(track),
+        other => {
+            return Err(JsError::new(&format!(
+                "{other:?}: with_effects or without_effects"
+            )));
+        }
+    };
+    Ok(Value::Array(devices.into_iter().map(|d| Value::String(d.0)).collect()).to_string())
+}
+
+/// Every render of the document (spec 7.7), as a JSON array of `{pointer, file, name, track,
+/// pattern, devices, current, standsIn, expectedFrames, frames}`; `pattern` and `standsIn` null
+/// when there is none.
+#[wasm_bindgen]
+pub fn renders(text: &str) -> Result<String, JsError> {
+    let items: Vec<Value> = tutti::render::renders(&read(text)?)
+        .into_iter()
+        .map(|r| {
+            json!({
+                "pointer": r.pointer,
+                "file": r.file,
+                "name": r.name,
+                "track": r.track.0,
+                "pattern": r.pattern.map(|p| p.0),
+                "devices": r.devices.into_iter().map(|d| d.0).collect::<Vec<_>>(),
+                "current": r.current,
+                "standsIn": r.stands_in,
+                "expectedFrames": r.expected_frames,
+                "frames": r.frames,
+            })
+        })
+        .collect();
+    Ok(Value::Array(items).to_string())
 }
 
 /// SHA-256 of bytes, 64 lower-case hexadecimal digits.

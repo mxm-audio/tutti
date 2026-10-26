@@ -65,7 +65,7 @@
         {"id": "prt_01K742SGA2B9D00000000000A2", "pattern": "pat_01K742SGA1B9D00000000000A1", "at": 0, "length": 1920}
       ],
       "renders": [
-        {"file": "renders/Synth_000.wav", "sha256": "5a2b80f47dbceb8b705479b1d0c7a425f4ac79ed11429f139db03a2b292eb040", "from": 0, "to": 1920, "fingerprint": "affec4ace56c178be4814458dadc9b0819f044f2cd3caaddeac7a1e2c1657baf"}
+        {"file": "renders/Synth_000.wav", "sha256": "5a2b80f47dbceb8b705479b1d0c7a425f4ac79ed11429f139db03a2b292eb040", "sample_rate": 44100, "channels": 2, "frames": 44100, "devices": ["dev_01K742SG9WB9D000000000009W"], "from": 0, "to": 1920, "fingerprint": "2bffb80f540d436652a2e35fb7d0b8c199d7a112649606210ce8604a5e802c00"}
       ]
     }
   ]

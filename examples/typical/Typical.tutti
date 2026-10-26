@@ -36,7 +36,7 @@
     {"id": "mrk_01K742SG02B9D0000000000002", "at": 7680, "name": "Verse", "kind": "section", "length": 15360},
     {"id": "mrk_01K742SG03B9D0000000000003", "at": 23040, "name": "Chorus", "kind": "section", "length": 15360}
   ],
-  "loop": {
+  "range": {
     "start": 7680,
     "end": 23040
   },

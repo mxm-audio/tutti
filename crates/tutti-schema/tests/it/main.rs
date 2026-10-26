@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use tutti::folder::{Folder, MemoryStore, check_files};
 use tutti::render::render_fingerprint;
 use tutti::validate::{self, Severity};
-use tutti::{Device, Generator, Override};
+use tutti::{Device, Document, Event, Generator, Override};
 use tutti_fs::{DirStore, document_in};
 use tutti_schema::{field_reference, ids_of, repository_root, schema, shared_patterns};
 
@@ -302,8 +302,13 @@ fn level_1_missing_plugin_keeps_its_device_and_takes_an_edit_into_overrides_only
     // The render is current: its fingerprint is the track's (spec 7.7).
     let render = track.renders[0].clone();
     assert_eq!(
-        render_fingerprint(&doc, &track, render.from, render.to),
+        render_fingerprint(&doc, &track, &render.devices, render.from, render.to),
         render.fingerprint
+    );
+    assert_eq!(
+        tutti::render::stands_in(&track, &render.devices),
+        Some(1),
+        "the render stands in for the missing instrument"
     );
     // What the reader names the missing plugin by: its dependencies entry (7.6).
     let dependency = doc
@@ -342,9 +347,93 @@ fn level_1_missing_plugin_keeps_its_device_and_takes_an_edit_into_overrides_only
     // The fingerprint covers the device, so the render is stale now.
     assert_eq!(expected["after_edit"]["render_stale"], true);
     assert_ne!(
-        render_fingerprint(&again, edited, render.from, render.to),
+        render_fingerprint(&again, edited, &render.devices, render.from, render.to),
         edited.renders[0].fingerprint
     );
+}
+
+#[test]
+fn level_1_render_choice_plays_the_render_that_stands_in_and_stales_only_what_changed() {
+    let folder = level_case("l1/render-choice");
+    let expected = expected_of(&folder);
+    let opened = tutti_fs::open(&folder).unwrap();
+    assert!(opened.report.is_valid(), "{:?}", opened.report.issues);
+    let doc = opened.project.document().clone();
+    let state = |doc: &Document| -> Value {
+        let mut out = serde_json::Map::new();
+        for r in tutti::render::renders(doc) {
+            out.insert(r.file.clone(), json!(!r.current));
+        }
+        Value::Object(out)
+    };
+    // Every render current, exactly its range, its fingerprint the published one.
+    for r in tutti::render::renders(&doc) {
+        assert!(r.current, "{}", r.file);
+        assert_eq!(r.frames as i64, r.expected_frames, "{}", r.file);
+    }
+    let fingerprints: Value = tutti::render::renders(&doc)
+        .iter()
+        .map(|r| {
+            let track = doc.track(&r.track).unwrap();
+            let fp = match &r.pattern {
+                None => track
+                    .renders
+                    .iter()
+                    .find(|x| x.file == r.file)
+                    .unwrap()
+                    .fingerprint
+                    .clone(),
+                Some(p) => track
+                    .patterns
+                    .iter()
+                    .find(|x| &x.id == p)
+                    .unwrap()
+                    .renders
+                    .iter()
+                    .find(|x| x.file == r.file)
+                    .unwrap()
+                    .fingerprint
+                    .clone(),
+            };
+            (r.file.clone(), json!(fp))
+        })
+        .collect::<serde_json::Map<_, _>>()
+        .into();
+    assert_eq!(fingerprints, expected["fingerprints"]);
+    // The render a reader without either plugin plays: the one that stands in for both.
+    let track = doc.tracks[0].clone();
+    let plays: Vec<&str> = track
+        .renders
+        .iter()
+        .filter(|r| tutti::render::stands_in(&track, &r.devices) == Some(track.devices.len()))
+        .map(|r| r.file.as_str())
+        .collect();
+    assert_eq!(json!(plays), json!([expected["plays"]]));
+    // An edit to the effect stales only the render that holds it.
+    let effect = expected["effect_edit"]["device"].as_str().unwrap();
+    let mut edited = doc.clone();
+    edited.tracks[0]
+        .devices
+        .iter_mut()
+        .find(|d| d.id.as_str() == effect)
+        .unwrap()
+        .overrides
+        .push(Override {
+            param: expected["effect_edit"]["param"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+            value: expected["effect_edit"]["value"].as_f64().unwrap(),
+            normalized: None,
+            unknown: tutti::Unknown::new(),
+        });
+    assert_eq!(state(&edited), expected["effect_edit"]["stale"]);
+    // A note edit stales all three.
+    let mut edited = doc.clone();
+    if let Some(Event::Note(n)) = edited.tracks[0].patterns[0].events.first_mut() {
+        n.velocity = expected["note_edit"]["velocity"].as_f64().unwrap();
+    }
+    assert_eq!(state(&edited), expected["note_edit"]["stale"]);
 }
 
 #[test]
@@ -613,6 +702,51 @@ fn the_every_feature_example_and_the_schema_cover_each_other() {
         unused.is_empty(),
         "schema properties every-feature never uses: {unused:?}"
     );
+    // By name alone the test above can't see a render's keys (`devices`, `frames`, `bpm` are
+    // names other objects use too), so the renders are held to their own definitions: every
+    // property of each kind is on a render of that kind in every-feature.
+    let mut track_render_keys = BTreeSet::new();
+    let mut pattern_render_keys = BTreeSet::new();
+    fn tracks_of(value: &Value, out: &mut Vec<Value>) {
+        for t in value["tracks"]
+            .as_array()
+            .into_iter()
+            .chain(value["children"].as_array())
+            .flatten()
+        {
+            out.push(t.clone());
+            tracks_of(t, out);
+        }
+    }
+    let mut tracks = Vec::new();
+    tracks_of(&doc, &mut tracks);
+    for t in &tracks {
+        for r in t["renders"].as_array().into_iter().flatten() {
+            track_render_keys.extend(r.as_object().unwrap().keys().cloned());
+        }
+        for p in t["patterns"].as_array().into_iter().flatten() {
+            for r in p["renders"].as_array().into_iter().flatten() {
+                pattern_render_keys.extend(r.as_object().unwrap().keys().cloned());
+            }
+        }
+    }
+    for (def, used) in [
+        ("render", &track_render_keys),
+        ("pattern_render", &pattern_render_keys),
+    ] {
+        let props: BTreeSet<String> = schema["$defs"][def]["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .filter(|k| *k != "extensions")
+            .cloned()
+            .collect();
+        let missing: Vec<&String> = props.difference(used).collect();
+        assert!(
+            missing.is_empty(),
+            "{def} keys every-feature's renders never use: {missing:?}"
+        );
+    }
 }
 
 #[test]
@@ -670,6 +804,18 @@ fn the_schemas_bounds_are_the_crates_constants() {
         defs["audio_piece"]["properties"]["channels"]["maximum"],
         validate::CHANNELS_MAX
     );
+    for def in ["render", "pattern_render"] {
+        assert_eq!(
+            defs[def]["properties"]["sample_rate"]["maximum"],
+            validate::SAMPLE_RATE_MAX,
+            "{def}"
+        );
+        assert_eq!(
+            defs[def]["properties"]["channels"]["maximum"],
+            validate::CHANNELS_MAX,
+            "{def}"
+        );
+    }
     assert_eq!(
         defs["id"]["pattern"],
         format!("^[A-Za-z0-9_-]{{1,{}}}$", tutti::id::MAX_LEN)

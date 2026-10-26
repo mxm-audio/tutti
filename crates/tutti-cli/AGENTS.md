@@ -4,8 +4,10 @@
 
 The `tutti` command: `check` (parse, validate, hash every indexed file, report the features a
 project uses and so the conformance level a reader needs, and note each key this version doesn't
-know, never as an error), `inspect` (tracks, patterns, devices,
-extensions), `deps` (every dependency, and whether a plugin with that id is installed in the
+know, each stale render and each render that isn't exactly its range, never as an error),
+`inspect` (the range, tracks, patterns, devices, extensions, and every render: what it covers,
+the devices in it and those left out, whether it stands in for the chain and whether it is
+current, which is what the next person working on a project needs of a stem), `deps` (every dependency, and whether a plugin with that id is installed in the
 standard CLAP and VST3 folders), `archive` (copy the spec, schema and agent guide into a project
 folder's `spec/`), `fmt` (rewrite the document in the pretty form), `zip` and `unzip` (a
 project as one file, spec 2.5, through `tutti_fs::zip`). The project itself is opened, checked and

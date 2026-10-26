@@ -26,7 +26,7 @@ differs from the generator's output. Edit the schema, not this file. The normati
 | `meter` | array of `meter_point` | yes |  | The meter map, strictly increasing in at, the first point at 0 (spec 5.3). |
 | `key` | array of `key_point` |  | `[]` | The key map (spec 5.4). |
 | `markers` | array of `marker` |  | `[]` | Named points and sections, sorted by id (spec 6.9). |
-| `loop` | null or `loop` |  | `null` | The loop range (spec 3.6). |
+| `range` | null or `range` |  | `null` | The span the user marks on the timeline: looped over, exported and rendered (spec 3.6). |
 | `master` | `master` |  |  |  |
 | `tracks` | array of `track` |  | `[]` | The top-level tracks in display order (spec 6.1). |
 | `scenes` | array of `scene` |  | `[]` | The clip launcher's scenes, in order (spec 6.10). |
@@ -119,13 +119,15 @@ differs from the generator's output. Edit the schema, not this file. The normati
 | `length` | `ticks` |  |  | A section's length, required for a section. |
 | `extensions` | `extensions` |  |  |  |
 
-## `loop`
+## `range`
+
+The span the user marks on the timeline (spec 3.6).
 
 | Key | Type | Required | Default | Meaning |
 |---|---|---|---|---|
 | `start` | `ticks` | yes |  |  |
 | `end` | `ticks` | yes |  |  |
-| `enabled` | boolean |  | `false` |  |
+| `loop` | boolean |  | `false` | Whether playback loops over the range. |
 
 ## `master`
 
@@ -156,7 +158,7 @@ A track and its channel (spec 6.1); a track with children is a folder.
 | `patterns` | array of `pattern` |  | `[]` | The track's own patterns, sorted by id. |
 | `parts` | array of `part` |  | `[]` | Where its patterns play, sorted by id. |
 | `automation` | array of `automation_lane` |  | `[]` | Automation lanes, sorted by id (spec 6.8). |
-| `renders` | array of `render` |  | `[]` | Bounces of this track's chain, sorted by file (spec 7.7). |
+| `renders` | array of `render` |  | `[]` | Renders of this track's chain over a range, sorted by file (spec 7.7). |
 | `slots` | array of `slot` |  | `[]` | Clip-launcher slots (spec 6.10). |
 | `extensions` | `extensions` |  |  |  |
 
@@ -254,13 +256,40 @@ The sidecar plugins/states/<sha256>.<kind> (spec 7.4).
 
 ## `render`
 
+A track render: what the listed devices made of the track over a range of its timeline, pre-fader, exactly that long (spec 7.7).
+
 | Key | Type | Required | Default | Meaning |
 |---|---|---|---|---|
-| `file` | `reference` | yes |  |  |
+| `file` | `reference` | yes |  | renders/<name>; no two renders of the document name the same file. |
 | `sha256` | `sha256` | yes |  |  |
-| `from` | `ticks` | yes |  |  |
+| `name` | string |  | `""` | A label for people. |
+| `sample_rate` | integer, ≥ 1, ≤ 16777216 | yes |  |  |
+| `channels` | integer, ≥ 1, ≤ 256 | yes |  |  |
+| `frames` | integer, ≥ 1 | yes |  | The file's length: exactly the range. |
+| `devices` | array of `id` | yes |  | The devices whose processing is in the file, in chain order; the track's others were bypassed. |
+| `from` | `ticks` | yes |  | Absolute ticks on the track. |
 | `to` | `ticks` | yes |  |  |
 | `fingerprint` | `sha256` | yes |  | The SHA-256 of the JCS bytes of the descriptor the spec defines (7.7). |
+| `extensions` | `extensions` |  |  |  |
+
+## `pattern_render`
+
+A pattern render: the pattern alone, once, at one tempo, through the listed devices, exactly that long (spec 7.7).
+
+| Key | Type | Required | Default | Meaning |
+|---|---|---|---|---|
+| `file` | `reference` | yes |  | renders/<name>; no two renders of the document name the same file. |
+| `sha256` | `sha256` | yes |  |  |
+| `name` | string |  | `""` | A label for people. |
+| `sample_rate` | integer, ≥ 1, ≤ 16777216 | yes |  |  |
+| `channels` | integer, ≥ 1, ≤ 256 | yes |  |  |
+| `frames` | integer, ≥ 1 | yes |  | The file's length: exactly the range at bpm. |
+| `devices` | array of `id` | yes |  | The devices whose processing is in the file, in chain order; the track's others were bypassed. |
+| `from` | `ticks` | yes |  | Pattern ticks. |
+| `to` | `ticks` | yes |  |  |
+| `bpm` | `bpm` | yes |  | The one tempo the pattern was played at. |
+| `fingerprint` | `sha256` | yes |  | The SHA-256 of the JCS bytes of the descriptor the spec defines (7.7). |
+| `extensions` | `extensions` |  |  |  |
 
 ## `pattern`
 
@@ -271,6 +300,7 @@ The sidecar plugins/states/<sha256>.<kind> (spec 7.4).
 | `length` | integer, ≥ 1, ≤ 1099511627776 | yes |  |  |
 | `key` | null or `pattern_key` |  | `null` |  |
 | `events` | array of `event` |  | `[]` | Sorted by id. |
+| `renders` | array of `pattern_render` |  | `[]` | Renders of this pattern alone, sorted by file (spec 7.7). |
 | `extensions` | `extensions` |  |  |  |
 
 ## `part`

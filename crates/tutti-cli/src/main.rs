@@ -110,6 +110,24 @@ fn check(folder: &Path) -> Result<bool, String> {
             tutti::VERSION
         );
     }
+    // A stale render is a legitimate state (spec 7.7: a reader may still play it, saying so), and
+    // a file that isn't exactly its range was written against the spec: both noted, never errors.
+    let mut render_notes = 0;
+    for r in tutti::render::renders(doc) {
+        if !r.current {
+            render_notes += 1;
+            eprintln!(
+                "note {}: {} is stale: the track has changed since it was rendered",
+                r.pointer, r.file
+            );
+        } else if r.frames as i64 != r.expected_frames {
+            render_notes += 1;
+            eprintln!(
+                "note {}: {} says {} frames, but its range is {}: a render is exactly its range",
+                r.pointer, r.file, r.frames, r.expected_frames
+            );
+        }
+    }
     if opened.read_only {
         println!(
             "read-only on this version: min_version {}",
@@ -118,7 +136,7 @@ fn check(folder: &Path) -> Result<bool, String> {
     }
     let used = features(doc);
     let level = level_needed(doc);
-    let notes = match unknown.len() {
+    let notes = match unknown.len() + render_notes {
         0 => String::new(),
         1 => ", 1 note".to_owned(),
         n => format!(", {n} notes"),
@@ -178,6 +196,14 @@ fn inspect(folder: &Path) -> Result<bool, String> {
             String::new()
         },
     );
+    if let Some(range) = &doc.range {
+        println!(
+            "range: {} to {}{}",
+            range.start,
+            range.end,
+            if range.r#loop { ", looped" } else { "" }
+        );
+    }
     if !doc.markers.is_empty() {
         println!("markers:");
         for m in &doc.markers {
@@ -199,8 +225,9 @@ fn inspect(folder: &Path) -> Result<bool, String> {
         );
     }
     println!("tracks:");
+    let renders = tutti::render::renders(&doc);
     for t in &doc.tracks {
-        print_track(t, 1);
+        print_track(t, 1, &renders);
     }
     if !doc.scenes.is_empty() {
         println!(
@@ -224,7 +251,7 @@ fn inspect(folder: &Path) -> Result<bool, String> {
     Ok(true)
 }
 
-fn print_track(t: &tutti::Track, depth: usize) {
+fn print_track(t: &tutti::Track, depth: usize, renders: &[tutti::render::RenderState]) {
     let indent = "  ".repeat(depth);
     let notes: usize = t
         .patterns
@@ -269,13 +296,97 @@ fn print_track(t: &tutti::Track, depth: usize) {
     if !t.automation.is_empty() {
         what.push(format!("{} automation lane(s)", t.automation.len()));
     }
-    if !t.renders.is_empty() {
-        what.push(format!("{} render(s)", t.renders.len()));
-    }
     println!("{indent}{} ({}): {}", t.name, t.id, what.join("; "));
-    for child in &t.children {
-        print_track(child, depth + 1);
+    for r in renders.iter().filter(|r| r.track == t.id) {
+        print_render(t, r, depth + 1);
     }
+    for child in &t.children {
+        print_track(child, depth + 1, renders);
+    }
+}
+
+/// A render as the next person working on the project needs it (spec 7.7): what it covers, the
+/// devices in it and those left out, whether it can stand in for the chain, and whether it is
+/// still current.
+fn print_render(t: &tutti::Track, r: &tutti::render::RenderState, depth: usize) {
+    let indent = "  ".repeat(depth);
+    let name_of = |id: &tutti::Id| {
+        t.devices
+            .iter()
+            .find(|d| &d.id == id)
+            .map(|d| {
+                if d.name.is_empty() {
+                    d.plugin.clone()
+                } else {
+                    d.name.clone()
+                }
+            })
+            .unwrap_or_else(|| format!("{id} (no such device)"))
+    };
+    let label = if r.name.is_empty() { &r.file } else { &r.name };
+    let what = match &r.pattern {
+        None => {
+            let render = t.renders.iter().find(|x| x.file == r.file);
+            render
+                .map(|x| format!("ticks {} to {}", x.from, x.to))
+                .unwrap_or_default()
+        }
+        Some(p) => {
+            let pattern = t.patterns.iter().find(|x| &x.id == p);
+            let render = pattern.and_then(|x| x.renders.iter().find(|y| y.file == r.file));
+            match (pattern, render) {
+                (Some(pat), Some(x)) => format!(
+                    "pattern {} at {} bpm",
+                    if pat.name.is_empty() {
+                        pat.id.as_str()
+                    } else {
+                        &pat.name
+                    },
+                    x.bpm
+                ),
+                _ => String::new(),
+            }
+        }
+    };
+    let held: Vec<String> = r.devices.iter().map(name_of).collect();
+    let left_out: Vec<String> = t
+        .devices
+        .iter()
+        .filter(|d| !r.devices.contains(&d.id))
+        .map(|d| {
+            let name = name_of(&d.id);
+            if d.enabled {
+                name
+            } else {
+                format!("{name} (off)")
+            }
+        })
+        .collect();
+    let stands = match r.stands_in {
+        Some(n) if n == tutti::render::signal_order(t).len() => {
+            "stands in for the whole chain".to_owned()
+        }
+        Some(0) => "stands in for nothing".to_owned(),
+        Some(n) => format!("stands in for the first {n} device(s)"),
+        None => "doesn't stand in for the chain (listening and export only)".to_owned(),
+    };
+    println!(
+        "{indent}render {label}: {what}; {} frame(s); {}",
+        r.frames,
+        if r.current { "current" } else { "stale" }
+    );
+    println!(
+        "{indent}  devices in it: {}",
+        if held.is_empty() {
+            "none".to_owned()
+        } else {
+            held.join(" > ")
+        }
+    );
+    if !left_out.is_empty() {
+        println!("{indent}  left out: {}", left_out.join(", "));
+    }
+    println!("{indent}  {stands}");
 }
 
 fn deps(folder: &Path) -> Result<bool, String> {

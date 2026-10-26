@@ -1,0 +1,80 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "renders/Notes_120.wav", "sha256": "d53221168210b3c1380b02da35fceaa9473acff54233052424e0adb54228a983", "bytes": 16044},
+    {"path": "renders/Synth_dry.wav", "sha256": "5a2b80f47dbceb8b705479b1d0c7a425f4ac79ed11429f139db03a2b292eb040", "bytes": 176444},
+    {"path": "renders/Synth_wet.wav", "sha256": "7463688161c3c491a9ce3e6252b8ca5220206c40fa46631fdd1daed569bf556d", "bytes": 176444}
+  ],
+  "dependencies": [
+    {"id": "clap:org.example.missing-halver", "kind": "plugin", "name": "Missing halver", "vendor": "Example", "version": "1.0.0", "url": "https://example.org/missing-halver", "formats": ["clap"]},
+    {"id": "clap:org.example.missing-synth", "kind": "plugin", "name": "Missing synth", "vendor": "Example", "version": "1.0.0", "url": "https://example.org/missing-synth", "formats": ["clap"]}
+  ],
+  "metadata": {
+    "title": "Render choice"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SGD6B9D00000000000D6",
+      "name": "Synth",
+      "channel": {
+        "gain": 0.5
+      },
+      "devices": [
+        {
+          "id": "dev_01K742SGD7B9D00000000000D7",
+          "role": "instrument",
+          "name": "Missing synth",
+          "plugin": "clap:org.example.missing-synth"
+        },
+        {
+          "id": "dev_01K742SGD8B9D00000000000D8",
+          "role": "audio_effect",
+          "name": "Missing halver",
+          "plugin": "clap:org.example.missing-halver",
+          "params": [
+            {"id": "0", "name": "Amount", "value": 0.5, "min": 0, "max": 1, "unit": "linear"}
+          ]
+        }
+      ],
+      "patterns": [
+        {
+          "id": "pat_01K742SGDDB9D00000000000DD",
+          "name": "Notes",
+          "length": 1920,
+          "events": [
+            {"type": "note", "id": "evt_01K742SGD9B9D00000000000D9", "at": 0, "length": 420, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGDAB9D00000000000DA", "at": 480, "length": 420, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGDBB9D00000000000DB", "at": 960, "length": 420, "pitch": 69, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGDCB9D00000000000DC", "at": 1440, "length": 420, "pitch": 69, "velocity": 0.8}
+          ],
+          "renders": [
+            {"file": "renders/Notes_120.wav", "sha256": "d53221168210b3c1380b02da35fceaa9473acff54233052424e0adb54228a983", "sample_rate": 8000, "channels": 1, "frames": 8000, "devices": ["dev_01K742SGD7B9D00000000000D7"], "from": 0, "to": 1920, "bpm": 120, "fingerprint": "44d0c0d9339b6fca2c54de8b4071c3415e8455019d5a2e266b64f3b68cf1c8e4"}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SGDEB9D00000000000DE", "pattern": "pat_01K742SGDDB9D00000000000DD", "at": 0, "length": 1920}
+      ],
+      "renders": [
+        {"file": "renders/Synth_dry.wav", "sha256": "5a2b80f47dbceb8b705479b1d0c7a425f4ac79ed11429f139db03a2b292eb040", "name": "Synth, without effects", "sample_rate": 44100, "channels": 2, "frames": 44100, "devices": ["dev_01K742SGD7B9D00000000000D7"], "from": 0, "to": 1920, "fingerprint": "526b69171ecad18e3444edb72d8b5752af9639fdf4547bafc4db391557bf565d"},
+        {"file": "renders/Synth_wet.wav", "sha256": "7463688161c3c491a9ce3e6252b8ca5220206c40fa46631fdd1daed569bf556d", "name": "Synth, with effects", "sample_rate": 44100, "channels": 2, "frames": 44100, "devices": ["dev_01K742SGD7B9D00000000000D7", "dev_01K742SGD8B9D00000000000D8"], "from": 0, "to": 1920, "fingerprint": "68c088423899776f050c052d713e1a0ea981a122c268d489827ca8966a3518d4"}
+      ]
+    }
+  ]
+}

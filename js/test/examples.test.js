@@ -132,12 +132,31 @@ test('ids, hashes, the README and a new document', () => {
   assert.equal(tutti.fmt(fresh), fresh);
 });
 
-test('a render fingerprint follows the track and the maps', () => {
+test('a render fingerprint follows the devices it holds, the range and the maps', () => {
   const text = fs.readFileSync(path.join(examples, 'typical', 'Typical.tutti'), 'utf8');
   const doc = JSON.parse(text);
   const bass = doc.tracks.find((t) => t.name === 'Bass');
-  const a = tutti.renderFingerprint(text, bass.id, 0, 3840);
+  const dry = tutti.renderDevices(text, bass.id, 'without_effects');
+  const wet = tutti.renderDevices(text, bass.id, 'with_effects');
+  assert.ok(dry.length >= 1 && wet.length >= dry.length);
+  const a = tutti.renderFingerprint(text, bass.id, dry, 0, 3840);
   assert.equal(a.length, 64);
-  assert.notEqual(tutti.renderFingerprint(text, bass.id, 0, 7680), a);
-  assert.throws(() => tutti.renderFingerprint(text, 'trk_nope', 0, 1));
+  assert.notEqual(tutti.renderFingerprint(text, bass.id, dry, 0, 7680), a);
+  assert.throws(() => tutti.renderFingerprint(text, 'trk_nope', dry, 0, 1));
+  assert.throws(() => tutti.renderDevices(text, bass.id, 'some_effects'));
+  const pattern = bass.patterns[0];
+  const p = tutti.patternRenderFingerprint(text, bass.id, pattern.id, dry, 0, pattern.length, 120);
+  assert.equal(p.length, 64);
+  assert.notEqual(tutti.patternRenderFingerprint(text, bass.id, pattern.id, dry, 0, pattern.length, 121), p);
+});
+
+test('every render of every-feature is found, current and exactly its range', () => {
+  const text = fs.readFileSync(path.join(examples, 'every-feature', 'Every-feature.tutti'), 'utf8');
+  const found = tutti.renders(text);
+  assert.ok(found.some((r) => r.pattern !== null), 'a pattern render');
+  assert.ok(found.filter((r) => r.pattern === null).length >= 3, 'track renders');
+  for (const r of found) {
+    assert.equal(r.current, true, r.file);
+    assert.equal(r.frames, r.expectedFrames, r.file);
+  }
 });

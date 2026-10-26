@@ -5,9 +5,9 @@
  */
 export type Namespace = string;
 /**
- * A bare file name in a fixed folder (spec 2.2).
+ * A reference (spec 2.2), or a device's own file by its path inside plugins/files/<device id>/ (spec 7.8).
  */
-export type Reference = string;
+export type IndexPath = string;
 export type Sha256 = string;
 /**
  * A position or length in ticks (spec 5.2).
@@ -123,9 +123,9 @@ export interface Tutti10 {
    */
   markers?: Marker[];
   /**
-   * The loop range (spec 3.6).
+   * The span the user marks on the timeline: looped over, exported and rendered (spec 3.6).
    */
-  loop?: null | Loop;
+  range?: null | Range;
   master?: Master;
   /**
    * The top-level tracks in display order (spec 6.1).
@@ -148,7 +148,7 @@ export interface Generator {
   [k: string]: unknown;
 }
 export interface FileEntry {
-  path: Reference;
+  path: IndexPath;
   sha256: Sha256;
   bytes: number;
   [k: string]: unknown;
@@ -247,10 +247,16 @@ export interface Marker {
 export interface Extensions {
   [k: string]: unknown;
 }
-export interface Loop {
+/**
+ * The span the user marks on the timeline (spec 3.6).
+ */
+export interface Range {
   start: Ticks;
   end: Ticks;
-  enabled?: boolean;
+  /**
+   * Whether playback loops over the range.
+   */
+  loop?: boolean;
   [k: string]: unknown;
 }
 /**
@@ -374,7 +380,7 @@ export interface Track {
    */
   automation?: AutomationLane[];
   /**
-   * Bounces of this track's chain, sorted by file (spec 7.7).
+   * Renders of this track's chain over a range, sorted by file (spec 7.7).
    */
   renders?: Render[];
   /**
@@ -442,12 +448,55 @@ export interface Pattern {
    * Sorted by id.
    */
   events?: Event[];
+  /**
+   * Renders of this pattern alone, sorted by file (spec 7.7).
+   */
+  renders?: PatternRender[];
   extensions?: Extensions;
   [k: string]: unknown;
 }
 export interface PatternKey {
   tonic: PitchClass;
   scale: Scale;
+  [k: string]: unknown;
+}
+/**
+ * A pattern render: the pattern alone, once, at one tempo, through the listed devices, exactly that long (spec 7.7).
+ */
+export interface PatternRender {
+  /**
+   * A bare file name in a fixed folder (spec 2.2).
+   */
+  file: string;
+  sha256: Sha256;
+  /**
+   * A label for people.
+   */
+  name?: string;
+  sample_rate: number;
+  channels: number;
+  /**
+   * The file's length: exactly the range at bpm.
+   */
+  frames: number;
+  /**
+   * The devices whose processing is in the file, in chain order; the track's others were bypassed.
+   */
+  devices: Id[];
+  /**
+   * A position or length in ticks (spec 5.2).
+   */
+  from: number;
+  to: Ticks;
+  /**
+   * The one tempo the pattern was played at.
+   */
+  bpm: number;
+  /**
+   * The SHA-256 of the JCS bytes of the descriptor the spec defines (7.7).
+   */
+  fingerprint: string;
+  extensions?: Extensions;
   [k: string]: unknown;
 }
 export interface Part {
@@ -503,15 +552,39 @@ export interface Point {
   curve?: string;
   [k: string]: unknown;
 }
+/**
+ * A track render: what the listed devices made of the track over a range of its timeline, pre-fader, exactly that long (spec 7.7).
+ */
 export interface Render {
-  file: Reference;
+  /**
+   * A bare file name in a fixed folder (spec 2.2).
+   */
+  file: string;
   sha256: Sha256;
-  from: Ticks;
+  /**
+   * A label for people.
+   */
+  name?: string;
+  sample_rate: number;
+  channels: number;
+  /**
+   * The file's length: exactly the range.
+   */
+  frames: number;
+  /**
+   * The devices whose processing is in the file, in chain order; the track's others were bypassed.
+   */
+  devices: Id[];
+  /**
+   * A position or length in ticks (spec 5.2).
+   */
+  from: number;
   to: Ticks;
   /**
    * The SHA-256 of the JCS bytes of the descriptor the spec defines (7.7).
    */
   fingerprint: string;
+  extensions?: Extensions;
   [k: string]: unknown;
 }
 export interface Slot {

@@ -66,6 +66,11 @@ fn main() {
     let l2 = examples.join("conformance/l2");
     everything(&l2.join("everything"), &mut ids);
     merge_different_tracks(&l2.join("merge-different-tracks"), &mut ids);
+    // Cases added since go here, each after the one before, so the ids above stay as they were.
+    let fixture = render_choice(&mut ids);
+    let folder = l1.join(fixture.name);
+    write_project(&folder, &title_case(fixture.name), fixture.project);
+    write_json(&folder.join("expected.json"), &fixture.expected);
     println!("examples written under {}", examples.display());
 }
 
@@ -218,6 +223,71 @@ fn click_loop(bpm: f64, bars: u32, rate: u32) -> (Vec<f32>, u64) {
     (out, frames)
 }
 
+/// The rate the examples' renders are made at: low, so the files stay small.
+const RENDER_RATE: u32 = 8_000;
+
+/// A render's file: a mono sine at 110 Hz, exactly `frames` long.
+fn render_wav(amplitude: f64, frames: i64) -> Vec<u8> {
+    let samples: Vec<f32> = (0..frames)
+        .map(|i| (amplitude * (2.0 * PI * 110.0 * i as f64 / RENDER_RATE as f64).sin()) as f32)
+        .collect();
+    wav(1, RENDER_RATE, &samples)
+}
+
+/// A track render of `devices` over `range`, exactly its length, and its file (spec 7.7).
+fn track_render(
+    doc: &Document,
+    track: &Track,
+    file: &str,
+    name: &str,
+    devices: Vec<Id>,
+    (from, to): (i64, i64),
+    amplitude: f64,
+) -> (Render, Vec<u8>) {
+    let frames = render::track_render_frames(doc, from, to, RENDER_RATE);
+    let bytes = render_wav(amplitude, frames);
+    let facts = AudioFacts {
+        sample_rate: RENDER_RATE,
+        channels: 1,
+        frames: frames as u64,
+    };
+    let mut r = Render::new(file, &sha256_hex(&bytes), facts, devices, from, to);
+    r.name = name.to_owned();
+    r.fingerprint = render::render_fingerprint(doc, track, &r.devices, from, to);
+    (r, bytes)
+}
+
+/// A render of a track's whole pattern through `devices` at `bpm`, exactly its length, and its
+/// file (spec 7.7).
+fn pattern_render(
+    doc: &Document,
+    track: &Track,
+    pattern: &Pattern,
+    file: &str,
+    devices: Vec<Id>,
+    bpm: f64,
+) -> (PatternRender, Vec<u8>) {
+    let frames = render::pattern_render_frames(doc.ppq, 0, pattern.length, bpm, RENDER_RATE);
+    let bytes = render_wav(0.3, frames);
+    let facts = AudioFacts {
+        sample_rate: RENDER_RATE,
+        channels: 1,
+        frames: frames as u64,
+    };
+    let mut r = PatternRender::new(
+        file,
+        &sha256_hex(&bytes),
+        facts,
+        devices,
+        0,
+        pattern.length,
+        bpm,
+    );
+    r.fingerprint =
+        render::pattern_render_fingerprint(doc, track, pattern, &r.devices, 0, pattern.length, bpm);
+    (r, bytes)
+}
+
 /// A sine, mono.
 fn sine(hz: f64, seconds: f64, amplitude: f64, rate: u32) -> (Vec<f32>, u64) {
     let frames = (seconds * rate as f64).round() as u64;
@@ -249,15 +319,10 @@ fn note(ids: &mut Ids, at: i64, length: i64, pitch: u8, velocity: f64) -> Event 
 }
 
 fn pattern(ids: &mut Ids, name: &str, length: i64, events: Vec<Event>) -> Pattern {
-    Pattern {
-        id: ids.next("pat"),
-        name: name.to_owned(),
-        length,
-        key: None,
-        events,
-        extensions: Extensions::new(),
-        unknown: Unknown::new(),
-    }
+    let mut p = Pattern::new(ids.next("pat"), length);
+    p.name = name.to_owned();
+    p.events = events;
+    p
 }
 
 fn part(ids: &mut Ids, pattern: &Id, at: i64, length: i64) -> Part {
@@ -373,12 +438,7 @@ fn typical(ids: &mut Ids) -> Project {
             unknown: Unknown::new(),
         });
     }
-    d.r#loop = Some(Loop {
-        start: 2 * bar,
-        end: 6 * bar,
-        enabled: false,
-        unknown: Unknown::new(),
-    });
+    d.range = Some(Range::new(2 * bar, 6 * bar));
 
     // Drums: kick, snare, hats, with a drum map.
     let mut drums = Track::new(ids.next("trk"), "Drums");
@@ -618,7 +678,7 @@ fn every_feature(ids: &mut Ids) -> Project {
         extensions: Extensions::new(),
         unknown: Unknown::new(),
     });
-    d.r#loop.as_mut().unwrap().enabled = true;
+    d.range.as_mut().unwrap().r#loop = true;
     d.private = vec!["notes/".to_owned()];
     d.metadata.album = Some("Examples".to_owned());
     d.metadata.year = Some("2026".to_owned());
@@ -874,6 +934,49 @@ fn every_feature(ids: &mut Ids) -> Project {
     drums.channel.destination = Some(Id::from("master")); // the drums bypass the folder bus
     drums.channel.pan = -0.1;
     drums.channel.channels = 1;
+    // The bass handed over as stems (spec 7.7): over the document's range, without its effects
+    // and with them, each file exactly the range; and its verse pattern alone, at a tempo of
+    // its own.
+    let range = d.range.clone().expect("the range");
+    let mut stems = Vec::new();
+    for (name, file, devices, amplitude) in [
+        (
+            "Bass, without effects",
+            "renders/Bass_dry.wav",
+            render::without_effects(&bass),
+            0.3,
+        ),
+        (
+            "Bass, with effects",
+            "renders/Bass_wet.wav",
+            render::with_effects(&bass),
+            0.2,
+        ),
+    ] {
+        let (r, bytes) = track_render(
+            d,
+            &bass,
+            file,
+            name,
+            devices,
+            (range.start, range.end),
+            amplitude,
+        );
+        bass.renders.push(r);
+        stems.push((file, bytes));
+    }
+    let verse = bass.patterns[0].clone();
+    let (mut r, bytes) = pattern_render(
+        d,
+        &bass,
+        &verse,
+        "renders/Verse-bass_120.wav",
+        render::without_effects(&bass),
+        120.0,
+    );
+    r.name = "Verse bass, without effects, at 120 bpm".to_owned();
+    bass.patterns[0].renders.push(r);
+    stems.push(("renders/Verse-bass_120.wav", bytes));
     folder.children = vec![drums, bass];
 
     // The loop track gets a warped second piece, an unwarped pad, a reversed piece, every channel
@@ -933,24 +1036,25 @@ fn every_feature(ids: &mut Ids) -> Project {
     let more_id = more.id.clone();
     loop_track.patterns.push(more);
     loop_track.parts.push(part(ids, &more_id, 2 * bar, 6 * bar));
-    let (render, _) = sine(440.0, 2.0, 0.2, RATE);
-    let render_bytes = wav(1, RATE, &render);
-    let render_hash = sha256_hex(&render_bytes);
+    // A track without devices: its render holds its audio as placed, `devices` empty.
     let loop_track_clone = loop_track.clone();
-    let doc_for_fingerprint = d.clone();
-    let fingerprint = render_fingerprint(&doc_for_fingerprint, &loop_track_clone, 0, 2 * bar);
+    let (loop_render, loop_render_bytes) = track_render(
+        d,
+        &loop_track_clone,
+        "renders/Loop_000.wav",
+        "",
+        Vec::new(),
+        (0, 2 * bar),
+        0.2,
+    );
     let loop_track = d.tracks.iter_mut().find(|t| t.name == "Loop").unwrap();
-    loop_track.renders.push(Render {
-        file: "renders/Loop_000.wav".to_owned(),
-        sha256: render_hash,
-        from: 0,
-        to: 2 * bar,
-        fingerprint,
-        unknown: Unknown::new(),
-    });
+    loop_track.renders.push(loop_render);
     d.tracks.insert(0, folder);
     p.add_file("audio/Pad-220.wav", pad_bytes);
-    p.add_file("renders/Loop_000.wav", render_bytes);
+    p.add_file("renders/Loop_000.wav", loop_render_bytes);
+    for (file, bytes) in stems {
+        p.add_file(file, bytes);
+    }
     // A plugin's own files, in its device's folder (spec 7.8), nested as the plugin likes.
     let synth_id = p
         .document
@@ -1574,6 +1678,7 @@ const SECOND: i64 = 1920;
 /// The fictitious plugins: no one has them, so what they are given is a table, not a sound.
 const PROBE: &str = "clap:org.example.parameter-probe";
 const MISSING: &str = "clap:org.example.missing-synth";
+const MISSING_EFFECT: &str = "clap:org.example.missing-halver";
 
 fn level_1(ids: &mut Ids) -> Vec<Fixture> {
     vec![
@@ -2288,18 +2393,26 @@ fn missing_plugin(ids: &mut Ids) -> Fixture {
     let pat_id = pat.id.clone();
     t.patterns.push(pat);
     t.parts.push(part(ids, &pat_id, 0, SECOND));
-    // The chain's output over the part, before the fader: a stereo sine, both sides 0.5.
-    let (render, _) = stereo_sine(440.0, 1.0, 0.5, 0.5, RATE);
+    // The chain's output over the part, before the fader: a stereo sine, both sides 0.5, exactly
+    // the second the range is.
+    let (render, frames) = stereo_sine(440.0, 1.0, 0.5, 0.5, RATE);
     let render_bytes = wav(2, RATE, &render);
-    let fingerprint = render_fingerprint(&p.document, &t, 0, SECOND);
-    t.renders.push(Render {
-        file: "renders/Synth_000.wav".to_owned(),
-        sha256: sha256_hex(&render_bytes),
-        from: 0,
-        to: SECOND,
-        fingerprint,
-        unknown: Unknown::new(),
-    });
+    let facts = AudioFacts {
+        sample_rate: RATE,
+        channels: 2,
+        frames,
+    };
+    let devices = render::with_effects(&t);
+    let mut r = Render::new(
+        "renders/Synth_000.wav",
+        &sha256_hex(&render_bytes),
+        facts,
+        devices,
+        0,
+        SECOND,
+    );
+    r.fingerprint = render_fingerprint(&p.document, &t, &r.devices, 0, SECOND);
+    t.renders.push(r);
     p.add_file("renders/Synth_000.wav", render_bytes);
     let each = 0.5 * 0.5 / 2f64.sqrt();
     let heard_rows = vec![heard(&t, 0.1, 0.9, each, each)];
@@ -2316,6 +2429,107 @@ fn missing_plugin(ids: &mut Ids) -> Fixture {
             "keeps": {"device": synth_json, "state_file": state.path()},
             "edit": {"device": synth_id.as_str(), "param": "0", "value": 0.25},
             "after_edit": {"overrides": [{"param": "0", "value": 0.25}], "render_stale": true},
+        }),
+    }
+}
+
+/// render-choice: an instrument and an effect no one has, a render without effects, one with
+/// effects and a pattern render (spec 7.6, 7.7).
+fn render_choice(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let synth_dep = example_dependency(MISSING, "Missing synth", "missing-synth");
+    let halver_dep = example_dependency(MISSING_EFFECT, "Missing halver", "missing-halver");
+    p.document.dependencies.push(synth_dep);
+    p.document.dependencies.push(halver_dep);
+    let mut t = Track::new(ids.next("trk"), "Synth");
+    t.channel.gain = 0.5;
+    t.devices
+        .push(device(ids, "instrument", "Missing synth", MISSING));
+    let mut halver = device(ids, "audio_effect", "Missing halver", MISSING_EFFECT);
+    halver
+        .params
+        .push(param("0", "Amount", 0.5, 0.0, 1.0, "linear"));
+    let halver_id = halver.id.clone();
+    t.devices.push(halver);
+    let events: Vec<Event> = (0..4).map(|i| note(ids, i * 480, 420, 69, 0.8)).collect();
+    let pat = pattern(ids, "Notes", SECOND, events);
+    let pat_id = pat.id.clone();
+    t.patterns.push(pat);
+    t.parts.push(part(ids, &pat_id, 0, SECOND));
+    // Without effects, the synth alone: a stereo sine at 0.5; with effects, halved: at 0.25.
+    let mut files = Vec::new();
+    for (name, file, devices, amplitude) in [
+        (
+            "Synth, without effects",
+            "renders/Synth_dry.wav",
+            render::without_effects(&t),
+            0.5,
+        ),
+        (
+            "Synth, with effects",
+            "renders/Synth_wet.wav",
+            render::with_effects(&t),
+            0.25,
+        ),
+    ] {
+        let (samples, frames) = stereo_sine(440.0, 1.0, amplitude, amplitude, RATE);
+        let bytes = wav(2, RATE, &samples);
+        let facts = AudioFacts {
+            sample_rate: RATE,
+            channels: 2,
+            frames,
+        };
+        let mut r = Render::new(file, &sha256_hex(&bytes), facts, devices, 0, SECOND);
+        r.name = name.to_owned();
+        r.fingerprint = render_fingerprint(&p.document, &t, &r.devices, 0, SECOND);
+        t.renders.push(r);
+        files.push((file, bytes));
+    }
+    let notes_pattern = t.patterns[0].clone();
+    let (r, bytes) = pattern_render(
+        &p.document,
+        &t,
+        &notes_pattern,
+        "renders/Notes_120.wav",
+        render::without_effects(&t),
+        120.0,
+    );
+    t.patterns[0].renders.push(r);
+    files.push(("renders/Notes_120.wav", bytes));
+    for (file, bytes) in files {
+        p.add_file(file, bytes);
+    }
+    let each = 0.25 * 0.5 / 2f64.sqrt();
+    let heard_rows = vec![heard(&t, 0.1, 0.9, each, each)];
+    let fingerprints: serde_json::Map<String, Value> = t
+        .renders
+        .iter()
+        .map(|r| (r.file.clone(), json!(r.fingerprint)))
+        .chain(
+            t.patterns[0]
+                .renders
+                .iter()
+                .map(|r| (r.file.clone(), json!(r.fingerprint))),
+        )
+        .collect();
+    p.document.tracks.push(t);
+    Fixture {
+        name: "render-choice",
+        project: p,
+        expected: json!({
+            "what": "An instrument and an effect of plugins no one has (fictitious), with a render without effects (the synth alone), one with effects (the synth halved) and a render of the pattern alone at 120 bpm (7.6, 7.7). A reader that has neither plugin plays the render that stands in for both, the one with effects, through the track's fader at 0.5, so the master's RMS per output channel over the window is within 0.5 dB of these. An edit to the effect makes only the render that holds it stale; a note edit makes all three stale. The fingerprints are the test vectors of 7.7's two descriptors.",
+            "plays": "renders/Synth_wet.wav",
+            "tolerance_db": 0.5,
+            "heard": heard_rows,
+            "fingerprints": fingerprints,
+            "effect_edit": {
+                "device": halver_id.as_str(), "param": "0", "value": 0.75,
+                "stale": {"renders/Notes_120.wav": false, "renders/Synth_dry.wav": false, "renders/Synth_wet.wav": true},
+            },
+            "note_edit": {
+                "velocity": 0.5,
+                "stale": {"renders/Notes_120.wav": true, "renders/Synth_dry.wav": true, "renders/Synth_wet.wav": true},
+            },
         }),
     }
 }

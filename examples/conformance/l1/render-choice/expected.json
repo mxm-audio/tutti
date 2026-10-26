@@ -1,0 +1,38 @@
+{
+  "what": "An instrument and an effect of plugins no one has (fictitious), with a render without effects (the synth alone), one with effects (the synth halved) and a render of the pattern alone at 120 bpm (7.6, 7.7). A reader that has neither plugin plays the render that stands in for both, the one with effects, through the track's fader at 0.5, so the master's RMS per output channel over the window is within 0.5 dB of these. An edit to the effect makes only the render that holds it stale; a note edit makes all three stale. The fingerprints are the test vectors of 7.7's two descriptors.",
+  "plays": "renders/Synth_wet.wav",
+  "tolerance_db": 0.5,
+  "heard": [
+    {
+      "track": "trk_01K742SGD6B9D00000000000D6",
+      "name": "Synth",
+      "from_seconds": 0.1,
+      "to_seconds": 0.9,
+      "rms_left": 0.08838834764831843,
+      "rms_right": 0.08838834764831843
+    }
+  ],
+  "fingerprints": {
+    "renders/Synth_dry.wav": "526b69171ecad18e3444edb72d8b5752af9639fdf4547bafc4db391557bf565d",
+    "renders/Synth_wet.wav": "68c088423899776f050c052d713e1a0ea981a122c268d489827ca8966a3518d4",
+    "renders/Notes_120.wav": "44d0c0d9339b6fca2c54de8b4071c3415e8455019d5a2e266b64f3b68cf1c8e4"
+  },
+  "effect_edit": {
+    "device": "dev_01K742SGD8B9D00000000000D8",
+    "param": "0",
+    "value": 0.75,
+    "stale": {
+      "renders/Notes_120.wav": false,
+      "renders/Synth_dry.wav": false,
+      "renders/Synth_wet.wav": true
+    }
+  },
+  "note_edit": {
+    "velocity": 0.5,
+    "stale": {
+      "renders/Notes_120.wav": true,
+      "renders/Synth_dry.wav": true,
+      "renders/Synth_wet.wav": true
+    }
+  }
+}

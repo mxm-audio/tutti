@@ -347,7 +347,7 @@ impl Store for MemoryStore {
 }
 
 /// Every file the document refers to, as references, in order of first use: audio pieces'
-/// files, devices' states, renders.
+/// files, devices' states, track renders, pattern renders.
 pub fn referenced_files(doc: &Document) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     let mut push = |r: String| {
@@ -378,13 +378,18 @@ pub fn referenced_files(doc: &Document) -> Vec<String> {
         for r in &t.renders {
             push(r.file.clone());
         }
+        for p in &t.patterns {
+            for r in &p.renders {
+                push(r.file.clone());
+            }
+        }
     }
     out
 }
 
 /// Checks the folder against the document (spec 3.4, 9): every indexed file present with its
 /// length and hash (`complete` and `valid`, as BagIt says), every referenced file present and
-/// indexed, every audio piece's facts matching its index entry.
+/// indexed, every audio piece's and every render's hash matching its index entry.
 pub fn check_files(doc: &Document, folder: &dyn Folder) -> Vec<Issue> {
     let mut issues = Vec::new();
     let error = |issues: &mut Vec<Issue>, pointer: String, message: String| {
@@ -438,26 +443,35 @@ pub fn check_files(doc: &Document, folder: &dyn Folder) -> Vec<Issue> {
             }
         }
     }
+    let disagree = |issues: &mut Vec<Issue>, track: &str, what: &str, file: &str, sha256: &str| {
+        if let Some(f) = doc.files.iter().find(|f| f.path == file) {
+            if f.sha256 != sha256 {
+                warn(
+                    issues,
+                    format!("/files (track {track})"),
+                    format!(
+                        "{file}: the {what} names hash {sha256} but the index {}",
+                        f.sha256
+                    ),
+                );
+            }
+        }
+    };
     for t in doc.all_tracks() {
         for p in &t.patterns {
             for e in &p.events {
                 if let Event::Note(n) = e {
                     if let Some(a) = &n.audio {
-                        if let Some(f) = doc.files.iter().find(|f| f.path == a.file) {
-                            if f.sha256 != a.sha256 {
-                                warn(
-                                    &mut issues,
-                                    format!("/files (track {})", t.id),
-                                    format!(
-                                        "{}: the piece names hash {} but the index {}",
-                                        a.file, a.sha256, f.sha256
-                                    ),
-                                );
-                            }
-                        }
+                        disagree(&mut issues, t.id.as_str(), "piece", &a.file, &a.sha256);
                     }
                 }
             }
+            for r in &p.renders {
+                disagree(&mut issues, t.id.as_str(), "render", &r.file, &r.sha256);
+            }
+        }
+        for r in &t.renders {
+            disagree(&mut issues, t.id.as_str(), "render", &r.file, &r.sha256);
         }
     }
     issues

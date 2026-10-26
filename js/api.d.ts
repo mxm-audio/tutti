@@ -28,6 +28,25 @@ export interface Feature {
   level: 0 | 1 | 2;
 }
 
+/** A render of the document as `renders` finds it (spec 7.7). */
+export interface RenderState {
+  /** Its JSON pointer: `/tracks/0/renders/1`, `/tracks/2/patterns/0/renders/0`. */
+  pointer: string;
+  file: string;
+  name: string;
+  track: string;
+  /** The pattern, for a pattern render. */
+  pattern: string | null;
+  devices: string[];
+  /** Whether its fingerprint still matches (not stale). */
+  current: boolean;
+  /** How many devices of the chain, in signal order, it stands in for; `null` for none. */
+  standsIn: number | null;
+  /** The frames the spec says the file holds, and the frames the render states. */
+  expectedFrames: number;
+  frames: number;
+}
+
 /** What `save` did. */
 export interface Saved {
   warnings: Issue[];
@@ -171,8 +190,14 @@ export function tickOfFrame(ppq: number, rate: number, map: MapPoint[], bpm: num
 export function frameAtTick(ppq: number, rate: number, map: MapPoint[], bpm: number | null, tick: number): number | undefined;
 /** Source frames per output second at a tick, given the project's bpm there. */
 export function rateAt(ppq: number, rate: number, map: MapPoint[], bpm: number | null, tick: number, projectBpm: number): number;
-/** A render's fingerprint for a track of the document (spec 7.7). */
-export function renderFingerprint(text: string, trackId: string, from: number, to: number): string;
+/** The fingerprint of a track render of `devices` (device ids) from `from` to `to` (spec 7.7). */
+export function renderFingerprint(text: string, trackId: string, devices: string[], from: number, to: number): string;
+/** The fingerprint of a render of a track's pattern through `devices` from `from` to `to` at `bpm` (spec 7.7). */
+export function patternRenderFingerprint(text: string, trackId: string, patternId: string, devices: string[], from: number, to: number, bpm: number): string;
+/** The devices a render with or without effects lists for a track (spec 7.7). */
+export function renderDevices(text: string, trackId: string, which: 'with_effects' | 'without_effects'): string[];
+/** Every render of the document (spec 7.7). */
+export function renders(text: string): RenderState[];
 /** SHA-256 of bytes, 64 lower-case hexadecimal digits. */
 export function sha256Hex(bytes: Uint8Array): string;
 /** An id in the recommended form: a kind prefix (`trk`, `pat`, `prt`, `evt`, `dev`, `aut`, `mrk`, `scn`) and a ULID. */

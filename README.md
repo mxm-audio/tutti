@@ -92,8 +92,10 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
   git. To send one, a defined zip form, `<Name>.tutti.zip`: the document first and stored,
   every entry's name and length checked, nothing written outside the folder being made.
 - Audio in `audio/`, never renamed and never overwritten; plugin states in `plugins/states/`,
-  each named by its content's SHA-256; optional renders so a project plays where its plugins are
-  missing.
+  each named by its content's SHA-256; optional renders, of a whole track or of one pattern,
+  each saying which devices are in it (without effects, with effects, or any choice), so a
+  project handed over plays where its plugins are missing and the next person knows what a stem
+  holds.
 - A `README.md` in every project, written by every writer from one template: what the folder
   is, the five rules, the time model with two values to check a reader by, and the URLs of the
   rules.
@@ -136,7 +138,8 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
   reverse.
 - Automation lanes on device parameters, channel gain, pan, mute, sends and promoted
   parameters, with hold and linear points.
-- Markers and sections, a loop, scenes and slots for a clip launcher, drum maps, metadata.
+- Markers and sections, the range the user marks (looped over, exported, rendered), scenes and
+  slots for a clip launcher, drum maps, metadata.
 
 **Plugins**
 
@@ -148,8 +151,10 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
 - The state as a sidecar file by hash with its kind declared; a readable parameter snapshot
   (value, unit, range, text) a stranger or another format's build can use; overrides; the order
   of authority written down.
-- Missing-plugin behaviour defined: keep everything, bypass the effect or play the render, say
-  so by name, and write edits only into overrides.
+- Missing-plugin behaviour defined: keep everything, play a render that stands in for the
+  devices it holds or bypass the effect, say so by name, and write edits only into overrides. A
+  render's fingerprint covers only what it holds, so changing an effect it leaves out keeps it
+  current.
 - `dependencies`: every plugin the project uses, with its version, vendor, licence, formats and
   where to download or build it from.
 

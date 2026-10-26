@@ -73,7 +73,8 @@ before (equality leaves `generator` out).
 
 ### Profiles
 
-- **playable anywhere**: every track with a non-builtin device carries a current render (7.7).
+- **playable anywhere**: every track with a non-builtin device carries a current track render,
+  over the document's `range`, that stands in for each of them (7.7).
 - **archive**: the folder carries `spec/` with this version's text, schema and agent guide
   (2.4).
 
@@ -99,6 +100,7 @@ fixture is made (a sine, a click, noise), never taken from anywhere.
 | 1 | `expressions` | A per-note pitch curve heard as pitch. |
 | 1 | `missing-plugin` | A device of a fictitious plugin with a state, a snapshot and a render: opens, plays the render, keeps the state file, writes edits to `overrides` only. |
 | 1 | `plugin` | A tiny reference CLAP (a sine with one parameter and a state) in `fixtures/clap/`, built with the first Level 1 claimant. |
+| 1 | `render-choice` | An instrument and an effect of fictitious plugins, a render without effects, one with effects and a pattern render: plays the one that stands in for both; an edit to the effect stales only the render that holds it, a note edit all three. The fingerprints are test vectors. |
 | 2 | `everything` | Every feature; read and written to an equal document. |
 | 2 | `merge-different-tracks` | Two branches editing different tracks (their documents in the case's `branches/`) merge in git without conflict and the result validates. |
 

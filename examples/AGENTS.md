@@ -16,7 +16,9 @@ Owns every folder here. **Every project here is generated**, never edited by han
 tutti-schema --bin make-examples` writes them all from the crate itself (deterministic ids, audio
 from closed forms, hashes and fingerprints real), so a change to the format is a change to the
 generator, then a run. **A new case goes after the ones before it** in the generator: the ids
-count up across every case, so one put in the middle rewrites every case after it.
+count up across every case, so one put in the middle rewrites every case after it. A case added
+to an earlier level is generated after Level 2's, at the end of `main` (Level 1's
+`render-choice`), and filed in its own level's folder.
 
 # Local Contracts
 
@@ -43,6 +45,9 @@ count up across every case, so one put in the middle rewrites every case after i
   link is made: a junction on Windows, which needs no privilege.
 - A case may carry files no reader reads beside its project: `symlink-audio`'s `link-target/`,
   `merge-different-tracks`'s `branches/` (the two branches' documents and their merge).
+- **A render here is exactly its range** (spec 7.7) and made at a low rate where its sound is
+  not what is tested (every-feature's renders at 8 kHz), so the files stay small; a case whose
+  table measures RMS (`missing-plugin`, `render-choice`) renders at the fixtures' rate.
 
 # Work Guidance
 

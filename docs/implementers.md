@@ -44,7 +44,9 @@ In the order the checks happen (conformance 1):
    `extensions` value: in your tree, and back out if you write.
 6. **Play what you can, say what you don't.** A missing plugin, a required extension you lack,
    a feature above your level: the user hears it by name. Never refuse a project for data you
-   don't understand, and never delete anything.
+   don't understand, and never delete anything. For a missing plugin, look for a current render
+   that stands in for it (`render::stands_in`, spec 7.6 and 7.7): play it in place of the devices
+   it lists, run the rest of the chain yourself.
 7. **Files by hash.** A file whose hash doesn't match plays silence and warns. Resolve a
    reference inside the folder only, never through a link.
 
@@ -54,7 +56,9 @@ In the order the save happens (conformance 2; `Project::save` does exactly this)
 
 1. Every file the document will refer to is in the folder first: audio under `audio/`, never
    renamed or overwritten; states under `plugins/states/` by content hash with their kind; a
-   plugin's own files under `plugins/files/<device id>/`.
+   plugin's own files under `plugins/files/<device id>/`; renders under `renders/`, each exactly
+   its range, its `devices` saying what is in it and its `fingerprint` from `render_fingerprint`
+   or `pattern_render_fingerprint` over the document as it is saved.
 2. The index (`files`) names each of them with its hash and length, built from the files, not
    from what the document claims. A new reference to a file that isn't there is refused; a file
    the index already listed that went missing or changed keeps its entry as it was and is

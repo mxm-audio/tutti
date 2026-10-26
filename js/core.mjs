@@ -75,8 +75,19 @@ export function make(wasm) {
   const rateAt = (ppq, rate, map, bpm, tick, projectBpm) =>
     wasm.rate_at(ppq, rate, JSON.stringify(map), orUndefined(bpm), tick, projectBpm);
 
-  /** A render's fingerprint for a track of the document. */
-  const renderFingerprint = (text, trackId, from, to) => wasm.render_fingerprint(text, trackId, from, to);
+  /** The fingerprint of a track render of `devices` (an array of device ids) on a track. */
+  const renderFingerprint = (text, trackId, devices, from, to) =>
+    wasm.render_fingerprint(text, trackId, JSON.stringify(devices), from, to);
+
+  /** The fingerprint of a render of a track's pattern through `devices` at `bpm`. */
+  const patternRenderFingerprint = (text, trackId, patternId, devices, from, to, bpm) =>
+    wasm.pattern_render_fingerprint(text, trackId, patternId, JSON.stringify(devices), from, to, bpm);
+
+  /** The devices a render `'with_effects'` or `'without_effects'` lists for a track. */
+  const renderDevices = (text, trackId, which) => JSON.parse(wasm.render_devices(text, trackId, which));
+
+  /** Every render of the document, each with whether it is current and what it stands in for. */
+  const renders = json(wasm.renders);
 
   /** SHA-256 of bytes, 64 lower-case hexadecimal digits. */
   const sha256Hex = (bytes) => wasm.sha256_hex(bytes);
@@ -397,6 +408,9 @@ export function make(wasm) {
     frameAtTick,
     rateAt,
     renderFingerprint,
+    patternRenderFingerprint,
+    renderDevices,
+    renders,
     sha256Hex,
     ulid,
     isId,

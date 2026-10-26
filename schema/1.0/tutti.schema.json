@@ -24,7 +24,7 @@
     "meter": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/meter_point" }, "description": "The meter map, strictly increasing in at, the first point at 0 (spec 5.3)." },
     "key": { "type": "array", "items": { "$ref": "#/$defs/key_point" }, "default": [], "description": "The key map (spec 5.4)." },
     "markers": { "type": "array", "items": { "$ref": "#/$defs/marker" }, "default": [], "description": "Named points and sections, sorted by id (spec 6.9)." },
-    "loop": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/loop" } ], "default": null, "description": "The loop range (spec 3.6)." },
+    "range": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/range" } ], "default": null, "description": "The span the user marks on the timeline: looped over, exported and rendered (spec 3.6)." },
     "master": { "$ref": "#/$defs/master" },
     "tracks": { "type": "array", "items": { "$ref": "#/$defs/track" }, "default": [], "description": "The top-level tracks in display order (spec 6.1)." },
     "scenes": { "type": "array", "items": { "$ref": "#/$defs/scene" }, "default": [], "description": "The clip launcher's scenes, in order (spec 6.10)." },
@@ -150,13 +150,14 @@
         "extensions": { "$ref": "#/$defs/extensions" }
       }
     },
-    "loop": {
+    "range": {
       "type": "object",
       "required": ["start", "end"],
+      "description": "The span the user marks on the timeline (spec 3.6).",
       "properties": {
         "start": { "$ref": "#/$defs/ticks" },
         "end": { "$ref": "#/$defs/ticks" },
-        "enabled": { "type": "boolean", "default": false }
+        "loop": { "type": "boolean", "default": false, "description": "Whether playback loops over the range." }
       }
     },
     "master": {
@@ -186,7 +187,7 @@
         "patterns": { "type": "array", "items": { "$ref": "#/$defs/pattern" }, "default": [], "description": "The track's own patterns, sorted by id." },
         "parts": { "type": "array", "items": { "$ref": "#/$defs/part" }, "default": [], "description": "Where its patterns play, sorted by id." },
         "automation": { "type": "array", "items": { "$ref": "#/$defs/automation_lane" }, "default": [], "description": "Automation lanes, sorted by id (spec 6.8)." },
-        "renders": { "type": "array", "items": { "$ref": "#/$defs/render" }, "default": [], "description": "Bounces of this track's chain, sorted by file (spec 7.7)." },
+        "renders": { "type": "array", "items": { "$ref": "#/$defs/render" }, "default": [], "description": "Renders of this track's chain over a range, sorted by file (spec 7.7)." },
         "slots": { "type": "array", "items": { "$ref": "#/$defs/slot" }, "default": [], "description": "Clip-launcher slots (spec 6.10)." },
         "extensions": { "$ref": "#/$defs/extensions" }
       }
@@ -290,13 +291,39 @@
     },
     "render": {
       "type": "object",
-      "required": ["file", "sha256", "from", "to", "fingerprint"],
+      "required": ["file", "sha256", "sample_rate", "channels", "frames", "devices", "from", "to", "fingerprint"],
+      "description": "A track render: what the listed devices made of the track over a range of its timeline, pre-fader, exactly that long (spec 7.7).",
       "properties": {
-        "file": { "$ref": "#/$defs/reference" },
+        "file": { "$ref": "#/$defs/reference", "description": "renders/<name>; no two renders of the document name the same file." },
         "sha256": { "$ref": "#/$defs/sha256" },
-        "from": { "$ref": "#/$defs/ticks" },
+        "name": { "type": "string", "default": "", "description": "A label for people." },
+        "sample_rate": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "channels": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "frames": { "type": "integer", "minimum": 1, "description": "The file's length: exactly the range." },
+        "devices": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true, "description": "The devices whose processing is in the file, in chain order; the track's others were bypassed." },
+        "from": { "$ref": "#/$defs/ticks", "description": "Absolute ticks on the track." },
         "to": { "$ref": "#/$defs/ticks" },
-        "fingerprint": { "$ref": "#/$defs/sha256", "description": "The SHA-256 of the JCS bytes of the descriptor the spec defines (7.7)." }
+        "fingerprint": { "$ref": "#/$defs/sha256", "description": "The SHA-256 of the JCS bytes of the descriptor the spec defines (7.7)." },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "pattern_render": {
+      "type": "object",
+      "required": ["file", "sha256", "sample_rate", "channels", "frames", "devices", "from", "to", "bpm", "fingerprint"],
+      "description": "A pattern render: the pattern alone, once, at one tempo, through the listed devices, exactly that long (spec 7.7).",
+      "properties": {
+        "file": { "$ref": "#/$defs/reference", "description": "renders/<name>; no two renders of the document name the same file." },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "name": { "type": "string", "default": "", "description": "A label for people." },
+        "sample_rate": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "channels": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "frames": { "type": "integer", "minimum": 1, "description": "The file's length: exactly the range at bpm." },
+        "devices": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true, "description": "The devices whose processing is in the file, in chain order; the track's others were bypassed." },
+        "from": { "$ref": "#/$defs/ticks", "description": "Pattern ticks." },
+        "to": { "$ref": "#/$defs/ticks" },
+        "bpm": { "$ref": "#/$defs/bpm", "description": "The one tempo the pattern was played at." },
+        "fingerprint": { "$ref": "#/$defs/sha256", "description": "The SHA-256 of the JCS bytes of the descriptor the spec defines (7.7)." },
+        "extensions": { "$ref": "#/$defs/extensions" }
       }
     },
     "pattern": {
@@ -308,6 +335,7 @@
         "length": { "type": "integer", "minimum": 1, "maximum": 1099511627776 },
         "key": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/pattern_key" } ], "default": null },
         "events": { "type": "array", "items": { "$ref": "#/$defs/event" }, "default": [], "description": "Sorted by id." },
+        "renders": { "type": "array", "items": { "$ref": "#/$defs/pattern_render" }, "default": [], "description": "Renders of this pattern alone, sorted by file (spec 7.7)." },
         "extensions": { "$ref": "#/$defs/extensions" }
       }
     },

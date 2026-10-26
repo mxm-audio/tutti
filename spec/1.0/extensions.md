@@ -28,7 +28,8 @@ under `extensions_required` the subset without which the project **does not soun
 - A required extension's data MUST leave a **core fallback**: the object it extends plays
   acceptably through the core fields alone. (A vendor's curve type on an automation point must
   still carry `hold` or `linear`; a vendor's stretch algorithm still carries the map and the bpm;
-  a vendor's device must still carry a render or a snapshot.) This is glTF's rule, and it is what
+  a vendor's device must still have a render on its track that stands in for it, or a
+  snapshot.) This is glTF's rule, and it is what
   lets a reader from 2026 open a project from 2032.
 - A reader lacking a required extension opens the project anyway, says by name what it cannot
   honour, plays the fallbacks and preserves everything (`tutti.md` 8.1). It is never a reason to

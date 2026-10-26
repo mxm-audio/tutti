@@ -27,12 +27,16 @@ time arithmetic the fixtures' expected values come from, and closed forms for th
   invalid fixture failing at its pointer, a case with a `link` in a copy where the link is made
   (what the link reaches untouched); every fixture needing the level it is filed under (Level 2
   at most); every tick and its seconds in a table following the document's tempo map;
-  `missing-plugin`'s render current, its device kept, an edit going into overrides only and the
-  render stale after; `everything` written back by another program equal, its ids, sharing,
+  `missing-plugin`'s render current and standing in, its device kept, an edit going into
+  overrides only and the render stale after; `render-choice`'s renders current, exactly their
+  range, their fingerprints the published ones, the render played the one that stands in for
+  both devices, an effect edit staling only the render that holds it and a note edit all three;
+  `everything` written back by another program equal, its ids, sharing,
   index and README as its table says; `merge-different-tracks`' branches its edits made to the
   base, and `git merge-file` merging them cleanly into its merged document (git is needed);
   the every-feature example walked against the schema both ways (no key the schema lacks, no
-  property the example never uses); the spec's version, the schema's `$id` and
+  property the example never uses), and its renders against their own two definitions, since by
+  name alone a render's keys hide among other objects'; the spec's version, the schema's `$id` and
   `tutti::VERSION` equal; the constants in code equal the schema's constraints; the committed
   field reference equal to the generator's output.
 - **Scratch folders are the build folder's** (`CARGO_TARGET_TMPDIR`), not the system's.

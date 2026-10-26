@@ -6,7 +6,9 @@ The format's reference implementation: the model (the types a document deseriali
 unknown fields and extensions kept), reading a document in any form, writing the canonical pretty
 form and the JCS (RFC 8785) bytes equality and fingerprints are over, `validate` (what the schema
 can't say), the arithmetic the spec defines (ticks to seconds through the tempo map and back,
-an audio piece's placement and playback rate, a render's fingerprint), and `Project`: a project
+an audio piece's placement and playback rate), renders (`render.rs`: the two fingerprints over
+what a render holds, the length its file must have, the signal order, what a render stands in
+for, the two device lists without and with effects, every render's state), and `Project`: a project
 in a store, opened, created, saved and filled by the one procedure every writer follows (spec
 10, conformance 2), written once over the `Store` trait so the disk (`tutti-fs`), a test's
 memory (`MemoryStore`) and a JavaScript host run the same one.
@@ -40,8 +42,9 @@ Owns `Cargo.toml` and `src/`.
   the hash the new one. `save_verified` hashes everything again and refuses a missing or changed
   file, for an export.
 - **The model's constructors carry the spec's defaults** (`Device::new` on, `Note::new` released
-  at 0.5, `TempoPoint::new` held, `Pattern::new`, `Part::new`, `MeterPoint::new`,
-  `Dependency::plugin`), and `Document::track` and `track_mut` find a track through folders: a
+  at 0.5, `TempoPoint::new` held, `Pattern::new`, `Part::new`, `MeterPoint::new`, `Range::new`
+  not looped, `Render::new` and `PatternRender::new` unnamed, `Dependency::plugin`), and
+  `Document::track` and `track_mut` find a track through folders: a
   writer never restates a default the spec sets (the owner, 2026-10-21, when the player became
   the second consumer).
 - **A device's own files are `Project::device_files`'s** (spec 7.8): put, list and read by
@@ -66,6 +69,10 @@ Owns `Cargo.toml` and `src/`.
   to the schema's by `tutti-schema`'s tests; never copy such a number into docs.
 - **Reading normalises, writing canonicalises**: a reader accepts any key order and whitespace
   and sorts what the spec says is sorted; a writer emits the pretty form exactly.
+- **A render's own checks are public** (`validate::check_render`, `check_pattern_render`): what
+  a render must be whatever the document around it, for a program that takes one from a command
+  or a client; `validate` adds what needs the document (a device of the track, the index, one
+  file per render).
 
 # Work Guidance
 

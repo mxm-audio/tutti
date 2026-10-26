@@ -112,6 +112,30 @@ designed from is `docs/research.md`.
   time, audio under tempo, plugin state, the unknown, dependencies, each answered), a short
   word on DAWproject, the feature list by area, the folder and manifest in short, how to use
   it, and only then the repository table, status and licence.
+- **2026-10-25:** **A render says which devices are in it** (spec 7.7, `devices`, required).
+  Reason: the owner, "I think tutti need support for rendered stems too. and it must say what
+  effects are rendered into the stems. What effect should be the users choice, but the next one
+  working on the project should know it. Most typical use cases would be no effects and all
+  effects"; and of what it is for, "a kind of handover file, with rendered stems as backup for
+  safety". The list is the truth, a label (`name`) is for people, and "with/without effects"
+  are the crate's helpers, never keywords: nothing derivable is stored.
+- **2026-10-25:** **Renders stay pre-fader**, the chain's output before the fader and the
+  sends: the owner chose it over a `fader` choice, which can come later as an optional key in a
+  minor version.
+- **2026-10-25:** **Pattern renders are in 1.0** (spec 6.5, 7.7): the owner, "Perhaps this
+  should work at a pattern level too? So patterns can be exported too instead of only whole
+  stems?", then yes to a pattern render at one stated tempo, which travels as a loop file and
+  lets a reader without the plugin play a part from it, stretched.
+- **2026-10-25:** **A render is exactly its range, with no tail** (spec 7.7): the owner, "it
+  should always render the loop length", "The user decides how much empty space is around the
+  song"; for a pattern, what rings past its end is cut ("Cut it", over wrapping the tail into
+  the start). A tail is a longer range, as newDAWn's exports already had it.
+- **2026-10-25:** **The document's `loop` is `range`** (spec 3.6, `range: {start, end, loop}`):
+  the owner, "Perhaps we should change what is now called loop to call it the "range". Since it
+  has multiple functions besides setting the loop". It is the span the user marks: playback
+  loops over it when `loop` is on, exports and a project's renders cover it. A part's and a
+  slot's `loop` are a pattern's own repeat and keep the word. No alias for the old key: nothing
+  is released, and a stale writer shows in `tutti check` as an unknown key.
 
 ## Design choices and what they were weighed against
 
@@ -184,6 +208,24 @@ designed from is `docs/research.md`.
   stereo source's balance runs between the centre and the side, a lane before its first point),
   the case is built so every reading gives the same numbers, and the gap goes to the owner as a
   question, never into a table as a guess. A table that guessed would fail a conforming program.
+- **A render stands in only for a prefix of the chain in signal order, every instrument
+  included** (2026-10-25, the plan's review with Pi): a reader runs the devices after a render
+  itself, which it can only do when the render holds all that comes before them; and what comes
+  out before the instruments is notes, which no audio device takes. A render of any other
+  choice is valid and for listening and export. Prefer the render standing in for the fewest
+  devices, since the more of the chain a reader runs, the more of the user's edits it plays.
+- **A render's fingerprint covers what it holds and nothing else** (2026-10-25): the track
+  reduced to the listed devices, the parameters and lanes and parameter events that reach them,
+  the channel without what acts after the tap, and no names, colours, drum map, slots or other
+  renders, so tweaking an effect a "without effects" render leaves out, the fader or the track's
+  name keeps it current; unknown keys stay in, so a later key that changes the sound still
+  stales it. A pattern render's descriptor keeps the reduced track (its extensions, its unknown
+  keys) beside the pattern, without the patterns, parts and automation that don't play in it.
+  The meter and key maps stay in both: a plugin reads them through its host's transport. The
+  track render's descriptor still holds every pattern of the track, not cut to its range:
+  conservative, and simple to state.
+- **A render's file is one render** (no two name the same file): a host matching renders by
+  file, as newDAWn's store does, then always finds the one meant (Pi's review, round 4).
 - **`symlink-audio` links the `audio` folder, not a file, and the runner makes the link**: git
   on Windows checks a link out as a file and making a file link there needs a privilege, while
   a junction needs none and is a link to every reader; and a reader that checks only a path's
@@ -302,3 +344,14 @@ in newDAWn come back.
   `symlink-audio`, and `duplicate-key` listed in `conformance.md`. Level 1's `plugin` waits for
   its reference CLAP. Written by the generator; their tests written, to be run in one batch
   later (the owner: "lets get everything as ready as possible. Just dont do the tests yet").
+- 2026-10-25: renders that say what is in them (the rulings above): spec 3.6, 6.1, 6.5, 7.6,
+  7.7, conformance's profile and `render-choice`, extensions 31; the schema's `render`,
+  `pattern_render` and `range`; `Render`, `PatternRender`, `AudioFacts` and `Range` in the
+  model; `render.rs` rewritten (`signal_order`, `stands_in`, `without_effects`, `with_effects`,
+  the two descriptors, the frames a render holds, `renders`); `validate::check_render` and
+  `check_pattern_render`, one file per render; the index and the copy carrying pattern renders,
+  a render's hash checked against the index; `tutti check`'s render notes and `inspect`'s
+  render listing; `renderFingerprint`, `patternRenderFingerprint`, `renderDevices` and
+  `renders` in the package; every-feature's bass handed over as stems and a pattern render, the
+  examples' `range`. Planned with newDAWn's half and reviewed with Pi over eight rounds. The
+  batch of fixture tests written the same day ran with it, all passing.

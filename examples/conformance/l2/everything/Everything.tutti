@@ -17,7 +17,10 @@
     {"path": "audio/Pad-220.wav", "sha256": "1bb532bc8670e2f49644c119afa82f6197270d40c6245aa8958622aa09849593", "bytes": 132344},
     {"path": "plugins/files/dev_01K742SGAYB9D00000000000AY/presets/Init.txt", "sha256": "4645da8fbdfaaa0c562db3ca4007c1e683a56a628ac6a8dd93f571f7d453667b", "bytes": 11},
     {"path": "plugins/states/2e783022508ce1b4eb42266e2e4ca6455892d14425db64b4c4129a04475bd03e.clap", "sha256": "2e783022508ce1b4eb42266e2e4ca6455892d14425db64b4c4129a04475bd03e", "bytes": 41},
-    {"path": "renders/Loop_000.wav", "sha256": "3a9800d7d549eb3211fd922d8aab53d9e8e6873618e3e32f6471b6db4c61be24", "bytes": 176444}
+    {"path": "renders/Bass_dry.wav", "sha256": "69ed39c953f0a3351e2d356aa1397462059bd0aaeea31bd4773bad4522a9d201", "bytes": 176596},
+    {"path": "renders/Bass_wet.wav", "sha256": "63a3e6e23fb4cb237b1ee889f7cf2dca1d3a6eb4e7ee2d312bdfc7533147ec3e", "bytes": 176596},
+    {"path": "renders/Loop_000.wav", "sha256": "9c8a6c38587696856a043c04ae7d81265213921cac089bb66c4742785371c9ba", "bytes": 88320},
+    {"path": "renders/Verse-bass_120.wav", "sha256": "3be45e0b8fe1c5abf53964397532cf63baba6f5e84e1850c0a9d845735956a34", "bytes": 32044}
   ],
   "dependencies": [
     {"id": "clap:dk.mxm.mxm-mono-01", "kind": "plugin", "name": "mxm-mono-01", "vendor": "MXM", "version": "0.1.1", "url": "https://github.com/mxm-audio/mxm-mono-01", "repository": "https://github.com/mxm-audio/mxm-mono-01.git", "commit": "0000000000000000000000000000000000000000", "license": "GPL-3.0-or-later", "formats": ["clap", "vst3"], "platforms": ["windows", "macos", "linux"]}
@@ -52,10 +55,10 @@
     {"id": "mrk_01K742SGA5B9D00000000000A5", "at": 23040, "name": "Chorus", "kind": "section", "length": 15360},
     {"id": "mrk_01K742SGC1B9D00000000000C1", "at": 38400, "name": "Drop"}
   ],
-  "loop": {
+  "range": {
     "start": 7680,
     "end": 23040,
-    "enabled": true
+    "loop": true
   },
   "master": {
     "gain": 0.891,
@@ -188,6 +191,9 @@
                 {"type": "note", "id": "evt_01K742SGB5B9D00000000000B5", "at": 2880, "length": 420, "pitch": 43, "velocity": 0.8},
                 {"type": "note", "id": "evt_01K742SGB6B9D00000000000B6", "at": 3360, "length": 420, "pitch": 48, "velocity": 0.8},
                 {"type": "param", "id": "evt_01K742SGB7B9D00000000000B7", "at": 1920, "param": "cutoff", "value": 440}
+              ],
+              "renders": [
+                {"file": "renders/Verse-bass_120.wav", "sha256": "3be45e0b8fe1c5abf53964397532cf63baba6f5e84e1850c0a9d845735956a34", "name": "Verse bass, without effects, at 120 bpm", "sample_rate": 8000, "channels": 1, "frames": 16000, "devices": ["dev_01K742SGAYB9D00000000000AY"], "from": 0, "to": 3840, "bpm": 120, "fingerprint": "2f8ecbe149e640e34a59b42f52b87c06be1f9178911acb49cb2050d1d24bf989"}
               ]
             }
           ],
@@ -232,6 +238,10 @@
                 {"at": 7680, "value": 0.7943, "curve": "hold"}
               ]
             }
+          ],
+          "renders": [
+            {"file": "renders/Bass_dry.wav", "sha256": "69ed39c953f0a3351e2d356aa1397462059bd0aaeea31bd4773bad4522a9d201", "name": "Bass, without effects", "sample_rate": 8000, "channels": 1, "frames": 88276, "devices": ["dev_01K742SGAYB9D00000000000AY"], "from": 7680, "to": 23040, "fingerprint": "e4b814aedbb04b83d0e8cabacd15b97c7b2f3844025ef5aa2d3867a4ec10fed5"},
+            {"file": "renders/Bass_wet.wav", "sha256": "63a3e6e23fb4cb237b1ee889f7cf2dca1d3a6eb4e7ee2d312bdfc7533147ec3e", "name": "Bass, with effects", "sample_rate": 8000, "channels": 1, "frames": 88276, "devices": ["dev_01K742SGAYB9D00000000000AY", "dev_01K742SGC5B9D00000000000C5"], "from": 7680, "to": 23040, "fingerprint": "3ab0b4ea3e764bd04c88878cc73f3ae2fb84e8e53158deb6c98b89261b131219"}
           ],
           "slots": [
             {"scene": "scn_01K742SGC4B9D00000000000C4", "pattern": "pat_01K742SGB8B9D00000000000B8", "loop": {"start": 0, "end": 3840}}
@@ -307,7 +317,7 @@
         {"id": "prt_01K742SGCFB9D00000000000CF", "pattern": "pat_01K742SGCEB9D00000000000CE", "at": 7680, "length": 23040}
       ],
       "renders": [
-        {"file": "renders/Loop_000.wav", "sha256": "3a9800d7d549eb3211fd922d8aab53d9e8e6873618e3e32f6471b6db4c61be24", "from": 0, "to": 7680, "fingerprint": "5a4107151c7eb3744437f57793af44141bf2630c388daaefa50631711f20495a"}
+        {"file": "renders/Loop_000.wav", "sha256": "9c8a6c38587696856a043c04ae7d81265213921cac089bb66c4742785371c9ba", "sample_rate": 8000, "channels": 1, "frames": 44138, "devices": [], "from": 0, "to": 7680, "fingerprint": "8273925c7ddd653732de0a4d9891273462fc2812bb5ee73c870ba9b21b11597a"}
       ]
     },
     {

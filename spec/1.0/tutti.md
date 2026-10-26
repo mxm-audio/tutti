@@ -204,7 +204,7 @@ After the manifest, in this order:
 | `meter` | array of meter point | yes | The meter map (5.3); at least one point, the first at tick 0. |
 | `key` | array of key point | no (default `[]`) | The key map (5.4). |
 | `markers` | array of marker | no (default `[]`) | Named points and sections (6.9). |
-| `loop` | object or null | no (default `null`) | `start`, `end` (ticks, start < end), `enabled` (default `false`). |
+| `range` | object or null | no (default `null`) | The span the user marks on the timeline: `start`, `end` (ticks, start < end), `loop` (default `false`). Playback loops over it when `loop` is `true`; what covers a span, an export or a project's renders (7.7), covers it. |
 | `master` | object | no (default: its defaults) | The master channel and its devices (6.3). |
 | `tracks` | array of track | no (default `[]`) | The top-level tracks in display order (6.1). |
 | `scenes` | array of scene | no (default `[]`) | The clip launcher's scenes (6.10). |
@@ -350,7 +350,7 @@ its channel: there are no separate channel objects or ids.
 | `patterns` | array of pattern | no | `[]` | The track's own patterns (6.5), sorted by id. |
 | `parts` | array of part | no | `[]` | Where its patterns play (6.6), sorted by id. |
 | `automation` | array of lane | no | `[]` | Automation lanes (6.8), sorted by id. |
-| `renders` | array of render | no | `[]` | Bounces of this track's chain (7.7), sorted by file. |
+| `renders` | array of track render | no | `[]` | Renders of this track's chain over a range (7.7), sorted by file. |
 | `slots` | array of slot | no | `[]` | Clip-launcher slots (6.10). |
 | `extensions` | object | no | `{}` | (8.1) |
 
@@ -398,6 +398,7 @@ as separate ones (which it SHOULD NOT; `conformance.md`).
 | `length` | integer ticks | yes | | The pattern's own length. |
 | `key` | object or null | no | `null` | `{tonic, scale}` as 5.4: this pattern's own key, in place of the map's. |
 | `events` | array of event | no | `[]` | Sorted by id. |
+| `renders` | array of pattern render | no | `[]` | Renders of this pattern alone at one tempo (7.7), sorted by file. |
 | `extensions` | object | no | `{}` | |
 
 ### 6.6 Part
@@ -605,31 +606,129 @@ A reader that cannot load a device's plugin:
 
 1. keeps the device object, its state file and its snapshot untouched, and the state file
    stays referred to;
-2. bypasses an effect; for an instrument, plays the track from a current render if the track
-   carries one (7.7), else silence;
+2. plays the track, where a current track render covers the time, from that render, when it
+   stands in (7.7) for that device and for every other device of the track it cannot load, and
+   runs the devices after the render's last itself; where no track render does, it MAY play a
+   part from a current pattern render of its pattern that stands in likewise (7.7); and
+   otherwise bypasses an effect, and plays an instrument as silence;
 3. tells the user by name, from the device's `dependencies` entry (vendor, version, where to
    get it);
 4. writes any edit it makes to that device only into `overrides`.
 
+Among the renders that would do, a reader SHOULD take the one that stands in for the fewest
+devices: the more of the chain it runs itself, the more of the user's edits it plays.
+
 ### 7.7 Renders
 
-A track MAY carry renders of its own chain's output, so that a project plays where its plugins
-are missing: `renders: [{file, sha256, from, to, fingerprint}]`, `file` in `renders/`, `from`
-and `to` in absolute ticks on the track, the render being the output of the track's devices
-(before the fader and before any send, never including what other tracks feed it), at the file's
-rate. A folder track's render and a return's render are out of 1.0: their inputs come from other
-tracks.
+A render is audio the project carries of what some of a track's devices made: so that the
+project plays where its plugins are missing, and so that a stem handed over with the project
+says what is in it. There are two kinds: a **track render**, in the track's `renders`, over a
+range of its timeline; and a **pattern render**, in a pattern's `renders`, of that pattern alone
+at one tempo. Both are files in `renders/` (2.2).
 
-`fingerprint` is the SHA-256 of the JCS bytes of one descriptor object:
+**What is in a render.** `devices` lists the devices whose processing is in the file, in the
+chain's order when it was made; every other device of the track was bypassed for it. Each
+device's own state, `enabled` among it, stays where it always is, on the device. The two lists a
+program usually makes:
+
+- **without effects**: the track's enabled note effects and instruments;
+- **with effects**: its enabled note effects, instruments and audio effects.
+
+Neither lists a disabled device, an analyzer (it passes audio unchanged) or a device of a role
+this version does not know (7.1 bypasses it). Any other list is valid, and `[]` lists none: the
+track's audio pieces as placed, its notes sounding nowhere. A render is always **pre-fader**: the
+chain's output before the channel's gain, pan and mute and before any send, never including
+what other tracks feed it. A folder track's render and a return's are out of 1.0: their inputs
+come from other tracks.
+
+**Standing in.** A render *stands in* for the devices it lists when they are the first devices
+of the chain in **signal order**: the note effects in list order, then the instruments in list
+order, then the audio effects in list order, disabled devices, analyzers and devices of an
+unknown role left out; and, on a track with an enabled instrument, when they include every
+enabled instrument, since what comes out before the instruments is notes and a render is audio.
+Without effects and with effects both stand in. A render of an instrument and a reverb without
+the equaliser between them does not: it is for listening and export, and a reader never plays it
+in place of the chain. A reader plays a render that stands in instead of the devices it lists,
+and runs the devices after them itself (7.6).
+
+**A track render** covers `from` to `to`, absolute ticks on the track. Its frame 0 is the sample
+at `from` (5.2, at the file's rate), and it holds the track through the listed devices as when
+playback starts at `from`: the devices at rest, a note held across `from` sounding from it.
+Automation lanes on a listed device apply; lanes on the channel and the sends do not. **The file
+is exactly the range**: `frames` is the sample at `to` minus the sample at `from`, and whatever
+still sounds at `to` is cut; a tail is a longer range. A program that renders a project's tracks
+to hand the project over SHOULD render them over the document's `range` (3.6), which the user
+sets with as much space around the music as they want.
+
+**A pattern render** holds the pattern alone, as one part at tick 0 playing it once from pattern
+tick `from` to `to`, the tempo map replaced by one point at `bpm` and the document's meter map
+kept, through the listed devices from rest. No track automation applies, its points being in
+track ticks; the pattern's own `param` events do. Tick `t` falls at sample
+`round_half_up(60 · (t − from) / (ppq · bpm) · rate)` (5.2's hold rule), and `frames` is that
+sample for `t = to`: the file is exactly the pattern's range, and what rings past `to` is cut.
+*Worked example*: `ppq` 960, a one-bar 4/4 pattern (3840 ticks) rendered from 0 to 3840 at
+120 bpm and 48 000 Hz: `to` falls at `60 · 3840 / (960 · 120) · 48000` = sample 96 000, so the
+file is 96 000 frames, 2 seconds.
+
+A reader MAY play a part from a current pattern render that stands in and holds every pattern
+tick the part plays (all within `from` to `to`): it places the render as an audio piece (5.5),
+`map: [{frame: 0, tick: from}]` with the render's `bpm`, and plays the frames of the ticks the
+part plays, stretched to the project's tempo with the pitch kept; a loop goes from its `end`
+straight on at its `start`.
+
+| Key | Type | Required | Default | Meaning |
+|---|---|---|---|---|
+| `file` | string | yes | | `renders/<name>` (2.2). No two renders of the document name the same file: a file is one render, and two renders of the same sound are two files. |
+| `sha256` | string | yes | | The file's SHA-256, 64 lower-case hex digits. |
+| `name` | string | no | `""` | A label for people: "Bass, with effects". |
+| `sample_rate` | integer | yes | | The file's rate, 1 to 2^24. |
+| `channels` | integer | yes | | 1 to 256. |
+| `frames` | integer | yes | | The file's length in frames, at least 1: exactly the range, as above. |
+| `devices` | array of id | yes | | The devices whose processing is in the file, each at most once. An id that names no device of the track is dangling (5.1). |
+| `from` | integer ticks | yes | | Where the render starts: on the track, or in the pattern. |
+| `to` | integer ticks | yes | | Where it ends, after `from`. |
+| `bpm` | number | a pattern render's only, required | | The one tempo the pattern was played at, as 5.2 bounds a tempo. |
+| `fingerprint` | string | yes | | Below. |
+| `extensions` | object | no | `{}` | (8.1) |
+
+As for an audio piece, the file's facts are written inline so a reader knows what a render is
+without opening it; a file that disagrees with them is a replaced file, and the reader reports
+it.
+
+**The fingerprint** is the SHA-256 of the JCS bytes of one descriptor object, each object in it
+as the pretty form has it (a key at its default left out, 4). For a track render:
 
 ```json
-{"track": <the track object with "renders", "channel" and "children" removed>,
- "from": <from>, "to": <to>,
+{"track": <the track, reduced>, "from": <from>, "to": <to>,
  "ppq": <ppq>, "tempo": <the tempo map>, "meter": <the meter map>, "key": <the key map>}
 ```
 
-with defaults applied as in 4. A render whose fingerprint no longer matches the track is
-*stale*: a reader may still play it but says so.
+and for a pattern render:
+
+```json
+{"track": <the track, reduced, without "patterns", "parts" and "automation">,
+ "pattern": <the pattern, reduced>, "from": <from>, "to": <to>, "bpm": <bpm>,
+ "ppq": <ppq>, "meter": <the meter map>, "key": <the key map>}
+```
+
+The track, *reduced*, is the track object without what the file cannot depend on:
+
+- without `renders`, `children`, `name`, `color`, `drum_map` and `slots`;
+- its `channel` without `gain`, `pan`, `mute`, `solo`, `destination` and `sends`, which act after
+  the render's tap, and left out when nothing else is in it but its defaults;
+- its `devices` only those the render lists, in the track's order, each without `name`;
+- its `parameters` only those whose device is one of them, and its `automation` only the lanes
+  whose target is one of them, directly or through such a parameter;
+- each pattern *reduced*: without `renders` and `name`, its `param` events only those whose
+  parameter is kept; each part without `name`.
+
+Every other key stays, keys this version does not know included, so that what a later version
+adds to a track still counts. The meter and key maps are in it because a plugin may read both
+through its host (a time signature, a key), and a render made against one may sound different
+against another. So changing an effect that is not in a render, the fader, the track's name or
+another render leaves a render current; changing a listed device, its order, its `enabled`, the
+notes or the tempo does not. A render whose fingerprint no longer matches is *stale*: a reader
+may still play it, but says so.
 
 ### 7.8 A plugin's own files
 

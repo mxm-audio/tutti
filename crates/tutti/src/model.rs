@@ -118,7 +118,7 @@ pub struct Document {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub markers: Vec<Marker>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub r#loop: Option<Loop>,
+    pub range: Option<Range>,
     #[serde(default, skip_serializing_if = "Master::is_default")]
     pub master: Master,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -163,7 +163,7 @@ impl Document {
             }],
             key: Vec::new(),
             markers: Vec::new(),
-            r#loop: None,
+            range: None,
             master: Master::default(),
             tracks: Vec::new(),
             scenes: Vec::new(),
@@ -178,7 +178,8 @@ impl Document {
     }
 
     /// Puts every set of identified objects in its canonical order (spec 3.1): patterns, parts,
-    /// events, automation lanes, markers and scenes by id; renders by file; `files` by path;
+    /// events, automation lanes, markers and scenes by id; renders, a track's and a pattern's,
+    /// by file; `files` by path;
     /// `dependencies` by id; sends by destination; params by id; overrides by param. Ordered
     /// lists (tracks, children, devices, points) are left as they are.
     pub fn normalise(&mut self) {
@@ -477,15 +478,28 @@ fn is_marker(kind: &str) -> bool {
     kind == "marker"
 }
 
-/// The loop range (spec 3.6).
+/// The span the user marks on the timeline (spec 3.6): what playback loops over when `loop` is
+/// on, and what an export or a project's renders cover.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Loop {
+pub struct Range {
     pub start: Ticks,
     pub end: Ticks,
     #[serde(default, skip_serializing_if = "is_false")]
-    pub enabled: bool,
+    pub r#loop: bool,
     #[serde(flatten)]
     pub unknown: Unknown,
+}
+
+impl Range {
+    /// The span from `start` to `end`, playback not looping over it.
+    pub fn new(start: Ticks, end: Ticks) -> Self {
+        Self {
+            start,
+            end,
+            r#loop: false,
+            unknown: Unknown::new(),
+        }
+    }
 }
 
 // --- tracks and channels -----------------------------------------------------------------------
@@ -596,6 +610,7 @@ impl Track {
         self.patterns.sort_by(|a, b| a.id.cmp(&b.id));
         for pattern in &mut self.patterns {
             pattern.events.sort_by(|a, b| a.id().cmp(b.id()));
+            pattern.renders.sort_by(|a, b| a.file.cmp(&b.file));
         }
         self.parts.sort_by(|a, b| a.id.cmp(&b.id));
         self.automation.sort_by(|a, b| a.id.cmp(&b.id));
@@ -821,16 +836,133 @@ pub struct Override {
     pub unknown: Unknown,
 }
 
-/// A bounce of a track's chain (spec 7.7).
+/// What an audio file holds, as a render states it inline (spec 7.7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AudioFacts {
+    pub sample_rate: u32,
+    pub channels: u32,
+    pub frames: u64,
+}
+
+/// A track render (spec 7.7): what the listed devices made of the track from `from` to `to`
+/// (absolute ticks), before the fader, exactly that long.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Render {
     pub file: String,
     pub sha256: String,
+    #[serde(default, skip_serializing_if = "is_empty_string")]
+    pub name: String,
+    pub sample_rate: u32,
+    pub channels: u32,
+    pub frames: u64,
+    pub devices: Vec<Id>,
     pub from: Ticks,
     pub to: Ticks,
     pub fingerprint: String,
+    #[serde(default, skip_serializing_if = "Extensions::is_empty")]
+    pub extensions: Extensions,
     #[serde(flatten)]
     pub unknown: Unknown,
+}
+
+impl Render {
+    /// A render of `devices` from `from` to `to`, in the file `file` (`renders/<name>`) holding
+    /// `facts`, unnamed; its `fingerprint` is the caller's to set
+    /// ([`crate::render::render_fingerprint`]).
+    pub fn new(
+        file: &str,
+        sha256: &str,
+        facts: AudioFacts,
+        devices: Vec<Id>,
+        from: Ticks,
+        to: Ticks,
+    ) -> Self {
+        Self {
+            file: file.to_owned(),
+            sha256: sha256.to_owned(),
+            name: String::new(),
+            sample_rate: facts.sample_rate,
+            channels: facts.channels,
+            frames: facts.frames,
+            devices,
+            from,
+            to,
+            fingerprint: String::new(),
+            extensions: Extensions::new(),
+            unknown: Unknown::new(),
+        }
+    }
+
+    /// The file's facts as the render states them.
+    pub fn facts(&self) -> AudioFacts {
+        AudioFacts {
+            sample_rate: self.sample_rate,
+            channels: self.channels,
+            frames: self.frames,
+        }
+    }
+}
+
+/// A pattern render (spec 7.7): the pattern alone, once from `from` to `to` (pattern ticks) at
+/// `bpm`, through the listed devices from rest, exactly that long.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PatternRender {
+    pub file: String,
+    pub sha256: String,
+    #[serde(default, skip_serializing_if = "is_empty_string")]
+    pub name: String,
+    pub sample_rate: u32,
+    pub channels: u32,
+    pub frames: u64,
+    pub devices: Vec<Id>,
+    pub from: Ticks,
+    pub to: Ticks,
+    pub bpm: f64,
+    pub fingerprint: String,
+    #[serde(default, skip_serializing_if = "Extensions::is_empty")]
+    pub extensions: Extensions,
+    #[serde(flatten)]
+    pub unknown: Unknown,
+}
+
+impl PatternRender {
+    /// A render of `devices` playing the pattern from `from` to `to` at `bpm`, as
+    /// [`Render::new`]; its `fingerprint` is the caller's to set
+    /// ([`crate::render::pattern_render_fingerprint`]).
+    pub fn new(
+        file: &str,
+        sha256: &str,
+        facts: AudioFacts,
+        devices: Vec<Id>,
+        from: Ticks,
+        to: Ticks,
+        bpm: f64,
+    ) -> Self {
+        Self {
+            file: file.to_owned(),
+            sha256: sha256.to_owned(),
+            name: String::new(),
+            sample_rate: facts.sample_rate,
+            channels: facts.channels,
+            frames: facts.frames,
+            devices,
+            from,
+            to,
+            bpm,
+            fingerprint: String::new(),
+            extensions: Extensions::new(),
+            unknown: Unknown::new(),
+        }
+    }
+
+    /// The file's facts as the render states them.
+    pub fn facts(&self) -> AudioFacts {
+        AudioFacts {
+            sample_rate: self.sample_rate,
+            channels: self.channels,
+            frames: self.frames,
+        }
+    }
 }
 
 // --- patterns, parts, events -------------------------------------------------------------------
@@ -846,6 +978,8 @@ pub struct Pattern {
     pub key: Option<PatternKey>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub renders: Vec<PatternRender>,
     #[serde(default, skip_serializing_if = "Extensions::is_empty")]
     pub extensions: Extensions,
     #[serde(flatten)]
@@ -861,6 +995,7 @@ impl Pattern {
             length,
             key: None,
             events: Vec::new(),
+            renders: Vec::new(),
             extensions: Extensions::new(),
             unknown: Unknown::new(),
         }

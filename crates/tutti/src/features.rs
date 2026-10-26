@@ -63,7 +63,7 @@ pub fn features(doc: &Document) -> Vec<Feature> {
         if !t.automation.is_empty() {
             add(feature("automation", 1));
         }
-        if !t.renders.is_empty() {
+        if !t.renders.is_empty() || t.patterns.iter().any(|p| !p.renders.is_empty()) {
             add(feature("renders", 1));
         }
         if !t.slots.is_empty() {

@@ -549,7 +549,7 @@ impl<S: Store> Project<S> {
             Err(ProjectError::NoDocument) => {}
             Err(e) => return Err(e),
         }
-        for folder in [AUDIO, STATES] {
+        for folder in [AUDIO, STATES, RENDERS] {
             store.make_folder(folder).map_err(store_error(folder))?;
         }
         let mut copy = Project::adopt(store, &self.document_name, self.document.clone())?;
@@ -1137,7 +1137,7 @@ fn keep_as_it_was(
 }
 
 /// Every file a known field refers to, with the hash it claims, in order of first use and each
-/// once: devices' states, audio pieces' files, renders.
+/// once: devices' states, audio pieces' files, track renders, pattern renders.
 fn claims(doc: &Document) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     let mut push = |reference: String, sha256: String| {
@@ -1167,6 +1167,11 @@ fn claims(doc: &Document) -> Vec<(String, String)> {
         }
         for r in &t.renders {
             push(r.file.clone(), r.sha256.clone());
+        }
+        for p in &t.patterns {
+            for r in &p.renders {
+                push(r.file.clone(), r.sha256.clone());
+            }
         }
     }
     out
@@ -1270,7 +1275,7 @@ pub fn used_namespaces(doc: &Document) -> BTreeSet<String> {
 mod tests {
     use super::*;
     use crate::folder::{Folder, MemoryStore};
-    use crate::model::{AudioPiece, MapPoint, Note, Pattern, Track};
+    use crate::model::{AudioPiece, MapPoint, Note, Pattern, PatternRender, Render, Track};
     use crate::validate::Severity;
     use crate::{Id, equal};
 
@@ -1307,15 +1312,7 @@ mod tests {
 
     fn track_with_piece(stored: &Stored) -> Track {
         let mut track = Track::new(Id::new("trk_1").unwrap(), "Vox");
-        let mut pattern = Pattern {
-            id: Id::new("pat_1").unwrap(),
-            name: String::new(),
-            length: 960,
-            key: None,
-            events: Vec::new(),
-            extensions: Default::default(),
-            unknown: Unknown::new(),
-        };
+        let mut pattern = Pattern::new(Id::new("pat_1").unwrap(), 960);
         pattern.events.push(Event::Note(Note {
             id: Id::new("evt_1").unwrap(),
             at: 0,
@@ -1721,6 +1718,69 @@ mod tests {
     }
 
     #[test]
+    fn a_copy_carries_both_kinds_of_render() {
+        let store = MemoryStore::new();
+        let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
+        let facts = crate::model::AudioFacts {
+            sample_rate: 48000,
+            channels: 2,
+            frames: 96000,
+        };
+        let track_render = project.put_render("Bass", "wav", b"RIFF bass").unwrap();
+        let pattern_render = project.put_render("Verse", "wav", b"RIFF verse").unwrap();
+        let mut track = Track::new(Id::new("trk_1").unwrap(), "Bass");
+        track
+            .patterns
+            .push(Pattern::new(Id::new("pat_1").unwrap(), 3840));
+        let mut r = Render::new(
+            &track_render.reference,
+            &track_render.sha256,
+            facts,
+            Vec::new(),
+            0,
+            3840,
+        );
+        r.fingerprint = crate::render::render_fingerprint(project.document(), &track, &[], 0, 3840);
+        let mut p = PatternRender::new(
+            &pattern_render.reference,
+            &pattern_render.sha256,
+            facts,
+            Vec::new(),
+            0,
+            3840,
+            120.0,
+        );
+        p.fingerprint = crate::render::pattern_render_fingerprint(
+            project.document(),
+            &track,
+            &track.patterns[0],
+            &[],
+            0,
+            3840,
+            120.0,
+        );
+        track.renders.push(r);
+        track.patterns[0].renders.push(p);
+        project.document_mut().tracks.push(track);
+        project.save(&generator()).unwrap();
+        assert_eq!(project.document().files.len(), 2, "both renders indexed");
+
+        let other = MemoryStore::new();
+        let copy = project.copy_into(other.clone()).unwrap();
+        assert!(copy.check().is_valid(), "{:?}", copy.check().issues);
+        assert_eq!(other.read(&track_render.reference).unwrap(), b"RIFF bass");
+        assert_eq!(
+            other.read(&pattern_render.reference).unwrap(),
+            b"RIFF verse"
+        );
+        assert!(
+            crate::render::renders(copy.document())
+                .iter()
+                .all(|r| r.current)
+        );
+    }
+
+    #[test]
     fn a_torn_state_file_is_written_again_and_a_plain_value_must_be_finite() {
         let store = MemoryStore::new();
         let mut project = Project::create(store.clone(), "A", &generator()).unwrap();
@@ -1730,15 +1790,7 @@ mod tests {
         assert_eq!(again, state);
         assert_eq!(store.read(&state.path()).unwrap(), b"whole state");
         let mut track = Track::new(Id::new("trk_1").unwrap(), "Lead");
-        let mut pattern = Pattern {
-            id: Id::new("pat_1").unwrap(),
-            name: String::new(),
-            length: 960,
-            key: None,
-            events: Vec::new(),
-            extensions: Default::default(),
-            unknown: Unknown::new(),
-        };
+        let mut pattern = Pattern::new(Id::new("pat_1").unwrap(), 960);
         pattern.events.push(Event::Param(crate::model::ParamEvent {
             id: Id::new("evt_1").unwrap(),
             at: 0,
