@@ -123,7 +123,7 @@ export interface Tutti10 {
    */
   markers?: Marker[];
   /**
-   * The span the user marks on the timeline: looped over, exported and rendered (spec 3.6).
+   * The span the user marks on the timeline: looped over and exported (spec 3.6).
    */
   range?: null | Range;
   master?: Master;

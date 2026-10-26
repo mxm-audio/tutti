@@ -74,7 +74,7 @@ before (equality leaves `generator` out).
 ### Profiles
 
 - **playable anywhere**: every track with a non-builtin device carries a current track render,
-  over the document's `range`, that stands in for each of them (7.7).
+  over the whole song, that stands in for each of them (7.7).
 - **archive**: the folder carries `spec/` with this version's text, schema and agent guide
   (2.4).
 

@@ -479,7 +479,7 @@ fn is_marker(kind: &str) -> bool {
 }
 
 /// The span the user marks on the timeline (spec 3.6): what playback loops over when `loop` is
-/// on, and what an export or a project's renders cover.
+/// on, and what an export covers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Range {
     pub start: Ticks,

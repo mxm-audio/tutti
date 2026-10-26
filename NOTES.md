@@ -133,9 +133,15 @@ designed from is `docs/research.md`.
 - **2026-10-25:** **The document's `loop` is `range`** (spec 3.6, `range: {start, end, loop}`):
   the owner, "Perhaps we should change what is now called loop to call it the "range". Since it
   has multiple functions besides setting the loop". It is the span the user marks: playback
-  loops over it when `loop` is on, exports and a project's renders cover it. A part's and a
-  slot's `loop` are a pattern's own repeat and keep the word. No alias for the old key: nothing
-  is released, and a stale writer shows in `tutti check` as an unknown key.
+  loops over it when `loop` is on, and exports cover it (its renders no longer: 2026-10-26). A
+  part's and a slot's `loop` are a pattern's own repeat and keep the word. No alias for the old
+  key: nothing is released, and a stale writer shows in `tutti check` as an unknown key.
+- **2026-10-26:** **A project's renders cover the whole song, not the range** (spec 3.6, 7.7):
+  the owner, "it makes nowe sense to chose a range and then export that in a full project. We
+  should probably have en "export range" function that does not save to the tutti project", and
+  "renders in full + 4 bars ekstra". A handover's track renders run from tick 0 to past the last
+  part, with room for what rings on, every track the same span; the range is for exports, which
+  never go into the document. Still exactly the span, as a render always is.
 
 ## Design choices and what they were weighed against
 

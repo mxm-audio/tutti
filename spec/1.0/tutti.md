@@ -204,7 +204,7 @@ After the manifest, in this order:
 | `meter` | array of meter point | yes | The meter map (5.3); at least one point, the first at tick 0. |
 | `key` | array of key point | no (default `[]`) | The key map (5.4). |
 | `markers` | array of marker | no (default `[]`) | Named points and sections (6.9). |
-| `range` | object or null | no (default `null`) | The span the user marks on the timeline: `start`, `end` (ticks, start < end), `loop` (default `false`). Playback loops over it when `loop` is `true`; what covers a span, an export or a project's renders (7.7), covers it. |
+| `range` | object or null | no (default `null`) | The span the user marks on the timeline: `start`, `end` (ticks, start < end), `loop` (default `false`). Playback loops over it when `loop` is `true`; an export of a span covers it. |
 | `master` | object | no (default: its defaults) | The master channel and its devices (6.3). |
 | `tracks` | array of track | no (default `[]`) | The top-level tracks in display order (6.1). |
 | `scenes` | array of scene | no (default `[]`) | The clip launcher's scenes (6.10). |
@@ -657,8 +657,9 @@ playback starts at `from`: the devices at rest, a note held across `from` soundi
 Automation lanes on a listed device apply; lanes on the channel and the sends do not. **The file
 is exactly the range**: `frames` is the sample at `to` minus the sample at `from`, and whatever
 still sounds at `to` is cut; a tail is a longer range. A program that renders a project's tracks
-to hand the project over SHOULD render them over the document's `range` (3.6), which the user
-sets with as much space around the music as they want.
+to hand the project over SHOULD render them over the whole song, from tick 0 to past the end of
+its last part with room for what rings on, every track over the same span so they line up; the
+document's `range` (3.6) is for exports, not for the project's own renders.
 
 **A pattern render** holds the pattern alone, as one part at tick 0 playing it once from pattern
 tick `from` to `to`, the tempo map replaced by one point at `bpm` and the document's meter map

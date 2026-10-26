@@ -39,7 +39,7 @@ its `patterns` (events: `note`, `chord`, `param`) and places them with `parts` (
 `offset`, `loop`), and has `automation` lanes. A note with `audio` sounds frames of a file in
 `audio/` instead of the instrument. A track and a pattern may carry `renders`: audio of what
 some of the track's devices made, each listing those `devices`. `markers`, `range` (the span the
-user marks: looped over, exported, rendered), `master`, `scenes` and `metadata` are at the top.
+user marks: looped over, exported), `master`, `scenes` and `metadata` are at the top.
 Every object may carry `extensions` under a reverse-DNS namespace.
 
 ## Writing a project
@@ -112,8 +112,9 @@ A track with one pattern played once, one note:
   as one file, `tutti zip <folder>` makes `<Name>.tutti.zip` (the document first and stored,
   every entry's name and length checked by the reader; spec 2.5) and `tutti unzip` makes the
   folder again. Never leave the folder.
-- **Carry stems with it, as a backup**: render each track over the document's `range`, before
-  the fader, exactly the range long, into `renders/`, and add to the track's `renders` the file,
+- **Carry stems with it, as a backup**: render each track over the whole song, from tick 0 to
+  past its last part with room for what rings on, the same span for every track, before the
+  fader, exactly that long, into `renders/`, and add to the track's `renders` the file,
   its hash, its facts (`sample_rate`, `channels`, `frames`), `devices` (what is in it: the
   crate's `without_effects` or `with_effects`, or your own list), `from`, `to` and the
   `fingerprint` (`render_fingerprint`); a pattern's `renders` hold a pattern alone at a `bpm`

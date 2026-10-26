@@ -138,7 +138,7 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
   reverse.
 - Automation lanes on device parameters, channel gain, pan, mute, sends and promoted
   parameters, with hold and linear points.
-- Markers and sections, the range the user marks (looped over, exported, rendered), scenes and
+- Markers and sections, the range the user marks (looped over, exported), scenes and
   slots for a clip launcher, drum maps, metadata.
 
 **Plugins**

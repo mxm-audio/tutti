@@ -26,7 +26,7 @@ differs from the generator's output. Edit the schema, not this file. The normati
 | `meter` | array of `meter_point` | yes |  | The meter map, strictly increasing in at, the first point at 0 (spec 5.3). |
 | `key` | array of `key_point` |  | `[]` | The key map (spec 5.4). |
 | `markers` | array of `marker` |  | `[]` | Named points and sections, sorted by id (spec 6.9). |
-| `range` | null or `range` |  | `null` | The span the user marks on the timeline: looped over, exported and rendered (spec 3.6). |
+| `range` | null or `range` |  | `null` | The span the user marks on the timeline: looped over and exported (spec 3.6). |
 | `master` | `master` |  |  |  |
 | `tracks` | array of `track` |  | `[]` | The top-level tracks in display order (spec 6.1). |
 | `scenes` | array of `scene` |  | `[]` | The clip launcher's scenes, in order (spec 6.10). |
