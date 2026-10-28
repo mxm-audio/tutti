@@ -71,6 +71,18 @@ fn main() {
     let folder = l1.join(fixture.name);
     write_project(&folder, &title_case(fixture.name), fixture.project);
     write_json(&folder.join("expected.json"), &fixture.expected);
+    // Track groups (newDAWn's plan, 2026-10-28): solo through folders and returns, where a send
+    // taps, overlapping parts, a folder's notes.
+    for (level, fixture) in [
+        (&l0, folder_solo(&mut ids)),
+        (&l0, overlap(&mut ids)),
+        (&l1, return_solo(&mut ids)),
+        (&l1, folder_notes(&mut ids)),
+    ] {
+        let folder = level.join(fixture.name);
+        write_project(&folder, &title_case(fixture.name), fixture.project);
+        write_json(&folder.join("expected.json"), &fixture.expected);
+    }
     println!("examples written under {}", examples.display());
 }
 
@@ -2529,6 +2541,252 @@ fn render_choice(ids: &mut Ids) -> Fixture {
                 "velocity": 0.5,
                 "stale": {"renders/Notes_120.wav": true, "renders/Synth_dry.wav": true, "renders/Synth_wet.wav": true},
             },
+        }),
+    }
+}
+
+// --- track groups: folders, returns and a folder's notes -----------------------------------------
+
+/// The RMS on each side of a mono tone of `amplitude` panned to the centre (equal power, 6.2).
+fn centred(amplitude: f64) -> f64 {
+    amplitude / 2f64.sqrt() * (PI / 4.0).cos()
+}
+
+/// folder-solo (Level 0): a folder soloed keeps every track inside it, a folder inside it and a
+/// track routed past it included, and silences a track outside it (6.2).
+fn folder_solo(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let (tone, frames) = sine(440.0, 1.0, 0.5, RATE);
+    let hash = p.add_file("audio/Tone-440.wav", wav(1, RATE, &tone));
+    let piece = audio_piece("audio/Tone-440.wav", &hash, frames, None);
+    let kick = tone_track(ids, "Kick", 0, 1, &piece);
+    let mut routed = tone_track(ids, "Routed past", 2 * SECOND, 1, &piece);
+    routed.channel.destination = Some(Id::from("master"));
+    let outside = tone_track(ids, "Outside", 4 * SECOND, 1, &piece);
+    let rows = vec![
+        join(
+            heard(&kick, 0.1, 0.9, 0.5 * centred(0.5), 0.5 * centred(0.5)),
+            json!({"path": "inside Drums, a folder at 0.5 inside the soloed Rhythms"}),
+        ),
+        join(
+            heard(&routed, 2.1, 2.9, centred(0.5), centred(0.5)),
+            json!({"path": "inside Rhythms, routed to the master past it: soloed with it"}),
+        ),
+        join(
+            heard(&outside, 4.1, 4.9, 0.0, 0.0),
+            json!({"path": "outside Rhythms: silent"}),
+        ),
+    ];
+    let mut drums = Track::new(ids.next("trk"), "Drums");
+    drums.channel.gain = 0.5;
+    drums.children = vec![kick];
+    let mut rhythms = Track::new(ids.next("trk"), "Rhythms");
+    rhythms.channel.solo = true;
+    rhythms.children = vec![drums, routed];
+    p.document.tracks = vec![rhythms, outside];
+    Fixture {
+        name: "folder-solo",
+        project: p,
+        expected: json!({
+            "what": "Rhythms is soloed in the document; each track sounds alone in its own seconds, and the master's RMS per output channel over each window is within 0.5 dB of these (6.2): a track in a folder inside the soloed one is heard through that folder's fader, a track inside it routed to the master past it is heard, and a track outside it is silent. A mono tone at the centre, equal power.",
+            "tolerance_db": 0.5,
+            "heard": rows,
+        }),
+    }
+}
+
+/// overlap (Level 0): two parts overlapping on one track both play, and their sound sums (6.6).
+fn overlap(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let mut t = Track::new(ids.next("trk"), "Overlapping");
+    for (name, hz, at) in [("Tone-440", 440.0, 0), ("Tone-660", 660.0, SECOND)] {
+        let (tone, frames) = sine(hz, 1.0, 0.5, RATE);
+        let file = format!("audio/{name}.wav");
+        let hash = p.add_file(&file, wav(1, RATE, &tone));
+        let piece = audio_piece(&file, &hash, frames, None);
+        let events = (0..2)
+            .map(|k| {
+                let mut n = note(ids, k * SECOND, SECOND, 60, 1.0);
+                if let Event::Note(x) = &mut n {
+                    x.audio = Some(piece.clone());
+                }
+                n
+            })
+            .collect();
+        let pat = pattern(ids, name, 2 * SECOND, events);
+        let pat_id = pat.id.clone();
+        t.patterns.push(pat);
+        t.parts.push(part(ids, &pat_id, at, 2 * SECOND));
+    }
+    let one = centred(0.5);
+    let rows = vec![
+        join(
+            heard(&t, 0.1, 0.9, one, one),
+            json!({"path": "the first part alone"}),
+        ),
+        join(
+            heard(&t, 1.1, 1.9, 2f64.sqrt() * one, 2f64.sqrt() * one),
+            json!({"path": "both parts: two tones at one level, of different pitch, sum to √2 of it"}),
+        ),
+        join(
+            heard(&t, 2.1, 2.9, one, one),
+            json!({"path": "the second part alone"}),
+        ),
+    ];
+    p.document.tracks.push(t);
+    Fixture {
+        name: "overlap",
+        project: p,
+        expected: json!({
+            "what": "Two parts on one track overlap for a second, each playing a mono tone at the centre (440 Hz, then 660 Hz); the master's RMS per output channel over each window is within 0.5 dB of these: both play where they overlap, and their sound sums (6.6).",
+            "tolerance_db": 0.5,
+            "heard": rows,
+        }),
+    }
+}
+
+/// return-solo (Level 1): a return soloed plays what is sent to it, without its senders' own
+/// outputs; a post-fader send taps after the pan, a pre-fader one before the mute (6.2).
+fn return_solo(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let (mono, mono_frames) = sine(440.0, 1.0, 0.5, RATE);
+    let mono_hash = p.add_file("audio/Tone-440.wav", wav(1, RATE, &mono));
+    let mono_piece = audio_piece("audio/Tone-440.wav", &mono_hash, mono_frames, None);
+    let (stereo, frames) = stereo_sine(440.0, 1.0, 0.5, 0.25, RATE);
+    let hash = p.add_file("audio/Tone-440-stereo.wav", wav(2, RATE, &stereo));
+    let mut stereo_piece = audio_piece("audio/Tone-440-stereo.wav", &hash, frames, None);
+    stereo_piece.channels = 2;
+    let mut ret = Track::new(ids.next("trk"), "Return");
+    ret.channel.solo = true;
+    // From second 0: a mono tone panned hard left, sent post-fader at 0.5.
+    let mut panned = tone_track(ids, "Panned, post-fader", 0, 1, &mono_piece);
+    panned.channel.pan = -1.0;
+    panned
+        .channel
+        .sends
+        .push(send_to(&ret.id, 0.5, false, true));
+    // From second 2: a stereo tone, muted, sent pre-fader at 0.5.
+    let mut muted = tone_track(ids, "Muted, pre-fader", 2 * SECOND, 1, &stereo_piece);
+    muted.channel.mute = true;
+    muted.channel.sends.push(send_to(&ret.id, 0.5, true, true));
+    // From second 4: a stereo tone with no send.
+    let plain = tone_track(ids, "No send", 4 * SECOND, 1, &stereo_piece);
+    let rows = vec![
+        join(
+            heard(&panned, 0.1, 0.9, 0.5 * 0.5 / 2f64.sqrt(), 0.0),
+            json!({"path": "the post-fader send taps after the pan, hard left; the source's own output silent"}),
+        ),
+        join(
+            heard(
+                &muted,
+                2.1,
+                2.9,
+                0.5 * 0.5 / 2f64.sqrt(),
+                0.5 * 0.25 / 2f64.sqrt(),
+            ),
+            json!({"path": "the pre-fader send taps before the mute"}),
+        ),
+        join(
+            heard(&plain, 4.1, 4.9, 0.0, 0.0),
+            json!({"path": "no send: silent while the return is soloed"}),
+        ),
+    ];
+    p.document.tracks = vec![panned, muted, plain, ret];
+    Fixture {
+        name: "return-solo",
+        project: p,
+        expected: json!({
+            "what": "The return is soloed in the document; each source sounds alone in its own seconds, and the master's RMS per output channel over each window is within 0.5 dB of these (6.2): the return plays what is sent to it and none of its senders' own outputs; a post-fader send takes the signal after the pan (a mono tone, hard left, equal power), a pre-fader send before the mute (a stereo tone, left 0.5 and right 0.25).",
+            "tolerance_db": 0.5,
+            "heard": rows,
+        }),
+    }
+}
+
+/// folder-notes (Level 1): a folder's notes given to the instruments inside it, layered, a folder
+/// inside it included, beside a member's own note (7.1); each member's render holds the notes it
+/// is given, so an edit to the folder's notes stales all of them and one to a member's own note
+/// only that member's (7.7).
+fn folder_notes(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    p.document.dependencies.push(example_dependency(
+        MISSING,
+        "Missing synth",
+        "missing-synth",
+    ));
+    let member = |ids: &mut Ids, name: &str| {
+        let mut t = Track::new(ids.next("trk"), name);
+        t.devices
+            .push(device(ids, "instrument", "Missing synth", MISSING));
+        t
+    };
+    let layer_a = member(ids, "Layer A");
+    let mut layer_b = member(ids, "Layer B");
+    let layer_c = member(ids, "Layer C");
+    let top = note(ids, 960, 420, 67, 0.8);
+    let own = pattern(ids, "Top", SECOND, vec![top]);
+    let own_id = own.id.clone();
+    layer_b.patterns.push(own);
+    layer_b.parts.push(part(ids, &own_id, 0, SECOND));
+    let layers = [
+        (layer_a.id.clone(), "Layer-A", vec![(60, 0), (64, 480)]),
+        (
+            layer_b.id.clone(),
+            "Layer-B",
+            vec![(60, 0), (64, 480), (67, 960)],
+        ),
+        (layer_c.id.clone(), "Layer-C", vec![(60, 0), (64, 480)]),
+    ];
+    let mut inner = Track::new(ids.next("trk"), "Inner");
+    inner.children = vec![layer_c];
+    let mut stack = Track::new(ids.next("trk"), "Stack");
+    let chord = vec![note(ids, 0, 420, 60, 0.8), note(ids, 480, 420, 64, 0.8)];
+    let chord = pattern(ids, "Chord", SECOND, chord);
+    let chord_id = chord.id.clone();
+    stack.patterns.push(chord);
+    stack.parts.push(part(ids, &chord_id, 0, SECOND));
+    stack.children = vec![layer_a, layer_b, inner];
+    p.document.tracks.push(stack);
+    // Each layer's render, without effects (its instrument alone), made with the document's
+    // tree in place, so its fingerprint holds the folders' notes.
+    let map = time::TempoMap::new(p.document.ppq, &p.document.tempo);
+    let mut given = Vec::new();
+    let mut fingerprints = serde_json::Map::new();
+    for (id, label, notes) in &layers {
+        let track = p.document.track(id).unwrap().clone();
+        let file = format!("renders/{label}.wav");
+        let (r, bytes) = track_render(
+            &p.document,
+            &track,
+            &file,
+            &format!("{}, without effects", track.name),
+            render::without_effects(&track),
+            (0, SECOND),
+            0.3,
+        );
+        fingerprints.insert(file.clone(), json!(r.fingerprint));
+        p.document.track_mut(id).unwrap().renders.push(r);
+        p.add_file(&file, bytes);
+        let rows: Vec<Value> = notes
+            .iter()
+            .map(|&(pitch, tick)| {
+                json!({"pitch": pitch, "tick": tick, "seconds": map.seconds_at(tick as f64),
+                    "sample_48000": map.samples_at(tick as f64, 48_000)})
+            })
+            .collect();
+        given.push(json!({"track": id.as_str(), "name": track.name,
+            "device": track.devices[0].id.as_str(), "notes": rows}));
+    }
+    let stale = |a: bool, b: bool, c: bool| json!({"renders/Layer-A.wav": a, "renders/Layer-B.wav": b, "renders/Layer-C.wav": c});
+    Fixture {
+        name: "folder-notes",
+        project: p,
+        expected: json!({
+            "what": "Stack, a folder, holds a chord's two notes, and three tracks with an instrument of a plugin no one has (fictitious): Layer A, Layer B with a note of its own, and Layer C inside Inner, a folder inside Stack. Each instrument is given the folder's notes with its track's own, as the table lists (7.1), and each layer carries a current render of its instrument alone, whose fingerprint holds the folders' notes (7.7): an edit to the folder's notes stales all three renders, one to Layer B's own note only its own. The fingerprints are test vectors.",
+            "given": given,
+            "fingerprints": fingerprints,
+            "folder_note_edit": {"velocity": 0.5, "stale": stale(true, true, true)},
+            "own_note_edit": {"velocity": 0.5, "stale": stale(false, true, false)},
         }),
     }
 }

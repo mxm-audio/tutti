@@ -1,0 +1,99 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "bytes": 88244}
+  ],
+  "metadata": {
+    "title": "Folder solo"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SGDWB9D00000000000DW",
+      "name": "Rhythms",
+      "children": [
+        {
+          "id": "trk_01K742SGDVB9D00000000000DV",
+          "name": "Drums",
+          "children": [
+            {
+              "id": "trk_01K742SGDFB9D00000000000DF",
+              "name": "Kick",
+              "patterns": [
+                {
+                  "id": "pat_01K742SGDHB9D00000000000DH",
+                  "name": "Kick",
+                  "length": 1920,
+                  "events": [
+                    {"type": "note", "id": "evt_01K742SGDGB9D00000000000DG", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+                  ]
+                }
+              ],
+              "parts": [
+                {"id": "prt_01K742SGDJB9D00000000000DJ", "pattern": "pat_01K742SGDHB9D00000000000DH", "at": 0, "length": 1920}
+              ]
+            }
+          ],
+          "channel": {
+            "gain": 0.5
+          }
+        },
+        {
+          "id": "trk_01K742SGDKB9D00000000000DK",
+          "name": "Routed past",
+          "channel": {
+            "destination": "master"
+          },
+          "patterns": [
+            {
+              "id": "pat_01K742SGDNB9D00000000000DN",
+              "name": "Routed past",
+              "length": 1920,
+              "events": [
+                {"type": "note", "id": "evt_01K742SGDMB9D00000000000DM", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+              ]
+            }
+          ],
+          "parts": [
+            {"id": "prt_01K742SGDPB9D00000000000DP", "pattern": "pat_01K742SGDNB9D00000000000DN", "at": 3840, "length": 1920}
+          ]
+        }
+      ],
+      "channel": {
+        "solo": true
+      }
+    },
+    {
+      "id": "trk_01K742SGDQB9D00000000000DQ",
+      "name": "Outside",
+      "patterns": [
+        {
+          "id": "pat_01K742SGDSB9D00000000000DS",
+          "name": "Outside",
+          "length": 1920,
+          "events": [
+            {"type": "note", "id": "evt_01K742SGDRB9D00000000000DR", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SGDTB9D00000000000DT", "pattern": "pat_01K742SGDSB9D00000000000DS", "at": 7680, "length": 1920}
+      ]
+    }
+  ]
+}

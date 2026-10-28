@@ -1,0 +1,89 @@
+{
+  "what": "Stack, a folder, holds a chord's two notes, and three tracks with an instrument of a plugin no one has (fictitious): Layer A, Layer B with a note of its own, and Layer C inside Inner, a folder inside Stack. Each instrument is given the folder's notes with its track's own, as the table lists (7.1), and each layer carries a current render of its instrument alone, whose fingerprint holds the folders' notes (7.7): an edit to the folder's notes stales all three renders, one to Layer B's own note only its own. The fingerprints are test vectors.",
+  "given": [
+    {
+      "track": "trk_01K742SGEKB9D00000000000EK",
+      "name": "Layer A",
+      "device": "dev_01K742SGEMB9D00000000000EM",
+      "notes": [
+        {
+          "pitch": 60,
+          "tick": 0,
+          "seconds": 0.0,
+          "sample_48000": 0
+        },
+        {
+          "pitch": 64,
+          "tick": 480,
+          "seconds": 0.25,
+          "sample_48000": 12000
+        }
+      ]
+    },
+    {
+      "track": "trk_01K742SGENB9D00000000000EN",
+      "name": "Layer B",
+      "device": "dev_01K742SGEPB9D00000000000EP",
+      "notes": [
+        {
+          "pitch": 60,
+          "tick": 0,
+          "seconds": 0.0,
+          "sample_48000": 0
+        },
+        {
+          "pitch": 64,
+          "tick": 480,
+          "seconds": 0.25,
+          "sample_48000": 12000
+        },
+        {
+          "pitch": 67,
+          "tick": 960,
+          "seconds": 0.5,
+          "sample_48000": 24000
+        }
+      ]
+    },
+    {
+      "track": "trk_01K742SGEQB9D00000000000EQ",
+      "name": "Layer C",
+      "device": "dev_01K742SGERB9D00000000000ER",
+      "notes": [
+        {
+          "pitch": 60,
+          "tick": 0,
+          "seconds": 0.0,
+          "sample_48000": 0
+        },
+        {
+          "pitch": 64,
+          "tick": 480,
+          "seconds": 0.25,
+          "sample_48000": 12000
+        }
+      ]
+    }
+  ],
+  "fingerprints": {
+    "renders/Layer-A.wav": "1c0e3cfb97a1be47cc1e9f7c6a016764237e8b617ecc77cdd4b6d17faa2875a0",
+    "renders/Layer-B.wav": "72680eac10dd5671c81972ef2bacccf7edf3961b48462ddd001b70defa56b588",
+    "renders/Layer-C.wav": "c6efe72d2927458ebb76ddb269b4d93106ec9beeb2820ad7309bcc9f40f3431b"
+  },
+  "folder_note_edit": {
+    "velocity": 0.5,
+    "stale": {
+      "renders/Layer-A.wav": true,
+      "renders/Layer-B.wav": true,
+      "renders/Layer-C.wav": true
+    }
+  },
+  "own_note_edit": {
+    "velocity": 0.5,
+    "stale": {
+      "renders/Layer-A.wav": false,
+      "renders/Layer-B.wav": true,
+      "renders/Layer-C.wav": false
+    }
+  }
+}

@@ -153,6 +153,27 @@ designed from is `docs/research.md`.
   whose it is, so nothing in the document has to, which is one way to do it. No alias for the
   old paths or the key: nothing is released, and a stale `private` key shows in `tutti check`
   as an unknown one.
+- **2026-10-28:** **Five meanings for track groups, settled before 1.0 is declared** (newDAWn's
+  `plans/plan-track-groups.md`, its G0). Reason: newDAWn makes groups tutti's folders, central
+  to the DAW (the owner, the same day), and a meaning left open would freeze with 1.0. The
+  owner approved the wording as the plan put it ("Approve as worded"):
+  - **Solo** (6.2) is a rule over connections. A track inside a soloed folder counts as soloed,
+    and a connection carries sound only on a path from a soloed track to the master or into a
+    soloed track. The old sentence, read literally, silenced a folder's children when the folder
+    alone was soloed, since they're upstream of it, not on its path.
+  - **A send taps** the chain output: pre-fader before gain, pan and mute, post-fader after them,
+    as in Live ("before or after the mixer stage (pan, volume, and track-active controls)").
+  - **Arriving audio** enters a track's chain after its instruments, before its first audio
+    effect, where newDAWn already sums a track's recordings.
+  - **A folder's notes** pass through its note effects to its members, nested folders passing
+    them on (the owner chose any depth over direct members only). A track render holds the
+    notes its track receives, and its fingerprint gains `folders`: the folders above with
+    patterns or enabled note effects, each reduced as a track is. With none, the key is left
+    out, so regrouping never stales a render. Without this, a 1.0 reader would play a layering
+    folder's notes as silence: "a track without an instrument sounds its notes nowhere".
+  - **Overlapping parts** on a track all play and sum, which comps need.
+
+  Nobody uses tutti yet (the owner, the same day), so no reader or fingerprint had to be kept.
 
 ## Design choices and what they were weighed against
 
@@ -221,10 +242,11 @@ designed from is `docs/research.md`.
 - **Three conformance levels** (plays, hosts, round-trips), claimed by passing fixtures: DAWproject's
   implementers "ignore parts of each other's data" with no way to say what they support.
 - **A fixture's table asks only what the spec pins** (2026-10-25, writing Levels 1 and 2): where
-  the text is silent (what solo does to a return's inputs, where a send taps the pan, how a
-  stereo source's balance runs between the centre and the side, a lane before its first point),
-  the case is built so every reading gives the same numbers, and the gap goes to the owner as a
-  question, never into a table as a guess. A table that guessed would fail a conforming program.
+  the text is silent (how a stereo source's balance runs between the centre and the side, a lane
+  before its first point), the case is built so every reading gives the same numbers, and the
+  gap goes to the owner as a question, never into a table as a guess. A table that guessed would
+  fail a conforming program. Two such gaps were closed on 2026-10-28 (below): what solo does to
+  a return's inputs, and where a send taps the pan.
 - **A render stands in only for a prefix of the chain in signal order, every instrument
   included** (2026-10-25, the plan's review with Pi): a reader runs the devices after a render
   itself, which it can only do when the render holds all that comes before them; and what comes
@@ -377,3 +399,9 @@ in newDAWn come back.
   schema's and the model's `private` gone with its check in `validate`; `tutti-zip` skips
   `private/` where it skipped the five reserved names, and a test holds it both ways; the
   examples, the field reference and `schema.d.ts` generated again.
+- 2026-10-28: track groups' five meanings (the ruling above): spec 6.2, 6.6, 7.1 and 7.7,
+  conformance 3 and 4; `render::folders_above` and the descriptor's `folders`, with tests that
+  regrouping leaves a fingerprint and a folder's notes change it; `features` naming "folder
+  notes" at Level 1; four fixtures generated after `render-choice` (`folder-solo` and
+  `overlap`, Level 0; `return-solo` and `folder-notes`, Level 1), the last held to its table by
+  `tutti-schema`'s tests.

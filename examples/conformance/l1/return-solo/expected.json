@@ -1,0 +1,33 @@
+{
+  "what": "The return is soloed in the document; each source sounds alone in its own seconds, and the master's RMS per output channel over each window is within 0.5 dB of these (6.2): the return plays what is sent to it and none of its senders' own outputs; a post-fader send takes the signal after the pan (a mono tone, hard left, equal power), a pre-fader send before the mute (a stereo tone, left 0.5 and right 0.25).",
+  "tolerance_db": 0.5,
+  "heard": [
+    {
+      "track": "trk_01K742SGE7B9D00000000000E7",
+      "name": "Panned, post-fader",
+      "from_seconds": 0.1,
+      "to_seconds": 0.9,
+      "rms_left": 0.17677669529663687,
+      "rms_right": 0.0,
+      "path": "the post-fader send taps after the pan, hard left; the source's own output silent"
+    },
+    {
+      "track": "trk_01K742SGEBB9D00000000000EB",
+      "name": "Muted, pre-fader",
+      "from_seconds": 2.1,
+      "to_seconds": 2.9,
+      "rms_left": 0.17677669529663687,
+      "rms_right": 0.08838834764831843,
+      "path": "the pre-fader send taps before the mute"
+    },
+    {
+      "track": "trk_01K742SGEFB9D00000000000EF",
+      "name": "No send",
+      "from_seconds": 4.1,
+      "to_seconds": 4.9,
+      "rms_left": 0.0,
+      "rms_right": 0.0,
+      "path": "no send: silent while the return is soloed"
+    }
+  ]
+}

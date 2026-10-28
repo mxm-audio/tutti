@@ -34,10 +34,12 @@ to an earlier level is generated after Level 2's, at the end of `main` (Level 1'
   tempo map and placement, closed forms for RMS), and its times are the document's: a test
   holds every tick and its seconds to the document's tempo map.
 - **A table asks only what the spec pins.** Where it leaves something open, a case is built
-  around it rather than guessing: tracks sound in their own seconds instead of soloed through a
-  return, a stereo tone at the centre where a pan law would enter, a lane measured only between
-  its first point and its last, a static gain of 1 under a gain lane. A fictitious plugin
-  (`org.example.*`) stands where no real one may: what it is given is a table, not a sound.
+  around it rather than guessing: a stereo tone at the centre where a pan law would enter, a
+  lane measured only between its first point and its last, a static gain of 1 under a gain lane.
+  A fictitious plugin (`org.example.*`) stands where no real one may: what it is given is a
+  table, not a sound.
+- **Track groups' cases** (`folder-solo`, `overlap`, `return-solo`, `folder-notes`, 2026-10-28)
+  are generated after `render-choice`, Levels 0 and 1 in that order.
 - **A link is made by the runner, never committed**: git keeps no link on every system
   (Windows checks one out as a file). A case that needs one says so in its `expected.json`
   (`link`: `path` and `target`, the target relative to the link's folder), and every runner

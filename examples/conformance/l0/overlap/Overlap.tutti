@@ -1,0 +1,56 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "bytes": 88244},
+    {"path": "audio/Tone-660.wav", "sha256": "8325a2794b5c1fa266ffb8e6c9984db720e36b3d57bf9d5a5a229827c75dd872", "bytes": 88244}
+  ],
+  "metadata": {
+    "title": "Overlap"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SGDXB9D00000000000DX",
+      "name": "Overlapping",
+      "patterns": [
+        {
+          "id": "pat_01K742SGE0B9D00000000000E0",
+          "name": "Tone-440",
+          "length": 3840,
+          "events": [
+            {"type": "note", "id": "evt_01K742SGDYB9D00000000000DY", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SGDZB9D00000000000DZ", "at": 1920, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-440.wav", "sha256": "920a34b624e512921a5b27813cd76d06a4448a13ffc497b8fa3f65593c4f3b6b", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        },
+        {
+          "id": "pat_01K742SGE4B9D00000000000E4",
+          "name": "Tone-660",
+          "length": 3840,
+          "events": [
+            {"type": "note", "id": "evt_01K742SGE2B9D00000000000E2", "at": 0, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-660.wav", "sha256": "8325a2794b5c1fa266ffb8e6c9984db720e36b3d57bf9d5a5a229827c75dd872", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}},
+            {"type": "note", "id": "evt_01K742SGE3B9D00000000000E3", "at": 1920, "length": 1920, "pitch": 60, "velocity": 1, "audio": {"file": "audio/Tone-660.wav", "sha256": "8325a2794b5c1fa266ffb8e6c9984db720e36b3d57bf9d5a5a229827c75dd872", "sample_rate": 44100, "channels": 1, "frames": 44100, "from": 0, "to": 44100, "map": [{"frame": 0, "tick": 0}], "bpm": null}}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SGE1B9D00000000000E1", "pattern": "pat_01K742SGE0B9D00000000000E0", "at": 0, "length": 3840},
+        {"id": "prt_01K742SGE5B9D00000000000E5", "pattern": "pat_01K742SGE4B9D00000000000E4", "at": 1920, "length": 3840}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "what": "Two parts on one track overlap for a second, each playing a mono tone at the centre (440 Hz, then 660 Hz); the master's RMS per output channel over each window is within 0.5 dB of these: both play where they overlap, and their sound sums (6.6).",
+  "tolerance_db": 0.5,
+  "heard": [
+    {
+      "track": "trk_01K742SGDXB9D00000000000DX",
+      "name": "Overlapping",
+      "from_seconds": 0.1,
+      "to_seconds": 0.9,
+      "rms_left": 0.25,
+      "rms_right": 0.25,
+      "path": "the first part alone"
+    },
+    {
+      "track": "trk_01K742SGDXB9D00000000000DX",
+      "name": "Overlapping",
+      "from_seconds": 1.1,
+      "to_seconds": 1.9,
+      "rms_left": 0.3535533905932738,
+      "rms_right": 0.3535533905932738,
+      "path": "both parts: two tones at one level, of different pitch, sum to √2 of it"
+    },
+    {
+      "track": "trk_01K742SGDXB9D00000000000DX",
+      "name": "Overlapping",
+      "from_seconds": 2.1,
+      "to_seconds": 2.9,
+      "rms_left": 0.25,
+      "rms_right": 0.25,
+      "path": "the second part alone"
+    }
+  ]
+}

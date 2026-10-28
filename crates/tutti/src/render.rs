@@ -174,6 +174,44 @@ fn kept_parameters(track: &Track, devices: &[Id]) -> HashSet<String> {
         .collect()
 }
 
+/// The folders above the track with `id`, the outermost first: none for a track at the top, or
+/// for one the document doesn't hold.
+pub fn folders_above<'a>(doc: &'a Document, id: &Id) -> Vec<&'a Track> {
+    fn walk<'a>(tracks: &'a [Track], id: &Id, path: &mut Vec<&'a Track>) -> bool {
+        for t in tracks {
+            if &t.id == id {
+                return true;
+            }
+            path.push(t);
+            if walk(&t.children, id, path) {
+                return true;
+            }
+            path.pop();
+        }
+        false
+    }
+    let mut path = Vec::new();
+    if walk(&doc.tracks, id, &mut path) {
+        path
+    } else {
+        Vec::new()
+    }
+}
+
+/// The folders above a track whose notes can reach it (spec 7.1), as a track render's descriptor
+/// holds them (spec 7.7): those with patterns or enabled note effects, the outermost first, each
+/// reduced as a track is, its enabled note effects standing for the listed devices.
+fn reduced_folders(doc: &Document, track: &Track) -> Vec<Track> {
+    folders_above(doc, &track.id)
+        .into_iter()
+        .filter_map(|folder| {
+            let note_effects = listed(folder, |role| role == Role::NoteEffect);
+            (!folder.patterns.is_empty() || !note_effects.is_empty())
+                .then(|| reduced_track(folder, &note_effects))
+        })
+        .collect()
+}
+
 fn maps(doc: &Document) -> (Value, Value, Value) {
     let doc_value = serde_json::to_value(doc).expect("a document always serialises");
     let field = |name: &str| {
@@ -186,8 +224,8 @@ fn maps(doc: &Document) -> (Value, Value, Value) {
 }
 
 /// The descriptor a track render's fingerprint is over (spec 7.7): the track reduced to what a
-/// render of `devices` depends on; `from` and `to`; the document's `ppq`, `tempo`, `meter` and
-/// `key`.
+/// render of `devices` depends on; the folders above it whose notes reach it, when any; `from`
+/// and `to`; the document's `ppq`, `tempo`, `meter` and `key`.
 pub fn render_descriptor(
     doc: &Document,
     track: &Track,
@@ -200,6 +238,13 @@ pub fn render_descriptor(
     let (tempo, meter, key) = maps(doc);
     let mut descriptor = Map::new();
     descriptor.insert("track".to_owned(), track_value);
+    let folders = reduced_folders(doc, track);
+    if !folders.is_empty() {
+        descriptor.insert(
+            "folders".to_owned(),
+            serde_json::to_value(folders).expect("a track always serialises"),
+        );
+    }
     descriptor.insert("from".to_owned(), json!(from));
     descriptor.insert("to".to_owned(), json!(to));
     descriptor.insert("ppq".to_owned(), json!(doc.ppq));
@@ -736,6 +781,91 @@ mod tests {
         assert_eq!(found[1].pointer, "/tracks/0/patterns/0/renders/0");
         assert_eq!(found[1].pattern, Some(Id::from("p")));
         assert!(!found[1].current, "a fingerprint that never matched");
+    }
+
+    /// The document's track inside a folder inside another, both `outer` and `inner` as given.
+    fn nested(outer: Track, inner: Track) -> Document {
+        let mut d = doc();
+        let track = d.tracks.remove(0);
+        let mut inner = inner;
+        inner.children = vec![track];
+        let mut outer = outer;
+        outer.children = vec![inner];
+        d.tracks = vec![outer];
+        d
+    }
+
+    fn fingerprint_of(d: &Document) -> String {
+        let t = d.track(&Id::from("t")).unwrap();
+        render_fingerprint(d, t, &ids(&["inst"]), 0, 3840)
+    }
+
+    #[test]
+    fn a_track_render_holds_the_notes_its_folders_give_it() {
+        let alone = doc();
+        let at_top = render_fingerprint(&alone, &alone.tracks[0], &ids(&["inst"]), 0, 3840);
+        let plain = |id: &str| Track::new(Id::from(id), "Folder");
+        // Folders holding no notes leave the descriptor as it was: regrouping never stales.
+        let d = nested(plain("o"), plain("i"));
+        assert_eq!(fingerprint_of(&d), at_top);
+        let t = d.track(&Id::from("t")).unwrap();
+        assert!(
+            render_descriptor(&d, t, &ids(&["inst"]), 0, 3840)
+                .get("folders")
+                .is_none()
+        );
+        // Notes on the outer folder reach the track through the inner one.
+        let mut outer = plain("o");
+        outer.patterns.push(Pattern::new(Id::from("op"), 1920));
+        outer
+            .devices
+            .push(Device::new(Id::from("gate"), "audio_effect", "clap:g"));
+        let d = nested(outer, plain("i"));
+        let held = fingerprint_of(&d);
+        assert_ne!(held, at_top);
+        let t = d.track(&Id::from("t")).unwrap();
+        let folders = render_descriptor(&d, t, &ids(&["inst"]), 0, 3840)["folders"].clone();
+        assert_eq!(
+            folders.as_array().unwrap().len(),
+            1,
+            "only the one with notes"
+        );
+        assert_eq!(folders[0]["id"], "o");
+        assert!(
+            folders[0].get("devices").is_none(),
+            "its audio effect isn't listed"
+        );
+        // The folder's pattern changes it; its audio effect, its fader and its name don't.
+        let mut e = d.clone();
+        e.tracks[0].patterns[0].length = 3840;
+        assert_ne!(fingerprint_of(&e), held);
+        let mut e = d.clone();
+        e.tracks[0].devices[0].enabled = false;
+        e.tracks[0].channel.gain = 0.25;
+        e.tracks[0].name = "Renamed".to_owned();
+        assert_eq!(fingerprint_of(&e), held);
+        // A note effect on the inner folder passes the outer folder's notes on, so it counts.
+        let mut e = d.clone();
+        e.tracks[0].children[0]
+            .devices
+            .push(Device::new(Id::from("arp"), "note_effect", "clap:n"));
+        let t = e.track(&Id::from("t")).unwrap();
+        let folders = render_descriptor(&e, t, &ids(&["inst"]), 0, 3840)["folders"].clone();
+        assert_eq!(folders.as_array().unwrap().len(), 2);
+        assert_eq!(folders[1]["devices"][0]["id"], "arp");
+    }
+
+    #[test]
+    fn the_folders_above_a_track_are_found_outermost_first() {
+        let plain = |id: &str| Track::new(Id::from(id), "Folder");
+        let d = nested(plain("o"), plain("i"));
+        let above: Vec<&str> = folders_above(&d, &Id::from("t"))
+            .iter()
+            .map(|t| t.id.as_str())
+            .collect();
+        assert_eq!(above, ["o", "i"]);
+        assert!(folders_above(&d, &Id::from("o")).is_empty());
+        assert!(folders_above(&d, &Id::from("nowhere")).is_empty());
     }
 
     #[test]

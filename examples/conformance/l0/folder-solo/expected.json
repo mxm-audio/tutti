@@ -1,0 +1,33 @@
+{
+  "what": "Rhythms is soloed in the document; each track sounds alone in its own seconds, and the master's RMS per output channel over each window is within 0.5 dB of these (6.2): a track in a folder inside the soloed one is heard through that folder's fader, a track inside it routed to the master past it is heard, and a track outside it is silent. A mono tone at the centre, equal power.",
+  "tolerance_db": 0.5,
+  "heard": [
+    {
+      "track": "trk_01K742SGDFB9D00000000000DF",
+      "name": "Kick",
+      "from_seconds": 0.1,
+      "to_seconds": 0.9,
+      "rms_left": 0.125,
+      "rms_right": 0.125,
+      "path": "inside Drums, a folder at 0.5 inside the soloed Rhythms"
+    },
+    {
+      "track": "trk_01K742SGDKB9D00000000000DK",
+      "name": "Routed past",
+      "from_seconds": 2.1,
+      "to_seconds": 2.9,
+      "rms_left": 0.25,
+      "rms_right": 0.25,
+      "path": "inside Rhythms, routed to the master past it: soloed with it"
+    },
+    {
+      "track": "trk_01K742SGDQB9D00000000000DQ",
+      "name": "Outside",
+      "from_seconds": 4.1,
+      "to_seconds": 4.9,
+      "rms_left": 0.0,
+      "rms_right": 0.0,
+      "path": "outside Rhythms: silent"
+    }
+  ]
+}

@@ -383,8 +383,14 @@ is self-contained.
 
 Routing MUST be a directed acyclic graph with `master` as its sink: a cycle through destinations
 and sends is invalid (feedback is an extension's business). A *return* is a track without
-patterns that receives sends. **Solo**: when any track is soloed, only the soloed tracks and the
-tracks on their path to the master are heard. **Pan law**: a mono source pans with equal power
+patterns that receives sends. **A send** takes its track's chain output: a pre-fader send
+(`pre_fader: true`) before the channel's `gain`, `pan` and `mute`, a post-fader send after them.
+**Solo**: while any track is soloed, a track inside a soloed folder counts as soloed, and a
+connection (a track into its folder, a `destination`, a send) carries sound only when it lies on
+a path from a soloed track to the master or on a path into a soloed track; every other
+connection is silent. So soloing a track keeps its folders and the returns it sends to, soloing
+a folder keeps every track inside it, and soloing a return plays what is sent to it without its
+senders' own outputs. **Pan law**: a mono source pans with equal power
 (−3 dB at the centre); a stereo source pans as a balance (the far side attenuated, the near side
 unchanged).
 
@@ -427,7 +433,8 @@ as separate ones (which it SHOULD NOT; `conformance.md`).
 | `name` | string or null | no | `null` | A name shown in place of the pattern's. |
 | `extensions` | object | no | `{}` | |
 
-Resizing a part changes how much of the pattern plays; it never changes the pattern.
+Resizing a part changes how much of the pattern plays; it never changes the pattern. Parts may
+overlap on a track; all of them play, and their sound sums.
 
 ### 6.7 Events
 
@@ -549,8 +556,17 @@ names the key, else the General MIDI name".
 `devices` is one ordered list per track and on the master. Each device has a `role`:
 `instrument`, `note_effect`, `audio_effect` or `analyzer` (fallback `audio_effect`, bypassed).
 Notes flow through the note effects into the instrument, in list order; audio flows through the
-audio effects in list order; an analyzer passes audio through unchanged. A track without an
-instrument sounds its notes nowhere (but its audio pieces sound).
+audio effects in list order; an analyzer passes audio through unchanged.
+
+**A folder's notes.** A folder passes its notes, and the notes it receives, through its note
+effects to each of its members; a track plays its own notes and those it receives. Notes here
+are those without `audio` (6.7): an audio piece sounds on the track that holds it. Notes that
+reach no instrument sound nowhere. So the notes of a folder holding two instrument tracks play
+on both, layered, and reach the instruments of a folder inside it too.
+
+**Arriving audio.** Audio a track receives from other tracks (its members, a `destination`,
+sends) is summed into its chain after its instruments and before its first audio effect; on a
+track without an instrument, at the start of its audio effects.
 
 | Key | Type | Required | Default | Meaning |
 |---|---|---|---|---|
@@ -650,8 +666,9 @@ Neither lists a disabled device, an analyzer (it passes audio unchanged) or a de
 this version does not know (7.1 bypasses it). Any other list is valid, and `[]` lists none: the
 track's audio pieces as placed, its notes sounding nowhere. A render is always **pre-fader**: the
 chain's output before the channel's gain, pan and mute and before any send, never including
-what other tracks feed it. A folder track's render and a return's are out of 1.0: their inputs
-come from other tracks.
+what other tracks feed it. A track render includes the notes its track receives from its
+folders (7.1). A folder track's render and a return's are out of 1.0: their inputs come from
+other tracks. So is a pattern render of a folder's pattern, whose notes play on its members.
 
 **Standing in.** A render *stands in* for the devices it lists when they are the first devices
 of the chain in **signal order**: the note effects in list order, then the instruments in list
@@ -716,6 +733,12 @@ as the pretty form has it (a key at its default left out, 4). For a track render
  "ppq": <ppq>, "tempo": <the tempo map>, "meter": <the meter map>, "key": <the key map>}
 ```
 
+with one key more for a track inside folders whose notes can reach it (7.1): `"folders"`, the
+folders above it that hold patterns or enabled note effects, the outermost first, each reduced
+as the track is (below), its enabled note effects standing for the listed devices. With no such
+folder the key is left out, so moving a track into or out of folders that hold no notes never
+changes a fingerprint;
+
 and for a pattern render:
 
 ```json
@@ -740,8 +763,8 @@ adds to a track still counts. The meter and key maps are in it because a plugin 
 through its host (a time signature, a key), and a render made against one may sound different
 against another. So changing an effect that is not in a render, the fader, the track's name or
 another render leaves a render current; changing a listed device, its order, its `enabled`, the
-notes or the tempo does not. A render whose fingerprint no longer matches is *stale*: a reader
-may still play it, but says so.
+notes, the notes its folders give it or the tempo does not. A render whose fingerprint no longer
+matches is *stale*: a reader may still play it, but says so.
 
 ### 7.8 A plugin's own files
 

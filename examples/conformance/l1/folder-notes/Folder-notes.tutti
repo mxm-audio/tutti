@@ -1,0 +1,116 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "renders/Layer-A.wav", "sha256": "d53221168210b3c1380b02da35fceaa9473acff54233052424e0adb54228a983", "bytes": 16044},
+    {"path": "renders/Layer-B.wav", "sha256": "d53221168210b3c1380b02da35fceaa9473acff54233052424e0adb54228a983", "bytes": 16044},
+    {"path": "renders/Layer-C.wav", "sha256": "d53221168210b3c1380b02da35fceaa9473acff54233052424e0adb54228a983", "bytes": 16044}
+  ],
+  "dependencies": [
+    {"id": "clap:org.example.missing-synth", "kind": "plugin", "name": "Missing synth", "vendor": "Example", "version": "1.0.0", "url": "https://example.org/missing-synth", "formats": ["clap"]}
+  ],
+  "metadata": {
+    "title": "Folder notes"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SGEXB9D00000000000EX",
+      "name": "Stack",
+      "children": [
+        {
+          "id": "trk_01K742SGEKB9D00000000000EK",
+          "name": "Layer A",
+          "devices": [
+            {
+              "id": "dev_01K742SGEMB9D00000000000EM",
+              "role": "instrument",
+              "name": "Missing synth",
+              "plugin": "clap:org.example.missing-synth"
+            }
+          ],
+          "renders": [
+            {"file": "renders/Layer-A.wav", "sha256": "d53221168210b3c1380b02da35fceaa9473acff54233052424e0adb54228a983", "name": "Layer A, without effects", "sample_rate": 8000, "channels": 1, "frames": 8000, "devices": ["dev_01K742SGEMB9D00000000000EM"], "from": 0, "to": 1920, "fingerprint": "1c0e3cfb97a1be47cc1e9f7c6a016764237e8b617ecc77cdd4b6d17faa2875a0"}
+          ]
+        },
+        {
+          "id": "trk_01K742SGENB9D00000000000EN",
+          "name": "Layer B",
+          "devices": [
+            {
+              "id": "dev_01K742SGEPB9D00000000000EP",
+              "role": "instrument",
+              "name": "Missing synth",
+              "plugin": "clap:org.example.missing-synth"
+            }
+          ],
+          "patterns": [
+            {
+              "id": "pat_01K742SGETB9D00000000000ET",
+              "name": "Top",
+              "length": 1920,
+              "events": [
+                {"type": "note", "id": "evt_01K742SGESB9D00000000000ES", "at": 960, "length": 420, "pitch": 67, "velocity": 0.8}
+              ]
+            }
+          ],
+          "parts": [
+            {"id": "prt_01K742SGEVB9D00000000000EV", "pattern": "pat_01K742SGETB9D00000000000ET", "at": 0, "length": 1920}
+          ],
+          "renders": [
+            {"file": "renders/Layer-B.wav", "sha256": "d53221168210b3c1380b02da35fceaa9473acff54233052424e0adb54228a983", "name": "Layer B, without effects", "sample_rate": 8000, "channels": 1, "frames": 8000, "devices": ["dev_01K742SGEPB9D00000000000EP"], "from": 0, "to": 1920, "fingerprint": "72680eac10dd5671c81972ef2bacccf7edf3961b48462ddd001b70defa56b588"}
+          ]
+        },
+        {
+          "id": "trk_01K742SGEWB9D00000000000EW",
+          "name": "Inner",
+          "children": [
+            {
+              "id": "trk_01K742SGEQB9D00000000000EQ",
+              "name": "Layer C",
+              "devices": [
+                {
+                  "id": "dev_01K742SGERB9D00000000000ER",
+                  "role": "instrument",
+                  "name": "Missing synth",
+                  "plugin": "clap:org.example.missing-synth"
+                }
+              ],
+              "renders": [
+                {"file": "renders/Layer-C.wav", "sha256": "d53221168210b3c1380b02da35fceaa9473acff54233052424e0adb54228a983", "name": "Layer C, without effects", "sample_rate": 8000, "channels": 1, "frames": 8000, "devices": ["dev_01K742SGERB9D00000000000ER"], "from": 0, "to": 1920, "fingerprint": "c6efe72d2927458ebb76ddb269b4d93106ec9beeb2820ad7309bcc9f40f3431b"}
+              ]
+            }
+          ]
+        }
+      ],
+      "patterns": [
+        {
+          "id": "pat_01K742SGF0B9D00000000000F0",
+          "name": "Chord",
+          "length": 1920,
+          "events": [
+            {"type": "note", "id": "evt_01K742SGEYB9D00000000000EY", "at": 0, "length": 420, "pitch": 60, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGEZB9D00000000000EZ", "at": 480, "length": 420, "pitch": 64, "velocity": 0.8}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SGF1B9D00000000000F1", "pattern": "pat_01K742SGF0B9D00000000000F0", "at": 0, "length": 1920}
+      ]
+    }
+  ]
+}

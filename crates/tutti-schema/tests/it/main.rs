@@ -436,6 +436,87 @@ fn level_1_render_choice_plays_the_render_that_stands_in_and_stales_only_what_ch
     assert_eq!(state(&edited), expected["note_edit"]["stale"]);
 }
 
+/// The notes a track is given (spec 7.1): its own and every folder's above it, as their parts
+/// place them, by pitch and track tick, in time order.
+fn notes_given(doc: &Document, track: &tutti::Track) -> Vec<(u8, i64)> {
+    let mut out = Vec::new();
+    let mut from = tutti::render::folders_above(doc, &track.id);
+    from.push(track);
+    for t in from {
+        for part in &t.parts {
+            let pattern = t.patterns.iter().find(|p| p.id == part.pattern).unwrap();
+            for e in &pattern.events {
+                if let Event::Note(n) = e {
+                    let inside = n.at >= part.offset && n.at < part.offset + part.length;
+                    if n.audio.is_none() && inside {
+                        out.push((n.pitch, part.at + n.at - part.offset));
+                    }
+                }
+            }
+        }
+    }
+    out.sort_by_key(|&(pitch, tick)| (tick, pitch));
+    out
+}
+
+#[test]
+fn level_1_folder_notes_reach_every_layer_and_their_renders_follow_them() {
+    let folder = level_case("l1/folder-notes");
+    let expected = expected_of(&folder);
+    let opened = tutti_fs::open(&folder).unwrap();
+    assert!(opened.report.is_valid(), "{:?}", opened.report.issues);
+    let doc = opened.project.document().clone();
+    // Each instrument is given what the table lists: the folders' notes with its track's own.
+    for row in expected["given"].as_array().unwrap() {
+        let track = doc.track(&row["track"].as_str().unwrap().into()).unwrap();
+        assert_eq!(track.devices[0].id.as_str(), row["device"]);
+        let listed: Vec<(u8, i64)> = row["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| {
+                (
+                    n["pitch"].as_u64().unwrap() as u8,
+                    n["tick"].as_i64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(notes_given(&doc, track), listed, "{}", track.name);
+    }
+    // Every render current, its fingerprint the published one.
+    let state = |doc: &Document| -> Value {
+        let mut out = serde_json::Map::new();
+        for r in tutti::render::renders(doc) {
+            out.insert(r.file.clone(), json!(!r.current));
+        }
+        Value::Object(out)
+    };
+    let mut fingerprints = serde_json::Map::new();
+    for r in tutti::render::renders(&doc) {
+        assert!(r.current, "{}", r.file);
+        let track = doc.track(&r.track).unwrap();
+        let render = track.renders.iter().find(|x| x.file == r.file).unwrap();
+        fingerprints.insert(r.file.clone(), json!(render.fingerprint));
+    }
+    assert_eq!(Value::Object(fingerprints), expected["fingerprints"]);
+    // An edit to the folder's notes stales every layer's render, one to Layer B's own note only
+    // its own.
+    let velocity = |doc: &mut Document, track: &str| {
+        let t = doc.track_mut(&track.into()).unwrap();
+        if let Some(Event::Note(n)) = t.patterns[0].events.first_mut() {
+            n.velocity = 0.5;
+        }
+    };
+    let stack = doc.tracks[0].id.as_str().to_owned();
+    let mut edited = doc.clone();
+    velocity(&mut edited, &stack);
+    assert_eq!(state(&edited), expected["folder_note_edit"]["stale"]);
+    let layer_b = expected["given"][1]["track"].as_str().unwrap();
+    let mut edited = doc.clone();
+    velocity(&mut edited, layer_b);
+    assert_eq!(state(&edited), expected["own_note_edit"]["stale"]);
+}
+
 #[test]
 fn level_2_everything_round_trips_through_another_writer() {
     let folder = level_case("l2/everything");

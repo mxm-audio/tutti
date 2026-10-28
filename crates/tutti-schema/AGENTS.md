@@ -31,6 +31,9 @@ time arithmetic the fixtures' expected values come from, and closed forms for th
   overrides only and the render stale after; `render-choice`'s renders current, exactly their
   range, their fingerprints the published ones, the render played the one that stands in for
   both devices, an effect edit staling only the render that holds it and a note edit all three;
+  `folder-notes`' instruments given what its table lists (the folders' notes with the track's
+  own), its renders current with their published fingerprints, a folder note edit staling all
+  three and a layer's own note edit only its own;
   `everything` written back by another program equal, its ids, sharing,
   index and README as its table says; `merge-different-tracks`' branches its edits made to the
   base, and `git merge-file` merging them cleanly into its merged document (git is needed);

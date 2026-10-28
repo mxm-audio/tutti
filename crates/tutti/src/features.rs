@@ -53,6 +53,12 @@ pub fn features(doc: &Document) -> Vec<Feature> {
     for t in doc.all_tracks() {
         if !t.children.is_empty() {
             add(feature("folders", 0));
+            let notes = t.patterns.iter().flat_map(|p| &p.events).any(|e| {
+                matches!(e, Event::Note(n) if n.audio.is_none()) || matches!(e, Event::Chord(_))
+            });
+            if notes {
+                add(feature("folder notes", 1));
+            }
         }
         if !t.channel.sends.is_empty() {
             add(feature("sends", 1));
@@ -98,4 +104,33 @@ pub fn features(doc: &Document) -> Vec<Feature> {
 /// The lowest level a reader needs to play the document in full.
 pub fn level_needed(doc: &Document) -> u8 {
     features(doc).iter().map(|f| f.level).max().unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::read;
+
+    fn with_folder(events: &str) -> Document {
+        let doc = format!(
+            r#"{{"format": "tutti", "version": "1.0", "generator": {{"name": "t"}}, "ppq": 960,
+            "tempo": [{{"at": 0, "bpm": 120}}], "meter": [{{"at": 0, "numerator": 4, "denominator": 4}}],
+            "tracks": [{{"id": "f", "children": [{{"id": "t"}}],
+              "patterns": [{{"id": "p", "length": 960, "events": [{events}]}}]}}]}}"#
+        );
+        read(doc.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn a_folders_notes_need_level_1() {
+        let note =
+            r#"{"type": "note", "id": "n", "at": 0, "length": 480, "pitch": 60, "velocity": 0.8}"#;
+        assert_eq!(level_needed(&with_folder(note)), 1);
+        assert!(features(&with_folder(note)).contains(&feature("folder notes", 1)));
+        assert_eq!(
+            level_needed(&with_folder("")),
+            0,
+            "a folder alone is Level 0"
+        );
+    }
 }
