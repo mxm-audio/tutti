@@ -20,6 +20,11 @@ pattern, a part, an event, an audio piece, an automation lane) may carry vendor 
 - There is no free-form `extras` key: everything that is not core is namespaced, so a reader can
   always tell vendor data from a future core key.
 
+The same namespace names the program's own folder in the project, `private/<namespace>/`
+(`tutti.md` 2.3), for files that are its own and not the project's: its kept versions, its
+journal, its lock. What the document's objects carry travels with the project; what the folder
+holds stays where the project is, and a copy or a zip leaves it out.
+
 ## 2. Used and required
 
 The document lists every namespace that appears anywhere in it under `extensions_used`, and
@@ -41,7 +46,8 @@ under `extensions_required` the subset without which the project **does not soun
 
 A reader keeps every `extensions` value it reads, as the same JSON value on the same object, and
 a writer writes it back (`tutti.md` 8.2). A program that deletes an object deletes the extension
-data on it. A program never edits another program's namespace.
+data on it. A program never edits another program's namespace, in the document or in
+`private/`.
 
 ## 4. The registry
 
@@ -50,7 +56,7 @@ request adding a row; an unregistered namespace is valid and simply opaque to ev
 
 | Namespace | Owner | What it holds | Since |
 |---|---|---|---|
-| `dk.mxm.newdawn` | newDAWn ([maxmcorp/newDAWn](https://github.com/maxmcorp/newDAWn)) | On a track: `armed`. On the document: the save `generation` its journal extends, and view state. Never required. | 1.0 |
+| `dk.mxm.newdawn` | newDAWn ([maxmcorp/newDAWn](https://github.com/maxmcorp/newDAWn)) | On a track: `armed`. On the document: the save `generation` its journal extends, and view state. In `private/dk.mxm.newdawn/`: its journal, kept versions, exports, trash and lock. Never required. | 1.0 |
 
 Reserved prefixes: `org.tutti.*` for drafts of core features (section 5); nothing else is
 reserved.

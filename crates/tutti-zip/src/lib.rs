@@ -69,8 +69,8 @@ fn entry_error(name: &str) -> impl FnOnce(FolderError) -> ZipError + '_ {
 }
 
 /// Packs the project in `store` into `out`: the document first and stored, then the README and
-/// every file of the project, deflated; the reserved and private paths left out. The project is
-/// opened and validated first. Gives `out` back, finished, and the number of entries.
+/// every file of the project, deflated; `private/` left out. The project is opened and
+/// validated first. Gives `out` back, finished, and the number of entries.
 pub fn pack<S: Store, W: Write + Seek>(store: &S, out: W) -> Result<(W, usize), ZipError> {
     let opened = Project::open(store.clone()).map_err(|e| ZipError::NotAProject(e.to_string()))?;
     let mut entries: Vec<String> = vec![opened.project.document_name().to_owned()];
@@ -150,9 +150,9 @@ pub fn unpack<R: Read + Seek, S: Store>(input: R, store: &S) -> Result<usize, Zi
         if let Err(reason) = check_entry_name(&name) {
             return Err(ZipError::Entry { name, reason });
         }
-        if entry.is_dir() || reserved(&name) {
-            // A folder entry says nothing; a reserved or private path is the writing
-            // program's own, and a reader ignores it (spec 2.3, 2.5).
+        if entry.is_dir() || private(&name) {
+            // A folder entry says nothing; `private/` is each program's own, and stays where
+            // the project was (spec 2.3, 2.5).
             continue;
         }
         entries.push((i, name, entry.size()));
@@ -232,11 +232,9 @@ pub fn unpack<R: Read + Seek, S: Store>(input: R, store: &S) -> Result<usize, Zi
     Ok(written.len())
 }
 
-/// Whether an entry is under a reserved path (spec 2.3): `versions/`, `exports/`, `trash/`,
-/// `log/` or `lock`.
-fn reserved(name: &str) -> bool {
-    let first = name.split('/').next().unwrap_or(name);
-    matches!(first, "versions" | "exports" | "trash" | "log" | "lock")
+/// Whether an entry is under `private/`, the programs' own folders (spec 2.3).
+fn private(name: &str) -> bool {
+    name.split('/').next() == Some("private")
 }
 
 fn too_large(name: &str, declared: u64) -> ZipError {
@@ -315,6 +313,35 @@ mod tests {
             );
         }
         assert!(Project::open(into).is_ok());
+    }
+
+    /// A program's own folder stays where the project is: packing leaves it out, and an entry
+    /// under `private/` in a zip is skipped (spec 2.3, 2.5).
+    #[test]
+    fn private_folders_are_left_out_both_ways() {
+        let store = MemoryStore::default();
+        let mut project = Project::create(store.clone(), "Own Files", &generator()).unwrap();
+        project.save(&generator()).unwrap();
+        store
+            .write_new("private/com.example.app/journal.log", b"edit 1")
+            .unwrap();
+        let (bytes, entries) = pack(&store, Cursor::new(Vec::new())).unwrap();
+        assert_eq!(entries, 2, "the document and the README");
+
+        let mut archive = ZipArchive::new(Cursor::new(bytes.into_inner())).unwrap();
+        let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+        for i in 0..archive.len() {
+            writer.raw_copy_file(archive.by_index(i).unwrap()).unwrap();
+        }
+        writer
+            .start_file("private/com.example.app/lock", SimpleFileOptions::default())
+            .unwrap();
+        writer.write_all(b"pid 7").unwrap();
+        let bytes = writer.finish().unwrap().into_inner();
+
+        let into = MemoryStore::default();
+        assert_eq!(unpack(Cursor::new(bytes), &into).unwrap(), 2);
+        assert!(!into.exists("private/com.example.app/lock").unwrap());
     }
 
     #[test]

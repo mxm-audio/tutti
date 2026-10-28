@@ -40,7 +40,9 @@ its `patterns` (events: `note`, `chord`, `param`) and places them with `parts` (
 `audio/` instead of the instrument. A track and a pattern may carry `renders`: audio of what
 some of the track's devices made, each listing those `devices`. `markers`, `range` (the span the
 user marks: looped over, exported), `master`, `scenes` and `metadata` are at the top.
-Every object may carry `extensions` under a reverse-DNS namespace.
+Every object may carry `extensions` under a reverse-DNS namespace, and a program keeps files of
+its own (versions, a journal, a lock) in `private/<namespace>/`, never in another's
+(`tutti.md` 2.3).
 
 ## Writing a project
 

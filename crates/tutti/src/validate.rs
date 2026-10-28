@@ -267,15 +267,6 @@ pub fn validate(doc: &Document) -> Report {
             );
         }
     }
-    for (i, p) in doc.private.iter().enumerate() {
-        let name = p.strip_suffix('/').unwrap_or(p);
-        if name.is_empty() || name.contains('/') || name.contains('\\') || name == ".." {
-            r.error(
-                &format!("/private/{i}"),
-                "a private path is one folder or file name at the top",
-            );
-        }
-    }
     let device_ids: HashSet<&str> = doc
         .master
         .devices

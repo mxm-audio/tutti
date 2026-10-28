@@ -11,7 +11,6 @@
   },
   "extensions_used": ["dk.mxm.newdawn", "org.example.lyrics"],
   "extensions_required": ["org.example.lyrics"],
-  "private": ["notes/"],
   "files": [
     {"path": "audio/Click-loop_95.wav", "sha256": "577b3812879b547705ccf885d90d3213f8104a1ad772dfdb09ddfef8e6086bfb", "bytes": 445686},
     {"path": "audio/Pad-220.wav", "sha256": "1bb532bc8670e2f49644c119afa82f6197270d40c6245aa8958622aa09849593", "bytes": 132344},

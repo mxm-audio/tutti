@@ -15,7 +15,7 @@ prove them. Section numbers refer to `tutti.md`.
 - **Never refuses a project for data it does not understand**, and says what it does not honour:
   a missing plugin (7.6), a required extension it lacks (8.1), a feature above its level.
 - Never deletes a file in the folder; a hash mismatch plays silence and warns (9).
-- Ignores and never deletes the reserved folders and the `private` paths (2.3).
+- Ignores every folder under `private/` but its own, and never writes in or deletes one (2.3).
 
 ## 2. Every writer, whatever its level
 
@@ -31,6 +31,8 @@ prove them. Section numbers refer to `tutti.md`.
   `extensions_used`; lists in `extensions_required` only what the project needs to sound right,
   and leaves a core fallback for each (8.1).
 - Writes `README.md` from `README.template.md` (2.4).
+- Keeps the files that are its own and not the project's in its folder under `private/`, named
+  by its namespace (2.3).
 - Never renames or overwrites a file in `audio/`; names a new file uniquely (2.1).
 - Keeps pattern sharing: a pattern several parts play stays one pattern (6.4).
 - Writes nothing that refers outside the folder.

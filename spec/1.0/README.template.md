@@ -10,7 +10,8 @@ This folder is an **audio project in the tutti format** (version {version}), wri
 - `audio/`: every sound the project plays, each known by its SHA-256.
 - `plugins/states/`: the saved states of the plugins it uses, each named by its content's SHA-256.
 - `renders/`: bounces the project may carry so it plays where its plugins are missing.
-- `versions/`, `exports/`, `trash/`, `log/`, `lock`: the writing program's own. Leave them alone.
+- `private/`: one folder per program, named by its namespace, for files that are that program's
+  own (its versions, exports, journal, lock). Leave them alone.
 
 ## The five rules
 

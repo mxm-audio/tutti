@@ -15,7 +15,6 @@
     "generator": { "$ref": "#/$defs/generator" },
     "extensions_used": { "type": "array", "items": { "$ref": "#/$defs/namespace" }, "uniqueItems": true, "default": [], "description": "Every extension namespace that appears anywhere in the document (spec 8.1)." },
     "extensions_required": { "type": "array", "items": { "$ref": "#/$defs/namespace" }, "uniqueItems": true, "default": [], "description": "The subset without which the project does not sound right (spec 8.1)." },
-    "private": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/?$" }, "default": [], "description": "Paths at the top of the folder that are the writer's own (spec 2.3)." },
     "files": { "type": "array", "items": { "$ref": "#/$defs/file_entry" }, "default": [], "description": "The index of files the project refers to, sorted by path (spec 3.4)." },
     "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependency" }, "default": [], "description": "What the project needs beyond its folder, sorted by id (spec 3.5)." },
     "metadata": { "$ref": "#/$defs/metadata" },

@@ -142,6 +142,17 @@ designed from is `docs/research.md`.
   "renders in full + 4 bars ekstra". A handover's track renders run from tick 0 to past the last
   part, with room for what rings on, every track the same span; the range is for exports, which
   never go into the document. Still exactly the span, as a render always is.
+- **2026-10-28:** **A program's own files live in `private/<namespace>/`**, named by the
+  namespace its `extensions` use (spec 2.3), and the document's `private` list is gone. Reason:
+  the owner asked whether a program other than newDAWn could keep data of its own in a project;
+  in the document it could (`extensions`), but the folder's `versions/`, `exports/`, `trash/`,
+  `log/` and `lock` and the `private` list were "the writing program's", and nothing said which
+  program that was. A second writer could not tell whose `log/` or `lock` it found, nor whether
+  to keep newDAWn's `private` entries or write its own. The owner chose namespaced folders over
+  a `private` list split by namespace ("go with namespaced folders"): the folder's name says
+  whose it is, so nothing in the document has to, which is one way to do it. No alias for the
+  old paths or the key: nothing is released, and a stale `private` key shows in `tutti check`
+  as an unknown one.
 
 ## Design choices and what they were weighed against
 
@@ -361,3 +372,8 @@ in newDAWn come back.
   `renders` in the package; every-feature's bass handed over as stems and a pattern render, the
   examples' `range`. Planned with newDAWn's half and reviewed with Pi over eight rounds. The
   batch of fixture tests written the same day ran with it, all passing.
+- 2026-10-28: private folders (the ruling above): spec 2, 2.1, 2.3, 2.5, 3.2 and 9,
+  conformance 1 and 2, extensions 1 and 3 and newDAWn's registry row, the README template; the
+  schema's and the model's `private` gone with its check in `validate`; `tutti-zip` skips
+  `private/` where it skipped the five reserved names, and a test holds it both ways; the
+  examples, the field reference and `schema.d.ts` generated again.

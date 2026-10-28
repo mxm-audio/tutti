@@ -99,8 +99,9 @@ to and from DAWproject is planned, so a tutti project reaches those programs too
 - A `README.md` in every project, written by every writer from one template: what the folder
   is, the five rules, the time model with two values to check a reader by, and the URLs of the
   rules.
-- Private paths for a program's own files (versions, exports, trash, log, lock) that other
-  programs ignore and never delete.
+- A private folder for each program's own files (versions, exports, journal, lock),
+  `private/<namespace>/`, named as its extensions are, so several programs can work on one
+  project without meeting; the others ignore it and never delete it.
 - Nothing in a project refers outside its folder.
 
 **The document**
@@ -201,7 +202,7 @@ My-Project/
 ├─ audio/                     every sound it plays, known by SHA-256
 ├─ plugins/states/            plugin states, named by their content's SHA-256
 ├─ renders/                   bounces it may carry, so it plays without its plugins
-└─ versions/ exports/ ...     the writing program's own: ignored, never deleted
+└─ private/<namespace>/       one program's own files: ignored by the others, never deleted
 ```
 
 ```json

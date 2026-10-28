@@ -86,10 +86,6 @@ export interface Tutti10 {
    */
   extensions_required?: Namespace[];
   /**
-   * Paths at the top of the folder that are the writer's own (spec 2.3).
-   */
-  private?: string[];
-  /**
    * The index of files the project refers to, sorted by path (spec 3.4).
    */
   files?: FileEntry[];

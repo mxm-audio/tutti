@@ -86,7 +86,8 @@ JavaScript package's `ulid`) gives a new id.
 
 A file is verified by its length and modification time: hashed again only when either differs
 from the record of its last verification, and never otherwise. Keep the records between
-sessions in a place of your own (`Project::verified` and `trust`; the document never carries
+sessions in a place of your own, your folder under `private/` for one (2.3)
+(`Project::verified` and `trust`; the document never carries
 them, since a modification time is one file system's). A file changed behind the project's back
 is a breach of the folder's rules, and the hash rule is what catches it, in `check` and at
 playback; a save need not defend against it. Rehash everything only for an export
@@ -119,6 +120,9 @@ newDAWn, the first consumer, does today.
   snapshot has it (6.7, 6.8); CLAP has no normalized form at all.
 - **Dropping what you don't model.** The next program's work, gone. Keep it, on the object it
   came on, found by id.
+- **Your own files at the top of the folder, or in another program's.** In
+  `private/<your namespace>/` only (2.3). A copy and a zip leave it out, so what another program
+  should read goes in the document, under your `extensions`.
 - **A zip of your own shape.** The zip form is defined (2.5): the document first and stored,
   entry names a relative path of plain parts, no declared length trusted. `tutti zip` and `unzip`
   do it; the `zip-slip` and `zip-bomb` fixtures are what a reader must refuse.

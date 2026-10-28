@@ -42,12 +42,13 @@ My-Project/
 ├─ plugins/files/<device id>/       a plugin's own files, any kind, in its own tree (7.8)
 ├─ renders/                    bounces the project carries so it plays without its plugins
 ├─ analysis/                   results an application keeps beside the audio (reserved name)
-└─ versions/ exports/ trash/ log/ lock    the writing program's own (see 2.3)
+└─ private/<namespace>/        one program's own files: its versions, its journal, its lock (2.3)
 ```
 
 ### 2.1 Names
 
-- Folder names are fixed, lower case and English, as above.
+- Folder names are fixed, lower case and English, as above, but a program's folder under
+  `private/`, which is its namespace (2.3).
 - Every file name a writer gives keeps to the characters `A-Z a-z 0-9 - _` and one `.` before
   the extension: it MUST match `^[A-Za-z0-9_-]{1,120}\.[A-Za-z0-9]{1,8}$`. Names are unique
   ignoring case within a folder.
@@ -61,13 +62,25 @@ A reference inside the document is a bare file name in a fixed folder, never a p
 `audio/<name>` for audio, `plugins/states/<sha256>.<kind>` for states, `renders/<name>` for
 renders. A reader resolves a reference inside the folder only, without following links (9).
 
-### 2.3 Reserved and private paths
+### 2.3 Private folders
 
-`versions/`, `exports/`, `trash/`, `log/` and `lock` are **reserved for the writing program's own
-use**: its kept versions, its exports, what it has set aside, its journal and its lock. A reader
-that is not that program MUST ignore them and MUST NOT delete them. The document's `private`
-list names any further paths that are the writer's own (3.2). A reader reads only the document,
-`audio/`, `plugins/`, `renders/` and `analysis/`.
+A program that keeps files of its own in a project, files that are its and not the project's
+(its kept versions, its exports, what it has set aside, its journal, its lock, its caches),
+keeps them in **its own folder, `private/<namespace>/`**, named by its namespace exactly as its
+`extensions` are (8.1): newDAWn's is `private/dk.mxm.newdawn/`. Every program that writes the
+project has a folder of its own, so two programs never meet in one, and none needs to know
+another's.
+
+- A program writes only inside its own folder, and nothing at the top of `private/`. What it
+  keeps there, and how it lays it out, is its own.
+- A program MUST NOT write, rename or delete anything in another namespace's folder, and
+  ignores every folder there but its own.
+- Nothing in the document refers into `private/`, and nothing there changes how the project
+  sounds: the document is the whole project without it. Data another program should read goes
+  in the document, under the program's `extensions` (8.1).
+- `private/` stays where the project is: a copy and a project as one file (2.5) leave it out.
+
+A reader reads only the document, `audio/`, `plugins/`, `renders/` and `analysis/`.
 
 ### 2.4 README.md
 
@@ -86,8 +99,8 @@ as follows. A writer that makes one and a reader that opens one keep these rules
 
 - Every entry is a file of the project under its path relative to the folder
   (`My-Project.tutti`, `audio/Drum-loop.wav`), `/` between the parts, no folder entries
-  needed. The reserved and private paths (2.3) are left out: the zip is a hand-off, as a copy
-  is. A reader ignores them if present, and deletes nothing for them.
+  needed. `private/` (2.3) is left out: the zip is a hand-off, as a copy is. A reader skips an
+  entry under it if one is present, after checking its name as any other's.
 - **The document is the first entry and is stored, not compressed**, so a reader learns what
   the file is from its first entry alone.
 - An entry's name MUST be a relative path of plain parts: no absolute path, no drive, no `.`
@@ -150,7 +163,6 @@ what it is and where the rules are.
 | `generator` | object | yes | The last program that wrote the document: `name` (required), `version`, `url`. |
 | `extensions_used` | array of string | no (default `[]`) | Every extension namespace that appears anywhere in the document (8.1). |
 | `extensions_required` | array of string | no (default `[]`) | The subset without which the project does not sound right (8.1). |
-| `private` | array of string | no (default `[]`) | Paths inside the folder that are the writer's own (2.3), each a folder name ending in `/` or a file name. |
 | `files` | array of object | no (default `[]`) | An index of the files the project refers to (3.4). |
 | `dependencies` | array of object | no (default `[]`) | What the project needs beyond its folder (3.5). |
 | `metadata` | object | no (default `{}`) | `title`, `artist`, `album`, `year`, `genre`, `comment`, `copyright`, `created` (an ISO 8601 date, set once), all strings, all optional. No modification time: it would change on every save for nothing. |
@@ -800,9 +812,9 @@ effect on a reader that lacks one of them, but for the right to write: it may wr
 What a reader MUST check, and what is invalid:
 
 - File references match 2.1 and resolve inside the folder without following links; a link in
-  place of a file or folder the reader reads is refused; `private` paths and the reserved folders
-  are never traversed. A device's own file (7.8) is indexed under a safe relative path, or it
-  is invalid.
+  place of a file or folder the reader reads is refused; another program's folder under
+  `private/` is never traversed (2.3). A device's own file (7.8) is indexed under a safe
+  relative path, or it is invalid.
 - `bytes` in the index is verified against the file, never used to allocate; audio is never read
   whole on trust of the document.
 - Ids are unique across the document; every reference resolves to an object of the expected

@@ -537,8 +537,8 @@ impl<S: Store> Project<S> {
     }
 
     /// Copies the project into another store: every indexed file, then the document and its
-    /// README through a save, so the copy is complete and verified. The program's own private
-    /// paths are its own to copy.
+    /// README through a save, so the copy is complete and verified. `private/` is left out
+    /// (spec 2.3): a program's own folder is its own to copy.
     pub fn copy_into<T: Store>(&self, store: T) -> Result<Project<T>, ProjectError> {
         store.make_folder("").map_err(store_error(""))?;
         match document_in(&store) {

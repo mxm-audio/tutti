@@ -38,8 +38,8 @@ cargo clippy -p tutti-zip --all-targets -- -D warnings
 cargo build -p tutti-zip --target wasm32-unknown-unknown
 ```
 
-Its tests pack a project in memory and unpack it into another store the same, and refuse a
-store holding a project; the hostile fixtures are unpacked by the command's tests (`tutti-cli`)
+Its tests pack a project in memory and unpack it into another store the same, leave `private/`
+out both ways (spec 2.3), and refuse a store holding a project; the hostile fixtures are unpacked by the command's tests (`tutti-cli`)
 and the package's (`js/test/zip.test.js`).
 
 # Child DOX Index

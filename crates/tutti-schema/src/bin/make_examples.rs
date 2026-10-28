@@ -679,7 +679,6 @@ fn every_feature(ids: &mut Ids) -> Project {
         unknown: Unknown::new(),
     });
     d.range.as_mut().unwrap().r#loop = true;
-    d.private = vec!["notes/".to_owned()];
     d.metadata.album = Some("Examples".to_owned());
     d.metadata.year = Some("2026".to_owned());
     d.metadata.genre = Some("test".to_owned());

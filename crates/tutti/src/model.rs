@@ -103,8 +103,6 @@ pub struct Document {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extensions_required: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub private: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub files: Vec<FileEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<Dependency>,
@@ -144,7 +142,6 @@ impl Document {
             generator,
             extensions_used: Vec::new(),
             extensions_required: Vec::new(),
-            private: Vec::new(),
             files: Vec::new(),
             dependencies: Vec::new(),
             metadata: Metadata::default(),

@@ -17,7 +17,6 @@ differs from the generator's output. Edit the schema, not this file. The normati
 | `generator` | `generator` | yes |  |  |
 | `extensions_used` | array of `namespace` |  | `[]` | Every extension namespace that appears anywhere in the document (spec 8.1). |
 | `extensions_required` | array of `namespace` |  | `[]` | The subset without which the project does not sound right (spec 8.1). |
-| `private` | array of string, `^[A-Za-z0-9_.-]+/?$` |  | `[]` | Paths at the top of the folder that are the writer's own (spec 2.3). |
 | `files` | array of `file_entry` |  | `[]` | The index of files the project refers to, sorted by path (spec 3.4). |
 | `dependencies` | array of `dependency` |  | `[]` | What the project needs beyond its folder, sorted by id (spec 3.5). |
 | `metadata` | `metadata` |  |  |  |
