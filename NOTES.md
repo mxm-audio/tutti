@@ -175,7 +175,26 @@ designed from is `docs/research.md`.
 
   Nobody uses tutti yet (the owner, the same day), so no reader or fingerprint had to be kept.
 
+- **2026-11-03:** **The converters live here, behind one interface, `tutti-convert`**, MIT, one
+  crate per format, so newDAWn, MXM Tracker and MXM tutti Converter (`mxm-audio/mxm-tutti-converter`,
+  the app that watches folders and converts what it finds, "like the blackmagic proxy
+  generator") convert with the same code. Polyend Tracker projects are the first format;
+  DAWproject both ways later ("keep an opening that it can convert all kinds of projects in the
+  future. Like DAW Project <> tutti"). Its plan was reviewed by a second model (Pi) in eight
+  rounds before any code.
+
 ## Design choices and what they were weighed against
+
+- **The converters' interface (2026-11-03).** A source is the core's `Folder` and a listing, so
+  every store serves as one and a converter can't write by its type; an object-safe trait, which
+  `Store` (Clone, an associated writer) is not, so a watcher holds formats as `dyn Format`. A
+  conversion is a value (the document, and each file with its place) and one writer puts it
+  through `Project`, rather than each format writing into a store: every format gets the same
+  checks (a file where the document refers to it, nothing written on a refusal) and none can
+  skip the save procedure. `Recording` hashes the bytes that pass rather than the files after, so
+  a watcher's record is exactly what a conversion was made from. Ids are derived from the
+  source, not drawn fresh, so converting an unchanged project again writes the same document and
+  a watcher can tell an edit made elsewhere by the fingerprint alone.
 
 - **One JSON document per project**, with events, points and file entries one per line, rather
   than one file per track: a set of files cannot be committed atomically without a journal every

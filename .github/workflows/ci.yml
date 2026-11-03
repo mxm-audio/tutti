@@ -29,6 +29,8 @@ jobs:
       - run: cargo build -p tutti --locked --target wasm32-unknown-unknown
       # The one-file form runs in a browser too (the JavaScript package's packZip and unpackZip).
       - run: cargo build -p tutti-zip --locked --target wasm32-unknown-unknown
+      # The converters convert in a browser too: their interface has no file IO either.
+      - run: cargo build -p tutti-convert --locked --target wasm32-unknown-unknown
       # The npm package: the wasm build, the generated document types current, the Node tests.
       - uses: actions/setup-node@v4
         with:

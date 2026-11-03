@@ -770,6 +770,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tutti-convert"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tutti",
+ "tutti-fs",
+]
+
+[[package]]
 name = "tutti-fs"
 version = "0.1.0"
 dependencies = [

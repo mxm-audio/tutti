@@ -13,7 +13,9 @@ interoperable (every unit and rule stated), expandable (namespaced extensions, u
 and written back) and self-documenting (the document names its format, version, spec and schema
 in its first lines; every project folder carries a short README; the spec ships with a schema,
 examples and conformance fixtures). This repository holds the spec, the schema, the examples, the
-docs, the reference crates and, later, the JavaScript package and the converters.
+docs, the reference crates, the JavaScript package, and the converters: their interface
+(`tutti-convert`) and one crate per format, the first Polyend Tracker projects, for MXM tutti
+Converter (the owner, 2026-11-03).
 [newDAWn](https://github.com/maxmcorp/newDAWn) is its first consumer; it takes the `tutti` crate
 as a git dependency on `main`, locked to a commit, as it takes mxm-kit.
 
@@ -63,7 +65,9 @@ the index is below.
   tests go through it, and the save procedure itself is the core's `Project`, which `tutti-fs`
   only lends a disk to (the owner, 2026-10-21: an implementer never writes file-system code
   against the spec). **The one-file form is `crates/tutti-zip`'s**, over any store, so a file on
-  disk and bytes in a browser are packed and refused by the same code.
+  disk and bytes in a browser are packed and refused by the same code. **A converter is a crate
+  behind `crates/tutti-convert`**, with no file IO either: it reads a source and gives a
+  conversion, which `tutti-convert`'s one writer puts into a store through `Project`.
 - **MSRV is per crate, compiled against**: the core at 1.87 (`cargo +1.87.0 test -p tutti` when its
   language use changes); a crate that needs more says so in its `Cargo.toml` and `AGENTS.md`.
 - **Windows, macOS and Linux, and the web.** Work and verify on Windows; the other platforms are
@@ -104,4 +108,5 @@ build.
 | [`crates/tutti-schema/AGENTS.md`](crates/tutti-schema/AGENTS.md) | The tests that hold spec, schema, examples, docs and code together; the field-reference generator |
 | [`crates/tutti-cli/AGENTS.md`](crates/tutti-cli/AGENTS.md) | The `tutti` command: check, inspect, deps, archive, fmt, over `tutti-fs` |
 | [`crates/tutti-wasm/AGENTS.md`](crates/tutti-wasm/AGENTS.md) | The core for JavaScript: wasm-bindgen functions, strings in and out, no file IO |
+| [`crates/tutti-convert/AGENTS.md`](crates/tutti-convert/AGENTS.md) | The converters' interface: a format, a read-only source and one that records what was read, a conversion and an export, the one writer, derived ids, the fingerprint; no file IO |
 | [`js/AGENTS.md`](js/AGENTS.md) | `@mxm-audio/tutti`, the npm package: the wasm builds for Node and the web, the wrapper, a project in the browser's storage, the generated document types, the Node tests and the browser test |

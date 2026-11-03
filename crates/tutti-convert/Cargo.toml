@@ -1,0 +1,21 @@
+[package]
+name = "tutti-convert"
+description = "Converting other project formats into tutti and out of it: the interface every format implements, a source that records what was read, and the one writer"
+version.workspace = true
+edition.workspace = true
+# The core's floor, checked with `cargo +1.87.0 build -p tutti-convert`: a build compiles no
+# dev-dependency, and the tests' tutti-fs needs 1.88.
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+tutti.workspace = true
+# The report and what a recording source served are serialisable, for a watcher's record.
+serde.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tutti-fs.workspace = true
+serde_json.workspace = true
