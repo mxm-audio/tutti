@@ -39,7 +39,8 @@ to an earlier level is generated after Level 2's, at the end of `main` (Level 1'
   A fictitious plugin (`org.example.*`) stands where no real one may: what it is given is a
   table, not a sound.
 - **Track groups' cases** (`folder-solo`, `overlap`, `return-solo`, `folder-notes`, 2026-10-28)
-  are generated after `render-choice`, Levels 0 and 1 in that order.
+  are generated after `render-choice`, Levels 0 and 1 in that order; `part-end` (Level 0, a note
+  at its part's end, 2026-11-03) after them.
 - **A link is made by the runner, never committed**: git keeps no link on every system
   (Windows checks one out as a file). A case that needs one says so in its `expected.json`
   (`link`: `path` and `target`, the target relative to the link's folder), and every runner

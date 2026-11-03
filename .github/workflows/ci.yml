@@ -31,6 +31,7 @@ jobs:
       - run: cargo build -p tutti-zip --locked --target wasm32-unknown-unknown
       # The converters convert in a browser too: their interface has no file IO either.
       - run: cargo build -p tutti-convert --locked --target wasm32-unknown-unknown
+      - run: cargo build -p tutti-polyend --locked --target wasm32-unknown-unknown
       # The npm package: the wasm build, the generated document types current, the Node tests.
       - uses: actions/setup-node@v4
         with:

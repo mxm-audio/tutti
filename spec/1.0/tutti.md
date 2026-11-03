@@ -436,6 +436,13 @@ as separate ones (which it SHOULD NOT; `conformance.md`).
 Resizing a part changes how much of the pattern plays; it never changes the pattern. Parts may
 overlap on a track; all of them play, and their sound sums.
 
+**A note sounds for as long as its part lasts.** A part sounds each note of its pattern for the
+note's whole `length`, also past the pattern's own `length`, and ends a note still sounding when
+the part ends, at the part's end. So a part made longer than its pattern lets the pattern's last
+note ring on, and a part made shorter cuts it. Worked example: a pattern two beats long holds a
+note at beat 1 lasting two beats; a part of 2.5 beats plays it from beat 1 to 2.5, a part of four
+beats from beat 1 to 3 (`conformance/l0/part-end`).
+
 ### 6.7 Events
 
 Every event carries `type`, `id` and `at` (pattern ticks, 0 or more). Fallback for an unknown

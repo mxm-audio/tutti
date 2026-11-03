@@ -57,6 +57,7 @@ request adding a row; an unregistered namespace is valid and simply opaque to ev
 | Namespace | Owner | What it holds | Since |
 |---|---|---|---|
 | `dk.mxm.newdawn` | newDAWn ([maxmcorp/newDAWn](https://github.com/maxmcorp/newDAWn)) | On a track: `armed`. On the document: the save `generation` its journal extends, and view state. In `private/dk.mxm.newdawn/`: its journal, kept versions, exports, trash and lock. Never required. | 1.0 |
+| `dk.mxm.polyend-tracker` | `tutti-polyend` (this repository), the Polyend Tracker converter | What a converted Tracker project holds that the core does not, so converting back is exact: on the document the project file, the patterns' headers and every step no note stands for; on a note its step; on a device its instrument's header and samples' description. Never required. | 1.0 |
 
 Reserved prefixes: `org.tutti.*` for drafts of core features (section 5); nothing else is
 reserved.

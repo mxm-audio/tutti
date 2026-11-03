@@ -1,0 +1,19 @@
+[package]
+name = "tutti-polyend"
+description = "Polyend Tracker projects into tutti: the Tracker's files read byte for byte, the song as the device plays it, and the conversion"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+tutti.workspace = true
+tutti-convert.workspace = true
+serde.workspace = true
+# The extension's values are JSON (tutti 8.1).
+serde_json.workspace = true
+
+[dev-dependencies]
+tutti-fs.workspace = true

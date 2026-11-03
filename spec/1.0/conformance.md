@@ -98,6 +98,7 @@ fixture is made (a sine, a click, noise), never taken from anywhere.
 | 0 | `folders` | A folder's gain and mute reach its children; destinations resolve. |
 | 0 | `folder-solo` | A folder soloed: a track in a folder inside it heard, one inside it routed past it heard, one outside it silent. |
 | 0 | `overlap` | Two parts overlapping on one track: both play, and their sound sums. |
+| 0 | `part-end` | A note outlasting its pattern: one part ends it at the part's end, a longer part lets it sound its whole length (6.6). |
 | 0 | `preserve` | Unknown keys at the document, track and event level, an unknown event type, two extensions: read, write, equal (3.1). |
 | 1 | `automation` | Device and channel targets, hold and linear, through a promoted name. |
 | 1 | `sends` | A send to a return, pre- and post-fader, its RMS. |

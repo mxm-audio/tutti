@@ -108,5 +108,6 @@ build.
 | [`crates/tutti-schema/AGENTS.md`](crates/tutti-schema/AGENTS.md) | The tests that hold spec, schema, examples, docs and code together; the field-reference generator |
 | [`crates/tutti-cli/AGENTS.md`](crates/tutti-cli/AGENTS.md) | The `tutti` command: check, inspect, deps, archive, fmt, over `tutti-fs` |
 | [`crates/tutti-wasm/AGENTS.md`](crates/tutti-wasm/AGENTS.md) | The core for JavaScript: wasm-bindgen functions, strings in and out, no file IO |
+| [`crates/tutti-polyend/AGENTS.md`](crates/tutti-polyend/AGENTS.md) | Polyend Tracker projects into tutti: the Tracker's files byte for byte, the song as the device plays it, the conversion and its way back |
 | [`crates/tutti-convert/AGENTS.md`](crates/tutti-convert/AGENTS.md) | The converters' interface: a format, a read-only source and one that records what was read, a conversion and an export, the one writer, derived ids, the fingerprint; no file IO |
 | [`js/AGENTS.md`](js/AGENTS.md) | `@mxm-audio/tutti`, the npm package: the wasm builds for Node and the web, the wrapper, a project in the browser's storage, the generated document types, the Node tests and the browser test |

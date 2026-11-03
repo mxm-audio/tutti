@@ -1,0 +1,34 @@
+{
+  "what": "One pattern, two beats long, holds a note from beat 1 lasting two beats, past the pattern's end; two parts play it. A part sounds a note for as long as the part lasts, past the pattern's length, and ends it at the part's end (6.6): each note starts and ends at these seconds and samples.",
+  "rate": 48000,
+  "notes": [
+    {
+      "pitch": 60,
+      "start": {
+        "tick": 960,
+        "seconds": 0.5,
+        "sample_48000": 24000
+      },
+      "end": {
+        "tick": 2400,
+        "seconds": 1.25,
+        "sample_48000": 60000
+      },
+      "why": "the first part ends at 2.5 beats, before the note does: the part's end ends it"
+    },
+    {
+      "pitch": 60,
+      "start": {
+        "tick": 4800,
+        "seconds": 2.5,
+        "sample_48000": 120000
+      },
+      "end": {
+        "tick": 6720,
+        "seconds": 3.5,
+        "sample_48000": 168000
+      },
+      "why": "the second part lasts four beats: the note sounds its whole length, a beat past the pattern's end"
+    }
+  ]
+}

@@ -183,6 +183,17 @@ designed from is `docs/research.md`.
   future. Like DAW Project <> tutti"). Its plan was reviewed by a second model (Pi) in eight
   rounds before any code.
 
+- **2026-11-03:** **A note sounds for as long as its part lasts**: past its pattern's length, and
+  ended at the part's end when the part ends first (6.6, `conformance/l0/part-end`). Reason: a
+  Polyend Tracker note rings into the next pattern, and the converter keeps it as one note in a
+  lengthened part; the spec had said nothing of a note at its part's end.
+- **2026-11-03:** **`dk.mxm.polyend-tracker`**, `tutti-polyend`'s namespace, registered. The
+  Tracker's version 6 pattern layout is read from Tracker CE's source ("Ignore the license just
+  make it"); the reader is this repository's own code. The sampler is to load a converted
+  instrument's sample from its device's own files (7.8), the owner's choice among three; until
+  the sampler does, and its parameter mapping is reviewed, the instruments' settings are kept,
+  not applied.
+
 ## Design choices and what they were weighed against
 
 - **The converters' interface (2026-11-03).** A source is the core's `Folder` and a listing, so

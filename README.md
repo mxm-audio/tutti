@@ -243,6 +243,7 @@ My-Project/
 | `crates/tutti-schema` | The tests that hold the schema, the examples and the types together |
 | `crates/tutti-cli` | `tutti check`, `tutti inspect`, `tutti deps`, `tutti archive`, `tutti fmt` |
 | `crates/tutti-wasm`, `js/` | The core for JavaScript, and `@mxm-audio/tutti`, the npm package around it |
+| `crates/tutti-polyend` | Polyend Tracker projects into tutti, every byte kept for the way back |
 | `crates/tutti-convert` | The converters' interface: what a crate converting another format into tutti or out of it implements, and the one writer |
 
 ## Status
@@ -251,8 +252,8 @@ Pre-alpha. The spec's first version is a draft: nothing is released, and the for
 change in every detail. The first programs to read and write it are
 [newDAWn](https://github.com/maxmcorp/newDAWn) and
 [MXM Player](https://github.com/mxm-audio/mxm-player), whose instrument, effects and sequence save
-as a project newDAWn opens. The converters' interface (`tutti-convert`) is in place; Polyend
-Tracker projects are the first format, then the DAWproject bridge and a Standard MIDI File
+as a project newDAWn opens. The converters' interface (`tutti-convert`) is in place, and Polyend
+Tracker projects are the first format (`tutti-polyend`); then the DAWproject bridge and a Standard MIDI File
 converter; bindings for more languages are planned.
 
 ## Licence

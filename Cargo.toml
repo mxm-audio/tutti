@@ -8,6 +8,7 @@ members = [
     "crates/tutti-cli",
     "crates/tutti-wasm",
     "crates/tutti-convert",
+    "crates/tutti-polyend",
 ]
 
 [workspace.package]
@@ -35,3 +36,4 @@ tutti-fs = { path = "crates/tutti-fs" }
 tutti-zip = { path = "crates/tutti-zip" }
 tutti-cli = { path = "crates/tutti-cli" }
 tutti-convert = { path = "crates/tutti-convert" }
+tutti-polyend = { path = "crates/tutti-polyend" }

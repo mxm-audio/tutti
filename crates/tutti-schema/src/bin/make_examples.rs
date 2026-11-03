@@ -83,6 +83,11 @@ fn main() {
         write_project(&folder, &title_case(fixture.name), fixture.project);
         write_json(&folder.join("expected.json"), &fixture.expected);
     }
+    // A note at its part's end (the owner, 2026-11-03).
+    let fixture = part_end(&mut ids);
+    let folder = l0.join(fixture.name);
+    write_project(&folder, &title_case(fixture.name), fixture.project);
+    write_json(&folder.join("expected.json"), &fixture.expected);
     println!("examples written under {}", examples.display());
 }
 
@@ -2641,6 +2646,35 @@ fn overlap(ids: &mut Ids) -> Fixture {
             "what": "Two parts on one track overlap for a second, each playing a mono tone at the centre (440 Hz, then 660 Hz); the master's RMS per output channel over each window is within 0.5 dB of these: both play where they overlap, and their sound sums (6.6).",
             "tolerance_db": 0.5,
             "heard": rows,
+        }),
+    }
+}
+
+/// part-end (Level 0): a note outlasting its pattern sounds for as long as its part lasts, and
+/// ends at the part's end when the part ends first (6.6).
+fn part_end(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    let beat = 960;
+    let mut t = Track::new(ids.next("trk"), "Ringing");
+    let ring = note(ids, beat, 2 * beat, 60, 1.0);
+    let pat = pattern(ids, "Ring", 2 * beat, vec![ring]);
+    let pat_id = pat.id.clone();
+    t.patterns.push(pat);
+    t.parts.push(part(ids, &pat_id, 0, 2 * beat + beat / 2));
+    t.parts.push(part(ids, &pat_id, 4 * beat, 4 * beat));
+    p.document.tracks.push(t);
+    let map = time::TempoMap::new(960, &p.document.tempo);
+    let row = |start: i64, end: i64, why: &str| json!({"pitch": 60, "start": when(&map, start as f64), "end": when(&map, end as f64), "why": why});
+    Fixture {
+        name: "part-end",
+        project: p,
+        expected: json!({
+            "what": "One pattern, two beats long, holds a note from beat 1 lasting two beats, past the pattern's end; two parts play it. A part sounds a note for as long as the part lasts, past the pattern's length, and ends it at the part's end (6.6): each note starts and ends at these seconds and samples.",
+            "rate": 48000,
+            "notes": [
+                row(beat, 2 * beat + beat / 2, "the first part ends at 2.5 beats, before the note does: the part's end ends it"),
+                row(5 * beat, 7 * beat, "the second part lasts four beats: the note sounds its whole length, a beat past the pattern's end"),
+            ],
         }),
     }
 }

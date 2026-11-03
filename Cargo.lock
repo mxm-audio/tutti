@@ -790,6 +790,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tutti-polyend"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tutti",
+ "tutti-convert",
+ "tutti-fs",
+]
+
+[[package]]
 name = "tutti-schema"
 version = "0.1.0"
 dependencies = [
