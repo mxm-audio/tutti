@@ -90,7 +90,7 @@ fn every_real_project_round_trips_and_converts() {
             .document()
             .tracks
             .iter()
-            .flat_map(|t| t.children.iter())
+            .flat_map(|t| std::iter::once(t).chain(t.children.iter()))
             .flat_map(|c| c.patterns.iter())
             .map(|p| p.events.len())
             .sum();

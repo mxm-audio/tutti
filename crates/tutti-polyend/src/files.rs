@@ -9,20 +9,25 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The project file versions read: each one a fixture carries (a factory project of the
-/// Mini's 2.x firmware is 16; CE 1.0.0 writes 17). Every other is refused by name.
-pub const PROJECT_VERSIONS: &[u8] = &[16, 17];
-/// The pattern file versions read: 4 and 5 (the Mini's 2.x firmware), 6 (CE 1.0.0, with a
-/// step's own volume and micro-move). Versions 1 to 3 needed volume and beat-slice translations
-/// and came with the older `.mti` instruments, which are refused.
-pub const PATTERN_VERSIONS: &[u8] = &[4, 5, 6];
-/// The instrument file versions read: 9, the 372-byte instrument (firmware 8 on).
-pub const INSTRUMENT_VERSIONS: &[u8] = &[9];
+/// The project file versions read, each carried by a fixture: 7, 11 and 13 (the factory Artists
+/// projects of the Tracker's earlier firmware), 16 (the Mini's 2.x), 17 (CE 1.0.0). The fields a
+/// conversion reads sit where they do in every one (the firmware reads an older file into its
+/// newest struct); a project before 10 has its pad root note reset to 24. Every other refused.
+pub const PROJECT_VERSIONS: &[u8] = &[7, 11, 13, 16, 17];
+/// The pattern file versions read: 1 to 5 (six-byte steps), 6 (CE 1.0.0, a step's own volume
+/// and micro-move). Versions 1 to 3 are played through the firmware's translations
+/// ([`crate::song`]).
+pub const PATTERN_VERSIONS: &[u8] = &[1, 2, 3, 4, 5, 6];
+/// The instrument file versions read: 1, 3, 6, 7 and 8 (the older `.mti` files), 9 (`.pti`). Before
+/// version 8 the struct is four bytes shorter; version 1 numbers its play modes from 5 on one
+/// lower; volumes before 9 are converted as the firmware converts them.
+pub const INSTRUMENT_VERSIONS: &[u8] = &[1, 3, 6, 7, 8, 9];
 
 /// Steps in every track of a pattern file, whatever its length.
 pub const STEPS: usize = 128;
-/// The size of the instrument struct of version 9.
+/// The size of the instrument struct; before version 8 it may also be four bytes less.
 pub const INSTRUMENT_STRUCT: usize = 372;
+pub const INSTRUMENT_STRUCT_BEFORE_8: usize = 368;
 /// Where a version 9 instrument's samples start: the header, the struct and its CRC.
 pub const PCM_OFFSET: usize = 16 + INSTRUMENT_STRUCT + 4;
 
@@ -171,9 +176,13 @@ impl ProjectFile {
         f32::from_le_bytes([b[0], b[1], b[2], b[3]])
     }
 
-    /// The pad board's root note.
+    /// The pad board's root note: the firmware resets it to 24 in a project before version 10.
     pub fn root_note(&self) -> u8 {
-        self.at(project_at::ROOT_NOTE)[0]
+        if self.header.version() < 10 {
+            24
+        } else {
+            self.at(project_at::ROOT_NOTE)[0]
+        }
     }
 
     /// Whether sample track `t` (0 to 7) is muted.
@@ -416,7 +425,8 @@ mod instrument_at {
 }
 
 impl InstrumentFile {
-    /// The file's first bytes, up to its samples (`PCM_OFFSET`), and the file's whole length.
+    /// An instrument file's first bytes, up to its samples (all of a `.mti`), and the file's
+    /// whole length.
     pub fn parse(head: &[u8], file_len: u64) -> Result<InstrumentFile, Unreadable> {
         let header = Header::parse(head)?;
         if &header.id != b"TI" || header.kind != 1 {
@@ -426,20 +436,25 @@ impl InstrumentFile {
         if header.version.iter().any(|&v| v != header.version[0]) {
             return Err(bad("an instrument whose four version bytes differ"));
         }
-        if header.size as usize != INSTRUMENT_STRUCT {
+        // The full struct at any version; the shorter one only before version 8 (the firmware's
+        // `InstrumentFileValidation`).
+        let size = header.size as usize;
+        let legacy = header.version() < 8 && size == INSTRUMENT_STRUCT_BEFORE_8;
+        if size != INSTRUMENT_STRUCT && !legacy {
             return Err(bad(format!(
-                "an instrument struct of {} bytes",
-                header.size
+                "an instrument struct of {size} bytes in version {}",
+                header.version()
             )));
         }
-        if (file_len as usize) < PCM_OFFSET || head.len() < PCM_OFFSET {
-            return Err(bad("an instrument without its samples"));
+        let end = Header::LEN + size + 4;
+        if (file_len as usize) < end || head.len() < end {
+            return Err(bad("shorter than an instrument"));
         }
         let mut crc = [0u8; 4];
-        crc.copy_from_slice(&head[PCM_OFFSET - 4..PCM_OFFSET]);
+        crc.copy_from_slice(&head[end - 4..end]);
         Ok(InstrumentFile {
             header,
-            data: head[Header::LEN..PCM_OFFSET - 4].to_vec(),
+            data: head[Header::LEN..end - 4].to_vec(),
             crc,
         })
     }
@@ -466,8 +481,24 @@ impl InstrumentFile {
         c_string(&self.data[instrument_at::SAMPLE_NAME..instrument_at::SAMPLE_NAME + 32])
     }
 
+    /// The length of everything before the samples: where a `.pti`'s samples start.
+    pub fn len(&self) -> usize {
+        Header::LEN + self.data.len() + 4
+    }
+
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
+    /// The play mode, as the firmware reads it (version 1's from beat slice on one lower).
     pub fn play_mode(&self) -> PlayMode {
-        match self.data[instrument_at::PLAY_MODE] {
+        let raw = self.data[instrument_at::PLAY_MODE];
+        let raw = if self.header.version() == 1 && raw > 4 {
+            raw + 1
+        } else {
+            raw
+        };
+        match raw {
             0 => PlayMode::OneShot,
             1 => PlayMode::LoopForward,
             2 => PlayMode::LoopBackward,
@@ -498,9 +529,22 @@ impl InstrumentFile {
         )
     }
 
-    /// Volume, 0 to 100.
+    /// Volume, 0 to 100, as the firmware reads it: converted from versions 4 and 8's scales.
     pub fn volume(&self) -> u8 {
-        self.data[instrument_at::VOLUME]
+        let mut v = self.data[instrument_at::VOLUME];
+        if self.header.version() <= 4 {
+            v = volume_1117_to_1118(v);
+        }
+        if self.header.version() <= 8 {
+            v = volume_1300_to_1302(v);
+        }
+        v
+    }
+
+    /// The volume as gain in decibels: 1 to 100 is -12 to +12 dB, 0 silence.
+    pub fn volume_db(&self) -> Option<f64> {
+        let v = self.volume();
+        (v > 0).then(|| map(v as f64, 1.0, 100.0, -12.0, 12.0))
     }
 
     /// Panning, 0 (left) to 100 (right), 50 the middle.
@@ -518,4 +562,35 @@ impl InstrumentFile {
             .map(|i| self.u16_at(instrument_at::SLICES + 2 * i))
             .collect()
     }
+}
+
+/// The firmware's `map` on floats.
+fn map(x: f64, in_min: f64, in_max: f64, out_min: f64, out_max: f64) -> f64 {
+    (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+}
+
+/// The firmware's `ConvertOldFileVersionVolume::convertVolume`: a 1-to-100 value on one dB range
+/// to the same level on another, rounded, 0 kept.
+fn convert_volume(v: u8, old: (f32, f32), new: (f32, f32)) -> u8 {
+    if v == 0 {
+        return 0;
+    }
+    // In f32, as the firmware computes it, so a value at a rounding edge lands where it does there.
+    let map32 = |x: f32, a: f32, b: f32, c: f32, d: f32| (x - a) * (d - c) / (b - a) + c;
+    let db = map32(v as f32, 1.0, 100.0, old.0, old.1);
+    let mut r = map32(db, new.0, new.1, 1.0, 100.0);
+    if r > 0.0 {
+        r += 0.5;
+    }
+    r.clamp(1.0, 100.0) as u8
+}
+
+/// An instrument's volume, or a volume effect's value, from firmware 1.1.17's scale to 1.1.18's.
+pub fn volume_1117_to_1118(v: u8) -> u8 {
+    convert_volume(v, (-19.8, 0.0), (-24.0, 24.0))
+}
+
+/// The same, from 1.3.0's scale to 1.3.2's.
+pub fn volume_1300_to_1302(v: u8) -> u8 {
+    convert_volume(v, (-24.0, 24.0), (-12.0, 12.0))
 }

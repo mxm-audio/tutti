@@ -153,28 +153,157 @@ fn every_file_is_written_back_byte_for_byte() {
 }
 
 #[test]
-fn unknown_versions_and_the_older_layout_are_refused_by_name() {
+fn unknown_versions_are_refused_by_name() {
     let card = Card::new();
-    card.put("Old", "project.mt", project(16, &[1], 120.0));
-    card.pattern("Old", 1, &pattern(3, 8, 15, true));
-    match read(&card.store, &card.found("Old")) {
+    card.put("Odd", "project.mt", project(16, &[1], 120.0));
+    let mut odd = pattern(5, 8, 15, true);
+    odd.header.version = [9; 4];
+    card.put("Odd", "patterns/pattern_01.mtp", odd.to_bytes().unwrap());
+    match read(&card.store, &card.found("Odd")) {
         Err(Error::Unreadable { reference, why }) => {
             assert!(reference.ends_with("pattern_01.mtp"), "{reference}");
-            assert!(why.contains("version 3"), "{why}");
+            assert!(why.contains("version 9"), "{why}");
         }
         other => panic!("{other:?}"),
     }
-    card.put("Older", "project.mt", project(16, &[1], 120.0));
-    card.put("Older", "instruments/instrument_01.mti", vec![0; 64]);
-    assert!(matches!(
-        read(&card.store, &card.found("Older")),
-        Err(Error::Unreadable { why, .. }) if why.contains(".mti")
-    ));
     card.put("Ancient", "project.mt", project(15, &[1], 120.0));
     assert!(matches!(
         read(&card.store, &card.found("Ancient")),
         Err(Error::Unreadable { why, .. }) if why.contains("version 15")
     ));
+    card.put("Two", "project.mt", project(16, &[1], 120.0));
+    card.put(
+        "Two",
+        "instruments/instrument_01.mti",
+        older_instrument(2, 368, 0, 50),
+    );
+    assert!(matches!(
+        read(&card.store, &card.found("Two")),
+        Err(Error::Unreadable { why, .. }) if why.contains("version 2")
+    ));
+    card.put("Stray", "project.mt", project(16, &[1], 120.0));
+    card.put("Stray", "samples/instr05.wav", made_wav(10));
+    assert!(matches!(
+        read(&card.store, &card.found("Stray")),
+        Err(Error::Unreadable { why, .. }) if why.contains("no instrument names")
+    ));
+}
+
+/// An older instrument, `.mti`: the header and struct alone, its play mode and volume set.
+fn older_instrument(version: u8, size: usize, play_mode: u8, volume: u8) -> Vec<u8> {
+    let mut bytes = vec![0u8; 16 + size + 4];
+    bytes[..16].copy_from_slice(&header(b"TI", 1, version, size).to_bytes());
+    bytes[16 + 5..16 + 13].copy_from_slice(b"Kick.wav");
+    bytes[16 + 60] = play_mode;
+    bytes[16 + 256] = volume;
+    bytes[16 + 260] = 50;
+    bytes
+}
+
+/// A made WAV: 16-bit mono at 44.1 kHz, a ramp.
+fn made_wav(frames: u32) -> Vec<u8> {
+    let data = frames * 2;
+    let mut out = Vec::new();
+    out.extend_from_slice(b"RIFF");
+    out.extend_from_slice(&(36 + data).to_le_bytes());
+    out.extend_from_slice(b"WAVEfmt ");
+    out.extend_from_slice(&16u32.to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&44_100u32.to_le_bytes());
+    out.extend_from_slice(&88_200u32.to_le_bytes());
+    out.extend_from_slice(&2u16.to_le_bytes());
+    out.extend_from_slice(&16u16.to_le_bytes());
+    out.extend_from_slice(b"data");
+    out.extend_from_slice(&data.to_le_bytes());
+    for i in 0..frames {
+        out.extend_from_slice(&((i as i16).wrapping_mul(31)).to_le_bytes());
+    }
+    out
+}
+
+#[test]
+fn the_older_layout_reads_converts_and_comes_back_byte_for_byte() {
+    use tutti_polyend::files::{
+        InstrumentFile, PlayMode, volume_1117_to_1118, volume_1300_to_1302,
+    };
+    // The firmware's conversions, at values off a rounding edge.
+    assert_eq!(volume_1117_to_1118(50), 30);
+    assert_eq!(volume_1117_to_1118(100), 51);
+    assert_eq!(volume_1300_to_1302(100), 100);
+    assert_eq!(volume_1300_to_1302(1), 1);
+    assert_eq!(volume_1117_to_1118(0), 0);
+
+    // A project of version 7 (its pad root note reset to 24), a pattern of version 2, an
+    // instrument of version 6 playing beat slices and one of version 1 whose play mode 5 reads 6.
+    let card = Card::new();
+    let mut p = project(7, &[1], 120.0);
+    p[0x117] = 40;
+    card.put("Old", "project.mt", p);
+    let mut file = pattern(2, 8, 7, false);
+    file.tracks[0].steps[0] = note(60, 0);
+    file.tracks[1].steps[0] = with_fx(note(60, 1), 0, fx::VOLUME, 100);
+    card.pattern("Old", 1, &file);
+    card.put(
+        "Old",
+        "instruments/instrument_01.mti",
+        older_instrument(6, 372, 5, 50),
+    );
+    card.put(
+        "Old",
+        "instruments/instrument_02.mti",
+        older_instrument(1, 368, 5, 50),
+    );
+    card.put("Old", "samples/instr01.wav", made_wav(300));
+    card.put("Old", "samples/instr02.wav", made_wav(200));
+    let found = card.found("Old");
+    let (model, locators) = read(&card.store, &found).unwrap();
+    assert_eq!(model.project.root_note(), 24, "reset before version 10");
+    let head = |i: u8| -> &InstrumentFile { &model.instruments[&i].head };
+    assert_eq!(head(0).play_mode(), PlayMode::BeatSlice);
+    assert_eq!(
+        head(1).play_mode(),
+        PlayMode::Wavetable,
+        "version 1's 5 reads 6"
+    );
+    assert_eq!(head(0).volume(), volume_1300_to_1302(50));
+    assert_eq!(model.instruments[&0].name(), "Kick");
+
+    // The beat slice note moved by 24 - (24 + 12); the volume effect converted, then played.
+    let s = song(&model);
+    let by_track: BTreeMap<usize, (u8, f64)> = s
+        .notes
+        .iter()
+        .map(|n| (n.track, (n.pitch, n.velocity)))
+        .collect();
+    assert_eq!(by_track[&0].0, 48);
+    assert_eq!(by_track[&1], (60, 1.0));
+
+    // Every file written back, the WAVs included; converted, valid, and read back the same.
+    for (path, bytes) in model.files(&card.store, &locators).unwrap() {
+        let original = card.store.read(&format!("Projects/Old/{path}")).unwrap();
+        assert!(original == bytes, "{path} differs");
+    }
+    let conversion = PolyendTracker
+        .to_tutti(&card.store, &found, &mut Quiet)
+        .unwrap();
+    let out = MemoryStore::new();
+    let generator = Generator::new("made", "0", "https://example.org");
+    write(conversion, &card.store, out.clone(), &generator, &mut Quiet).unwrap();
+    let opened = Project::open(out.clone()).unwrap();
+    assert!(
+        opened.report.is_valid(),
+        "{:?}",
+        opened.report.errors().collect::<Vec<_>>()
+    );
+    let (back, back_locators) = to_model(opened.project.document(), &out).unwrap();
+    assert!(back == model, "the model read back differs");
+    for (index, locator) in &locators {
+        assert_eq!(
+            samples(&card.store, locator).unwrap(),
+            samples(&out, &back_locators[index]).unwrap()
+        );
+    }
 }
 
 #[test]
@@ -372,6 +501,7 @@ fn song_card() -> Card {
     card.put("Tune", "project.mt", project(17, &[1, 2, 1], 120.0));
     let mut p1 = pattern(6, 16, 7, true);
     p1.tracks[0].steps[0] = note(60, 0);
+    p1.tracks[0].steps[4] = note(48, 1); // a second instrument on track 1: a folder
     p1.tracks[0].steps[6] = Step {
         volume: 50,
         ..note(62, 0)
@@ -428,7 +558,20 @@ fn a_project_converts_into_folders_of_instrument_tracks() {
     let (out, document, report) = convert(&card);
     let drums = named(&document.tracks, "Drums");
     let lead = named(&drums.children, "Lead");
+    assert_eq!(drums.children.len(), 2, "two instruments, a folder");
     assert_eq!(lead.devices[0].plugin, "clap:dk.mxm.mxm-creative-sampler");
+    // The sampler's snapshot: note 60 the sample's own pitch, the instrument's volume its level.
+    let snapshot = |id: &str| {
+        let clap = tutti_polyend::convert::clap_id(id);
+        lead.devices[0]
+            .params
+            .iter()
+            .find(|p| p.id == clap)
+            .map(|p| p.value)
+    };
+    assert_eq!(snapshot("aroot"), Some(60.0));
+    assert_eq!(snapshot("alevel"), Some(1.0));
+    assert_eq!(tutti_polyend::convert::clap_id("aroot"), "93087939");
     let device = lead.devices[0].id.as_str();
     let sample = &out.files()[&format!("plugins/files/{device}/sample.wav")];
     assert_eq!(&sample[..4], b"RIFF");
@@ -456,8 +599,12 @@ fn a_project_converts_into_folders_of_instrument_tracks() {
     );
 
     // The kick (stereo) ends at the off on track 2's step 5; the spare is kept, muted.
-    let bass = named(&document.tracks, "Bass");
-    assert_eq!(named(&bass.children, "Kick").patterns.len(), 1);
+    let bass = named(&document.tracks, "Bass: Kick");
+    assert!(
+        bass.children.is_empty(),
+        "one instrument, a track of its own"
+    );
+    assert_eq!(bass.patterns.len(), 1);
     let unused = named(&document.tracks, "Instruments not in the song");
     assert!(unused.channel.mute);
     assert_eq!(unused.children[0].name, "Spare");
@@ -502,5 +649,19 @@ fn the_model_comes_back_byte_for_byte_samples_and_all() {
     for (path, bytes) in files {
         let original = card.store.read(&format!("Projects/Tune/{path}")).unwrap();
         assert!(original == bytes, "{path} differs");
+    }
+}
+
+/// The pattern sizes the firmware validates against (`patternFileValidation.h`; version 6's 16
+/// tracks are `sizeof(strPattern)`, which it asserts, and which it writes as it is): ours, for every
+/// track count of either layout.
+#[test]
+fn pattern_files_are_the_sizes_the_firmware_knows() {
+    for (version, sizes) in [(5, [6184, 9260, 12336]), (6, [8232, 12332, 16432])] {
+        for (tracks, size) in [8, 12, 16].into_iter().zip(sizes) {
+            let bytes = pattern(version, tracks, 15, true).to_bytes().unwrap();
+            assert_eq!(bytes.len(), size, "version {version}, {tracks} tracks");
+            assert_eq!(PatternFile::parse(&bytes).unwrap().tracks.len(), tracks);
+        }
     }
 }

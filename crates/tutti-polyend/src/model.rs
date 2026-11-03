@@ -8,7 +8,7 @@ use tutti::folder::{FolderError, Kind};
 use tutti::render::sha256_hex;
 use tutti_convert::{Error, Found, Source};
 
-use crate::files::{InstrumentFile, PCM_OFFSET, PatternFile, ProjectFile, Unreadable};
+use crate::files::{InstrumentFile, PatternFile, ProjectFile, Unreadable};
 
 /// A project: its files, every byte of them but the instruments' samples, which [`Pcm`]
 /// describes and a [`Locator`] finds.
@@ -23,18 +23,44 @@ pub struct Model {
     pub instruments: BTreeMap<u8, Instrument>,
 }
 
-/// One instrument: its file's name, everything before its samples, and its samples described.
+/// One instrument: its file's name, everything before its samples, where its samples are kept,
+/// and its samples described (none for an older instrument whose sample file is missing).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Instrument {
-    /// As on the card, `1 Kick.pti`.
+    /// As on the card: `1 Kick.pti`, or the older `instrument_01.mti`.
     pub file: String,
     pub head: InstrumentFile,
-    pub pcm: Pcm,
+    pub layout: Layout,
+    pub pcm: Option<Pcm>,
+}
+
+/// Where an instrument's samples are kept.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Layout {
+    /// After its header in its `.pti`, 16-bit at 44 100 Hz, a stereo sample's channels one after
+    /// the other.
+    Pti,
+    /// In its own WAV in `samples/` (`instrNN.wav`), as the older firmware kept them, or none.
+    Mti { wav: Option<String> },
 }
 
 impl Instrument {
-    /// The name the device shows: the file's name without its number and extension.
+    /// The name the device shows: the file's name without its number and extension, or, for an
+    /// older instrument, its sample's name.
     pub fn name(&self) -> String {
+        if matches!(self.layout, Layout::Mti { .. }) {
+            let name = self.head.sample_name();
+            let name = name
+                .rsplit_once('.')
+                .map(|(s, _)| s)
+                .unwrap_or(&name)
+                .trim();
+            return if name.is_empty() {
+                self.file.clone()
+            } else {
+                name.to_owned()
+            };
+        }
         let stem = self.file.strip_suffix(".pti").unwrap_or(&self.file);
         stem.split_once(' ')
             .map(|(_, n)| n)
@@ -44,8 +70,10 @@ impl Instrument {
     }
 }
 
-/// An instrument's samples: 16-bit signed little-endian at 44 100 Hz, a stereo sample's channels
-/// one after the other (all of the left, then all of the right), as the Tracker stores them.
+/// An instrument's samples: in a `.pti`, 16-bit signed little-endian at 44 100 Hz, a stereo
+/// sample's channels one after the other (all of the left, then all of the right), as the Tracker
+/// stores them; in the older layout, the whole WAV file, its channels and frames as its header
+/// says.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pcm {
     pub channels: u8,
@@ -119,6 +147,40 @@ pub(crate) fn pattern_number(name: &str) -> Option<u8> {
     n.parse().ok().filter(|&n| n > 0)
 }
 
+/// An older instrument file's index, from `instrument_NN.mti`: NN - 1.
+pub(crate) fn old_instrument_index(name: &str) -> Option<u8> {
+    let n: u8 = name
+        .strip_prefix("instrument_")?
+        .strip_suffix(".mti")?
+        .parse()
+        .ok()?;
+    (1..=48).contains(&n).then(|| n - 1)
+}
+
+/// A WAV's channels and frames, from its `fmt ` and `data` chunks; none for what is not one.
+pub(crate) fn wav_facts(bytes: &[u8]) -> Option<(u8, u32)> {
+    if bytes.len() < 12 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
+        return None;
+    }
+    let (mut at, mut channels, mut block) = (12usize, None, None);
+    while at + 8 <= bytes.len() {
+        let id = &bytes[at..at + 4];
+        let size = u32::from_le_bytes([bytes[at + 4], bytes[at + 5], bytes[at + 6], bytes[at + 7]])
+            as usize;
+        let body = at + 8;
+        if id == b"fmt " && body + 14 <= bytes.len() {
+            channels = Some(u16::from_le_bytes([bytes[body + 2], bytes[body + 3]]) as u8);
+            block = Some(u16::from_le_bytes([bytes[body + 12], bytes[body + 13]]) as u32);
+        }
+        if id == b"data" {
+            let block = block?.max(1);
+            return Some((channels?, (size.min(bytes.len() - body) as u32) / block));
+        }
+        at = body + size + size % 2;
+    }
+    None
+}
+
 /// An instrument file's index, from `N name.pti` (`01 name.pti` too): N - 1.
 pub(crate) fn instrument_index(name: &str) -> Option<u8> {
     let stem = name.strip_suffix(".pti")?;
@@ -160,22 +222,11 @@ pub fn read(source: &dyn Source, found: &Found) -> Result<(Model, Locators), Err
 
     let instruments_dir = join(at, "instruments");
     let instrument_files = files_in(source, &instruments_dir)?;
-    if let Some(old) = instrument_files.iter().find(|n| n.ends_with(".mti")) {
-        let reference = join(&instruments_dir, old);
-        return Err(Error::Unreadable {
-            reference,
-            why: "an instrument of the older layout (.mti), which this converter does not read"
-                .to_owned(),
-        });
-    }
     let samples_dir = join(at, "samples");
-    if let Some(old) = files_in(source, &samples_dir)?.first() {
-        return Err(Error::Unreadable {
-            reference: join(&samples_dir, old),
-            why: "a sample of the older layout (samples/), which this converter does not read"
-                .to_owned(),
-        });
-    }
+    let sample_files: Vec<String> = files_in(source, &samples_dir)?
+        .into_iter()
+        .filter(|n| n.to_ascii_lowercase().ends_with(".wav"))
+        .collect();
 
     let patterns_dir = join(at, "patterns");
     let mut patterns = BTreeMap::new();
@@ -193,9 +244,12 @@ pub fn read(source: &dyn Source, found: &Found) -> Result<(Model, Locators), Err
 
     let mut instruments = BTreeMap::new();
     let mut locators = Locators::new();
+    let mut named_samples = Vec::new();
     for name in instrument_files {
-        let Some(index) = instrument_index(&name) else {
-            continue;
+        let (index, older) = match (instrument_index(&name), old_instrument_index(&name)) {
+            (Some(i), _) => (i, false),
+            (None, Some(i)) => (i, true),
+            _ => continue,
         };
         let reference = join(&instruments_dir, &name);
         if instruments.contains_key(&index) {
@@ -207,39 +261,87 @@ pub fn read(source: &dyn Source, found: &Found) -> Result<(Model, Locators), Err
         let bytes = read_file(source, &reference)?;
         let head =
             InstrumentFile::parse(&bytes, bytes.len() as u64).map_err(unreadable(&reference))?;
-        let data = &bytes[PCM_OFFSET..];
-        let frames = head.sample_length();
-        let (channels, frames) = if frames as u64 * 4 == data.len() as u64 {
-            (2, frames)
-        } else if frames as u64 * 2 == data.len() as u64 {
-            (1, frames)
+        let (layout, pcm) = if older {
+            if bytes.len() != head.len() {
+                return Err(Error::Unreadable {
+                    reference,
+                    why: "an older instrument longer than its header".to_owned(),
+                });
+            }
+            let wanted = format!("instr{:02}.wav", index + 1);
+            let wav = sample_files
+                .iter()
+                .find(|n| n.eq_ignore_ascii_case(&wanted))
+                .cloned();
+            let pcm = match &wav {
+                Some(file) => {
+                    named_samples.push(file.clone());
+                    let wav_ref = join(&samples_dir, file);
+                    let data = read_file(source, &wav_ref)?;
+                    let (channels, frames) = wav_facts(&data).unwrap_or((0, 0));
+                    locators.insert(
+                        index,
+                        Locator {
+                            reference: wav_ref,
+                            offset: 0,
+                            bytes: data.len() as u64,
+                            interleaved: false,
+                        },
+                    );
+                    Some(Pcm {
+                        channels,
+                        frames,
+                        bytes: data.len() as u64,
+                        sha256: sha256_hex(&data),
+                    })
+                }
+                None => None,
+            };
+            (Layout::Mti { wav }, pcm)
         } else {
-            // As the firmware does: a length that matches neither is taken as mono, from the data.
-            (1, (data.len() / 2) as u32)
-        };
-        let pcm = Pcm {
-            channels,
-            frames,
-            bytes: data.len() as u64,
-            sha256: sha256_hex(data),
-        };
-        locators.insert(
-            index,
-            Locator {
-                reference,
-                offset: PCM_OFFSET as u64,
+            let data = &bytes[head.len()..];
+            let frames = head.sample_length();
+            let (channels, frames) = if frames as u64 * 4 == data.len() as u64 {
+                (2, frames)
+            } else if frames as u64 * 2 == data.len() as u64 {
+                (1, frames)
+            } else {
+                // As the firmware does: a length that matches neither is taken as mono, from the
+                // data.
+                (1, (data.len() / 2) as u32)
+            };
+            locators.insert(
+                index,
+                Locator {
+                    reference,
+                    offset: head.len() as u64,
+                    bytes: data.len() as u64,
+                    interleaved: false,
+                },
+            );
+            let pcm = Pcm {
+                channels,
+                frames,
                 bytes: data.len() as u64,
-                interleaved: false,
-            },
-        );
+                sha256: sha256_hex(data),
+            };
+            (Layout::Pti, Some(pcm))
+        };
         instruments.insert(
             index,
             Instrument {
                 file: name,
                 head,
+                layout,
                 pcm,
             },
         );
+    }
+    if let Some(stray) = sample_files.iter().find(|s| !named_samples.contains(s)) {
+        return Err(Error::Unreadable {
+            reference: join(&samples_dir, stray),
+            why: "a sample no instrument names, which a conversion would leave behind".to_owned(),
+        });
     }
 
     Ok((
@@ -312,12 +414,20 @@ impl Model {
             out.insert("patterns/patternsMetadata".to_owned(), metadata.clone());
         }
         for (index, instrument) in &self.instruments {
-            let locator = locators.get(index).ok_or_else(|| Error::Unreadable {
-                reference: instrument.file.clone(),
-                why: "no samples located".to_owned(),
-            })?;
             let mut bytes = instrument.head.to_bytes();
-            bytes.extend(samples(source, locator)?);
+            let located = || {
+                locators.get(index).ok_or_else(|| Error::Unreadable {
+                    reference: instrument.file.clone(),
+                    why: "no samples located".to_owned(),
+                })
+            };
+            match &instrument.layout {
+                Layout::Pti => bytes.extend(samples(source, located()?)?),
+                Layout::Mti { wav: Some(wav) } => {
+                    out.insert(format!("samples/{wav}"), samples(source, located()?)?);
+                }
+                Layout::Mti { wav: None } => {}
+            }
             out.insert(format!("instruments/{}", instrument.file), bytes);
         }
         Ok(out)

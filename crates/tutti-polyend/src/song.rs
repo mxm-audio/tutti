@@ -12,11 +12,15 @@
 //! - Velocity and micro-move: an effect in the second slot, then the first, overrides the step's
 //!   own value (version 6), as the sequencer applies them in that order.
 //! - Patterns of version 4 or older clear tracks 9 to 16 and give them track 1's length; a file
-//!   of 8 or 12 tracks gives the missing tracks track 1's length, empty.
+//!   of 8 or 12 tracks gives the missing tracks track 1's length, empty. Versions 1 to 3 are
+//!   translated as the firmware translates them on loading ([`played_tracks`]).
 
 use std::collections::BTreeMap;
 
-use crate::files::{Fx, NOTE_CUT, NOTE_FADE, NOTE_OFF, PatternFile, Step};
+use crate::files::{
+    Fx, NOTE_CUT, NOTE_FADE, NOTE_OFF, PatternFile, PlayMode, Step, volume_1117_to_1118,
+    volume_1300_to_1302,
+};
 use crate::model::Model;
 
 /// Ticks per quarter note in the tutti project.
@@ -166,21 +170,51 @@ pub struct Song {
 }
 
 /// A pattern's 16 tracks as the device plays them: (last step, steps), every one track 1's
-/// length.
-fn played_tracks(file: &PatternFile) -> Vec<(u8, Vec<Step>)> {
+/// length, an older pattern translated as the firmware translates it on loading
+/// (`checkVersionAndTranslate`): on the first 8 tracks, each within its own length and for a
+/// sample instrument only, a volume effect's value converted from version 1's scale and from
+/// version 3's, and, up to version 2, a beat-slice instrument's note moved by `24 - (root + 12)`
+/// (the project's pad root note), held to 0..=120.
+fn played_tracks(file: &PatternFile, model: &Model) -> Vec<(u8, Vec<Step>)> {
     let first_last = file
         .tracks
         .first()
         .map_or(DEFAULT_STEPS as u8 - 1, |t| t.last);
     let version = file.header.version();
-    (0..TRACKS)
+    let mut tracks: Vec<(u8, Vec<Step>)> = (0..TRACKS)
         .map(|t| match file.tracks.get(t) {
             Some(track) if !(version <= 4 && t >= SAMPLE_TRACKS) => {
                 (first_last, track.steps.clone())
             }
             _ => (first_last, vec![Step::EMPTY; crate::files::STEPS]),
         })
-        .collect()
+        .collect();
+    if version <= 3 {
+        let shift = 24 - (model.project.root_note() as i16 + 12);
+        for (t, track) in file.tracks.iter().enumerate().take(SAMPLE_TRACKS) {
+            for step in tracks[t].1.iter_mut().take(track.last as usize + 1) {
+                if step.instrument >= SAMPLE_INSTRUMENTS {
+                    continue;
+                }
+                for f in &mut step.fx {
+                    if f.kind == fx::VOLUME {
+                        if version <= 1 {
+                            f.value = volume_1117_to_1118(f.value);
+                        }
+                        f.value = volume_1300_to_1302(f.value);
+                    }
+                }
+                let beat_slice = model
+                    .instruments
+                    .get(&step.instrument)
+                    .is_some_and(|i| i.head.play_mode() == PlayMode::BeatSlice);
+                if version <= 2 && step.note >= 0 && beat_slice {
+                    step.note = (step.note as i16 + shift).clamp(0, 120) as i8;
+                }
+            }
+        }
+    }
+    tracks
 }
 
 /// The step a track plays at a pattern's global step.
@@ -236,7 +270,7 @@ pub fn song(model: &Model) -> Song {
                 &empty
             }
         };
-        let tracks = played_tracks(file);
+        let tracks = played_tracks(file, model);
         let steps = if file.tracks.is_empty() {
             DEFAULT_STEPS
         } else {

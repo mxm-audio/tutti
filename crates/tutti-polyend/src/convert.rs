@@ -1,8 +1,9 @@
 //! A Polyend Tracker project into tutti, and back to the model.
 //!
-//! - Each Polyend track that plays is a folder track, holding one track per instrument it plays
-//!   (a step names its instrument; a tutti track has one instrument). Instruments the song never
-//!   plays sit, each on its own track, in a muted folder, so nothing is left out.
+//! - A Polyend track playing one instrument is that instrument's track; one playing several is a
+//!   folder holding a track per instrument (a step names its instrument; a tutti track has one
+//!   instrument). Instruments the song never plays sit, each on its own track, in a muted folder,
+//!   so nothing is left out.
 //! - The song's order is parts: a part per slot on each instrument track that plays in it. A
 //!   pattern's notes are worked out per slot ([`crate::song`]); slots of one pattern whose notes
 //!   are identical share one tutti pattern, and the others get variants (`P03 b`), so a pattern
@@ -10,8 +11,9 @@
 //! - A note outlasting its pattern keeps its length, past the pattern's, and its part is
 //!   lengthened to sound it: the part plays a note for as long as the part lasts.
 //! - A sample instrument is an MXM Creative Sampler device, its sample a WAV in the device's own
-//!   files (tutti 7.8). Its settings are kept under the extension: the sampler's parameters are
-//!   mapped once their table is reviewed.
+//!   files (tutti 7.8): a `.pti`'s samples written as one, an older instrument's WAV as it is. What
+//!   maps of its settings is the device's parameter snapshot ([`sampler_params`]); all of them are
+//!   kept under the extension.
 //! - Everything tutti does not hold is kept under [`NAMESPACE`] on the object it belongs to:
 //!   the project file and every step no note stands for, on the document; a note's step, on the
 //!   note; an instrument's header, on its device. [`to_model`] reads the model back from them,
@@ -27,11 +29,10 @@ use tutti_convert::{
 };
 
 use crate::files::{
-    Fx, Header, InstrumentFile, PCM_OFFSET, PatternFile, ProjectFile, STEPS, Step,
-    Track as PolyendTrack,
+    Fx, Header, InstrumentFile, PatternFile, ProjectFile, STEPS, Step, Track as PolyendTrack,
 };
 use crate::model::{
-    Instrument, Locator, Locators, Model, Pcm, SAMPLE_RATE, interleave, read, samples,
+    Instrument, Layout, Locator, Locators, Model, Pcm, SAMPLE_RATE, interleave, read, samples,
 };
 use crate::song::{
     self, MIDI_INSTRUMENTS_END, PPQ, Played, SAMPLE_INSTRUMENTS, SAMPLE_TRACKS, Song,
@@ -173,41 +174,119 @@ fn step_from(data: &Value) -> Option<Step> {
     })
 }
 
-/// The sampler's device for an instrument, its sample file, and what to put there.
+/// A parameter's CLAP id in a nice-plug plugin, as decimal text: nice-plug hashes the string id
+/// (31 times the hash plus each byte, the top bit cleared).
+pub fn clap_id(id: &str) -> String {
+    let mut hash: u32 = 0;
+    for b in id.bytes() {
+        hash = hash.wrapping_mul(31).wrapping_add(b as u32);
+    }
+    (hash & !(1 << 31)).to_string()
+}
+
+fn param(id: &str, name: &str, value: f64, range: (f64, f64), unit: &str) -> tutti::Param {
+    let mut p: tutti::Param =
+        serde_json::from_value(json!({"id": clap_id(id), "value": value})).expect("a parameter");
+    p.name = Some(name.to_owned());
+    p.min = Some(range.0);
+    p.max = Some(range.1);
+    p.unit = Some(unit.to_owned());
+    p
+}
+
+/// What of an instrument the sampler takes, as its parameter snapshot (tutti 7.3): layer A plays
+/// the sample; note 60 plays it at its own pitch, as on the Tracker; tune and finetune its
+/// transpose; start, end and the loop points its own; the play mode its loop (a backward loop
+/// plays forward) and its reader (granular its grain); volume its level, panning its pan.
+fn sampler_params(head: &InstrumentFile) -> Vec<tutti::Param> {
+    use crate::files::PlayMode as M;
+    let (loop_mode, reader) = match head.play_mode() {
+        M::LoopForward | M::LoopBackward => (1.0, 0.0),
+        M::LoopPingPong => (2.0, 0.0),
+        M::Granular => (0.0, 2.0),
+        _ => (0.0, 0.0),
+    };
+    let [start, loop1, loop2, end] = head.points().map(|p| p as f64 / 65535.0);
+    let (tune, finetune) = head.tune();
+    let transpose = (tune as f64 + finetune as f64 / 100.0).clamp(-24.0, 24.0);
+    // Volume is gain, -12 to +12 dB (0 silence); the sampler's level is amplitude, at most 1.
+    let level = head
+        .volume_db()
+        .map_or(0.0, |db| 10f64.powf(db / 20.0).min(1.0));
+    let pan = ((head.panning() as f64 - 50.0) / 50.0).clamp(-1.0, 1.0);
+    let unit = (0.0, 1.0);
+    let mut out = vec![
+        param("areader", "A Playback mode", reader, (0.0, 2.0), "enum"),
+        param("aroot", "A Root", 60.0, (0.0, 127.0), "other"),
+        param(
+            "atranspose",
+            "A Transpose",
+            transpose,
+            (-24.0, 24.0),
+            "semitones",
+        ),
+        param("astart", "A Start", start, unit, "normalized"),
+        param("aend", "A End", end, unit, "normalized"),
+        param("aloop", "A Loop", loop_mode, (0.0, 2.0), "enum"),
+        param("aloopstart", "A Loop start", loop1, unit, "normalized"),
+        param("aloopend", "A Loop end", loop2, unit, "normalized"),
+        param("alevel", "A Level", level, unit, "normalized"),
+        param("apan", "A Pan", pan, (-1.0, 1.0), "linear"),
+    ];
+    out.sort_by(|a, b| a.id.cmp(&b.id));
+    out
+}
+
+/// The sampler's device for an instrument, and its sample file to put in the device's own files:
+/// a `.pti`'s samples as a WAV, an older instrument's WAV as it is; none for an older instrument
+/// whose sample file is missing.
 fn sampler_device(
     id: Id,
     instrument_index: u8,
     instrument: &Instrument,
-    samples_bytes: &[u8],
-) -> (Device, Put) {
+    samples_bytes: Option<&[u8]>,
+) -> (Device, Option<Put>) {
     let mut device = Device::new(id.clone(), "instrument", SAMPLER);
     device.name = format!("{SAMPLER_NAME}: {}", instrument.name());
+    device.params = sampler_params(&instrument.head);
+    let (layout, wav_name) = match &instrument.layout {
+        Layout::Pti => ("pti", None),
+        Layout::Mti { wav } => ("mti", wav.clone()),
+    };
+    let pcm = instrument.pcm.as_ref().map(|p| {
+        json!({"channels": p.channels, "frames": p.frames, "bytes": p.bytes, "sha256": p.sha256})
+    });
     device.extensions.insert(
         NAMESPACE.to_owned(),
         json!({
             "instrument": instrument_index,
             "file": instrument.file,
+            "layout": layout,
+            "wav": wav_name,
             "head": hex(&instrument.head.to_bytes()),
-            "pcm": {
-                "channels": instrument.pcm.channels,
-                "frames": instrument.pcm.frames,
-                "bytes": instrument.pcm.bytes,
-                "sha256": instrument.pcm.sha256,
-            },
+            "pcm": pcm,
         }),
     );
-    let data = if instrument.pcm.channels == 2 {
-        interleave(samples_bytes)
-    } else {
-        samples_bytes.to_vec()
-    };
-    let put = Put {
-        place: Place::DeviceFile {
-            device: id,
-            path: SAMPLE_FILE.to_owned(),
-        },
-        contents: Contents::Bytes(wav(instrument.pcm.channels as u16, &data)),
-    };
+    let put = samples_bytes.map(|bytes| {
+        let contents = match (&instrument.layout, &instrument.pcm) {
+            (Layout::Pti, Some(pcm)) => {
+                let data = if pcm.channels == 2 {
+                    interleave(bytes)
+                } else {
+                    bytes.to_vec()
+                };
+                wav(pcm.channels as u16, &data)
+            }
+            _ => bytes.to_vec(),
+        };
+        Put {
+            place: Place::DeviceFile {
+                device: id,
+                path: SAMPLE_FILE.to_owned(),
+            },
+            contents: Contents::Bytes(contents),
+        }
+    });
     (device, put)
 }
 
@@ -261,19 +340,12 @@ pub fn to_tutti(
     }
 
     let mut used_instruments = BTreeSet::new();
-    let mut folders: BTreeMap<usize, Track> = BTreeMap::new();
+    // Each Polyend track's instrument tracks, assembled after.
+    let mut groups: BTreeMap<usize, Vec<Track>> = BTreeMap::new();
     for (&(track, instrument), slots) in &by_child {
         used_instruments.insert(instrument);
         let t = format!("t{}", track + 1);
         let i = format!("i{}", instrument as u16 + 1);
-        let folder = folders.entry(track).or_insert_with(|| {
-            let mut folder = Track::new(ids.id("trk", &[&t]), &folder_name(&model, track));
-            folder.channel.mute = track < SAMPLE_TRACKS && model.project.track_muted(track);
-            folder
-                .extensions
-                .insert(NAMESPACE.to_owned(), json!({ "track": track }));
-            folder
-        });
         let mut child = Track::new(
             ids.id("trk", &[&t, &i]),
             &instrument_track_name(&model, instrument),
@@ -286,12 +358,18 @@ pub fn to_tutti(
                 model.instruments.get(&instrument),
                 locators.get(&instrument),
             ) {
-                (Some(inst), Some(locator)) => {
-                    let pcm = samples(source, locator)?;
+                (Some(inst), locator) => {
+                    let pcm = locator.map(|l| samples(source, l)).transpose()?;
                     let (device, put) =
-                        sampler_device(ids.id("dev", &[&t, &i]), instrument, inst, &pcm);
+                        sampler_device(ids.id("dev", &[&t, &i]), instrument, inst, pcm.as_deref());
                     child.devices.push(device);
-                    files.push(put);
+                    match put {
+                        Some(put) => files.push(put),
+                        None => report.unplayed(format!(
+                            "{}: its sample file is missing, so it plays nothing",
+                            inst.name()
+                        )),
+                    }
                 }
                 _ => report.unplayed(format!(
                     "Track {}: instrument {} has no file, so its notes play nowhere",
@@ -390,9 +468,32 @@ pub fn to_tutti(
         }
         child.patterns = patterns.into_values().collect();
         child.parts.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-        folder.children.push(child);
+        groups.entry(track).or_default().push(child);
     }
-    document.tracks = folders.into_values().collect();
+    // A Polyend track playing one instrument is that instrument's track, named for both; one
+    // playing several is a folder of them. Its mute is the Polyend track's.
+    for (track, mut children) in groups {
+        let muted = track < SAMPLE_TRACKS && model.project.track_muted(track);
+        let name = folder_name(&model, track);
+        if children.len() == 1 {
+            let mut only = children.pop().expect("one");
+            only.name = format!("{name}: {}", only.name);
+            only.channel.mute = muted;
+            if let Some(Value::Object(e)) = only.extensions.get_mut(NAMESPACE) {
+                e.insert("track".to_owned(), json!(track));
+            }
+            document.tracks.push(only);
+        } else {
+            let t = format!("t{}", track + 1);
+            let mut folder = Track::new(ids.id("trk", &[&t]), &name);
+            folder.channel.mute = muted;
+            folder
+                .extensions
+                .insert(NAMESPACE.to_owned(), json!({ "track": track }));
+            folder.children = children;
+            document.tracks.push(folder);
+        }
+    }
 
     // The instruments the song never plays, so the project keeps every one.
     let mut unused = Track::new(ids.id("trk", &["unused"]), "Instruments not in the song");
@@ -406,10 +507,18 @@ pub fn to_tutti(
         child
             .extensions
             .insert(NAMESPACE.to_owned(), json!({ "instrument": index }));
-        let pcm = samples(source, &locators[&index])?;
-        let (device, put) = sampler_device(ids.id("dev", &["unused", &i]), index, instrument, &pcm);
+        let pcm = locators
+            .get(&index)
+            .map(|l| samples(source, l))
+            .transpose()?;
+        let (device, put) = sampler_device(
+            ids.id("dev", &["unused", &i]),
+            index,
+            instrument,
+            pcm.as_deref(),
+        );
         child.devices.push(device);
-        files.push(put);
+        files.extend(put);
         unused.children.push(child);
     }
     if !unused.children.is_empty() {
@@ -490,10 +599,11 @@ fn remarks(model: &Model, song: &Song, report: &mut Report) {
         ));
     }
     if !model.instruments.is_empty() {
-        report.unplayed(
-            "The instruments' samples are in their devices' own files and every setting (play \
-             mode, start, end and loop points, slices, tune, volume, panning, filter, envelopes, \
-             LFOs) is kept; MXM Creative Sampler does not load them from there yet",
+        report.approximated(
+            "The instruments are MXM Creative Samplers: their samples, play modes (a backward \
+             loop plays forward, granular as grain), start, end and loop points, tune, volume and \
+             panning carried over; their filters, envelopes, LFOs, slices and wavetable settings \
+             kept, not applied",
         );
     }
     if (0..SAMPLE_TRACKS).any(|t| model.project.track_volume(t) != 100) {
@@ -633,28 +743,43 @@ pub fn to_model(document: &Document, _project: &dyn Source) -> Result<(Model, Lo
                 continue;
             }
             let head_bytes = hex_field(e, "head")?;
-            let head = InstrumentFile::parse(&head_bytes, PCM_OFFSET as u64)
+            let head = InstrumentFile::parse(&head_bytes, head_bytes.len() as u64)
                 .map_err(|why| bad(format!("an instrument's header: {}", why.0)))?;
-            let pcm = e.get("pcm").ok_or_else(|| bad("an instrument's samples"))?;
-            let pcm = Pcm {
-                channels: pcm.get("channels").and_then(Value::as_u64).unwrap_or(1) as u8,
-                frames: pcm.get("frames").and_then(Value::as_u64).unwrap_or(0) as u32,
-                bytes: pcm.get("bytes").and_then(Value::as_u64).unwrap_or(0),
-                sha256: pcm
-                    .get("sha256")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_owned(),
+            let pcm = match e.get("pcm") {
+                Some(Value::Object(p)) => Some(Pcm {
+                    channels: p.get("channels").and_then(Value::as_u64).unwrap_or(0) as u8,
+                    frames: p.get("frames").and_then(Value::as_u64).unwrap_or(0) as u32,
+                    bytes: p.get("bytes").and_then(Value::as_u64).unwrap_or(0),
+                    sha256: p
+                        .get("sha256")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_owned(),
+                }),
+                _ => None,
             };
-            locators.insert(
-                index,
-                Locator {
-                    reference: format!("plugins/files/{}/{SAMPLE_FILE}", device.id.as_str()),
-                    offset: WAV_DATA,
-                    bytes: pcm.bytes,
-                    interleaved: pcm.channels == 2,
+            let layout = match e.get("layout").and_then(Value::as_str) {
+                Some("mti") => Layout::Mti {
+                    wav: e.get("wav").and_then(Value::as_str).map(str::to_owned),
                 },
-            );
+                _ => Layout::Pti,
+            };
+            if let Some(pcm) = &pcm {
+                let file = format!("plugins/files/{}/{SAMPLE_FILE}", device.id.as_str());
+                let (offset, interleaved) = match layout {
+                    Layout::Pti => (WAV_DATA, pcm.channels == 2),
+                    Layout::Mti { .. } => (0, false),
+                };
+                locators.insert(
+                    index,
+                    Locator {
+                        reference: file,
+                        offset,
+                        bytes: pcm.bytes,
+                        interleaved,
+                    },
+                );
+            }
             instruments.insert(
                 index,
                 Instrument {
@@ -664,6 +789,7 @@ pub fn to_model(document: &Document, _project: &dyn Source) -> Result<(Model, Lo
                         .unwrap_or_default()
                         .to_owned(),
                     head,
+                    layout,
                     pcm,
                 },
             );

@@ -190,9 +190,13 @@ designed from is `docs/research.md`.
 - **2026-11-03:** **`dk.mxm.polyend-tracker`**, `tutti-polyend`'s namespace, registered. The
   Tracker's version 6 pattern layout is read from Tracker CE's source ("Ignore the license just
   make it"); the reader is this repository's own code. The sampler is to load a converted
-  instrument's sample from its device's own files (7.8), the owner's choice among three; until
-  the sampler does, and its parameter mapping is reviewed, the instruments' settings are kept,
-  not applied.
+  instrument's sample from its device's own files (7.8), the owner's choice among three; the
+  converter writes that sample and the instrument's mapped settings as a parameter snapshot, and
+  a program builds the sampler's state from them until the sampler reads its own files.
+- **2026-11-03:** **The Tracker's older layout is read** (`.mti` instruments, `samples/`,
+  projects 7 to 13, patterns 1 to 3), though the owner had asked to leave it refused: that was on
+  the grounds that none of their projects used it, and their card's factory songs do, all 18
+  Artists projects; "continue until it works" then needed them converted.
 
 ## Design choices and what they were weighed against
 
