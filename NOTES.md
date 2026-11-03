@@ -197,6 +197,17 @@ designed from is `docs/research.md`.
   projects 7 to 13, patterns 1 to 3), though the owner had asked to leave it refused: that was on
   the grounds that none of their projects used it, and their card's factory songs do, all 18
   Artists projects; "continue until it works" then needed them converted.
+- **2026-11-04:** **A converted instrument sounds as the Tracker plays it**: its amplitude
+  envelope, filter, slices and volumes, not only its sample ("continue until it works" again).
+  The volumes are the firmware's tables, read as gains: its own decibel figures are 10·log
+  (its source says so), so an instrument's −12 to +12 is −24 to +24 dB of amplitude and a
+  track's −18 to +3 is −36 to +6. A step's volume replaces its instrument's
+  (`getMostSignificantVolume`), and a sampler can't boost past unity, so the loudest note of an
+  instrument track sets that track's gain and the rest is level and velocity, with the
+  sampler's velocity route at full so velocity is exactly gain. Init's own colour (a master of
+  0.8, its envelope and LFO on the cutoff) is turned off: a converted sound is the Tracker's.
+  Measured on the card: 227 of 673 instruments filter, 634 shape their release, and 1,784 notes
+  are beat slices.
 
 ## Design choices and what they were weighed against
 

@@ -30,7 +30,9 @@ Owns `Cargo.toml`, `src/` and `tests/`.
   (`.mti` and `samples/`) is read, its older versions as the firmware reads them: a project
   before 10 has its pad root note reset to 24, an instrument of version 1 numbers its play modes
   from 5 on one lower, older volumes are converted, and patterns 1 to 3 are translated when
-  played (`song::played_tracks`); the bytes stay as read. A sample no instrument names is refused.
+  played (`song::played_tracks`); the bytes stay as read. A sample no instrument names is refused,
+  and so is an instrument file whose name gives no number (`NN name.pti`, or the device's own
+  `instrument_NN.pti`).
 - **The device's rules, as `song`'s module doc states them**: a step is a sixteenth; every track
   plays track 1's length; Break Pattern ends a pattern; a note rings to its track's next note,
   `OFF`, `CUT` or `FADE`, across patterns; micro-move and velocity, the first effect slot, then
@@ -42,11 +44,18 @@ Owns `Cargo.toml`, `src/` and `tests/`.
   over it (tutti 6.6). A Polyend track playing one instrument is that instrument's track; one
   playing several, a folder of them. A sample instrument is an MXM Creative Sampler device: its
   sample a WAV in the device's own files, what maps of it a parameter snapshot (tutti 7.3, by
-  nice-plug's CLAP ids): the sample at its own pitch on note 60, transpose, start, end, loop mode
-  and points, the reader, level from the volume's decibels, pan; the rest kept, and named in the
-  report. A program builds the sampler's state from the two until the sampler loads its own
-  files (MXM tutti Converter does, with the sampler's state crate). Ids are derived from the
-  source with a token of the project's name.
+  nice-plug's CLAP ids): the sample at its own pitch on note 60, transpose, start, end (a slice
+  instrument's selected slice), loop mode and points, the reader, pan, the amplitude envelope's
+  ADSR, the filter (type, cutoff and Q as the firmware plays them); the master full, the gain
+  following velocity exactly, and Init's cutoff routes off. The rest kept, and named in the
+  report. A beat-slice instrument's notes play their slices as audio pieces of its sample in
+  `audio/`. **Volumes are the firmware's tables** (`files::amp_db`, `files::mix_db`; its own
+  decibels are 10·log, half these): a Polyend track's volume its track's gain, and each note's
+  gain, its step's volume or else its instrument's, split by `convert::Levels` into the
+  sampler's level, the note's velocity and the instrument track's gain, so level × velocity ×
+  gain is the note's gain, a boost past unity included. A program builds the sampler's state
+  from the two until the sampler loads its own files (MXM tutti Converter does, with the
+  sampler's state crate). Ids are derived from the source with a token of the project's name.
 - **Nothing lost**: what tutti does not hold is kept under `dk.mxm.polyend-tracker` (registered
   in `spec/1.0/extensions.md`) on the object it belongs to, and `to_model(to_tutti(m))` is `m`,
   every sample's bytes too. Raise `convert::VERSION` whenever the output changes, so watchers
@@ -77,9 +86,11 @@ unknown versions and a stray sample refused by name; the older layout read, tran
 and read back byte for byte; detection, the card's `Workspace/` left out; a step's ticks and every way a note
 ends; micro-move and velocity's order; track 1's length and Break; tempo changes and version 4's
 cleared tracks; a missing pattern; the conversion's folders, devices, samples, variants and
-lengthened parts; the same document twice; the model read back byte for byte, samples included.
+lengthened parts; the same document twice; the model read back byte for byte, samples included;
+the volume tables; levels, envelopes, filters, slices and beat slices as the Tracker plays them;
+instrument files placed by number or refused.
 `tests/it/corpus.rs`: every real project read, written back, converted, valid, and read back (a
-Tracker Mini's card: all 28, 2026-11-03).
+Tracker Mini's card: all 28, and its `Workspace/` copied as a project, 2026-11-04).
 
 # Child DOX Index
 

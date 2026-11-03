@@ -140,7 +140,11 @@ pub struct Played {
     pub track: usize,
     pub instrument: u8,
     pub pitch: u8,
+    /// The step's volume over 100, 1 where it sets none.
     pub velocity: f64,
+    /// The volume the step sets, 0 to 100, which plays instead of its instrument's (the firmware's
+    /// `getMostSignificantVolume`); none where it sets none.
+    pub volume: Option<u8>,
     /// Absolute ticks.
     pub at: i64,
     pub length: i64,
@@ -319,15 +323,16 @@ pub fn song(model: &Model) -> Song {
                     note.end = end;
                 }
                 if step.note >= 0 {
-                    let volume = effect(&step, fx::VOLUME)
+                    let set = effect(&step, fx::VOLUME)
                         .map(|v| v as i64)
-                        .or_else(|| (step.volume >= 0).then_some(step.volume as i64))
-                        .unwrap_or(100);
+                        .or_else(|| (step.volume >= 0).then_some(step.volume as i64));
+                    let volume = set.unwrap_or(100);
                     song.notes.push(Played {
                         track: t,
                         instrument: step.instrument,
                         pitch: step.note as u8,
                         velocity: (volume as f64 / 100.0).clamp(0.0, 1.0),
+                        volume: set.map(|v| v.clamp(0, 100) as u8),
                         at: tick,
                         length: 0,
                         end: End::SongEnd,

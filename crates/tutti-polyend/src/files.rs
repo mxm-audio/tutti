@@ -190,9 +190,19 @@ impl ProjectFile {
         self.at(project_at::TRACK_MUTE)[t] != 0
     }
 
-    /// Sample track `t`'s volume, 0 to 100.
+    /// Sample track `t`'s volume, 0 to 100, as stored.
     pub fn track_volume(&self, t: usize) -> u8 {
         self.at(project_at::TRACK_VOLUME)[t]
+    }
+
+    /// Sample track `t`'s volume as the mixer plays it, in decibels ([`mix_db`]), a project up to
+    /// version 11 converted first as the firmware converts it; none for silence.
+    pub fn track_volume_db(&self, t: usize) -> Option<f64> {
+        let mut v = self.track_volume(t);
+        if self.header.version() <= 11 {
+            v = mixer_1300_to_1302(v);
+        }
+        mix_db(v)
     }
 
     /// Sample track `t`'s name, up to its first NUL.
@@ -416,12 +426,19 @@ mod instrument_at {
     pub const LOOP1: usize = 64;
     pub const LOOP2: usize = 66;
     pub const END: usize = 68;
+    pub const AMP_ENVELOPE: usize = 76;
+    pub const CUTOFF: usize = 244;
+    pub const RESONANCE: usize = 248;
+    pub const FILTER_TYPE: usize = 252;
+    pub const FILTER_ENABLE: usize = 253;
     pub const TUNE: usize = 254;
     pub const FINETUNE: usize = 255;
     pub const VOLUME: usize = 256;
     pub const PANNING: usize = 260;
     pub const SLICES: usize = 264;
     pub const SLICE_COUNT: usize = 360;
+    pub const SELECTED_SLICE: usize = 361;
+    pub const SLICE_PLAY_THRU: usize = 263;
 }
 
 impl InstrumentFile {
@@ -521,6 +538,50 @@ impl InstrumentFile {
         ]
     }
 
+    fn f32_at(&self, at: usize) -> f32 {
+        f32::from_le_bytes([
+            self.data[at],
+            self.data[at + 1],
+            self.data[at + 2],
+            self.data[at + 3],
+        ])
+    }
+
+    /// The amplitude envelope (the firmware's `envelope[envAmp]`), in milliseconds.
+    pub fn amp_envelope(&self) -> Envelope {
+        let at = instrument_at::AMP_ENVELOPE;
+        Envelope {
+            amount: self.f32_at(at),
+            delay: self.u16_at(at + 4),
+            attack: self.u16_at(at + 6),
+            hold: self.u16_at(at + 8),
+            decay: self.u16_at(at + 10),
+            sustain: self.f32_at(at + 12),
+            release: self.u16_at(at + 16),
+            mode: self.data[at + 18],
+            enabled: self.data[at + 19] != 0,
+        }
+    }
+
+    /// The filter, if on: its type and, as the firmware plays them, its cutoff in hertz
+    /// (`20 * 2^(i / 50)` for the table index `i` the 0..=1 value falls on, held to 20 Hz and
+    /// 44 100 / 2.5) and its Q (the stored resonance plus 0.7, held to 0.7..=5).
+    pub fn filter(&self) -> Option<Filter> {
+        if self.data[instrument_at::FILTER_ENABLE] == 0 {
+            return None;
+        }
+        let cutoff = self.f32_at(instrument_at::CUTOFF).clamp(0.0, 1.0);
+        let index = (cutoff * 477.0) as i32;
+        let hz = (20.0f64 * 2f64.powf(index as f64 / 50.0)).clamp(20.0, 44_100.0 / 2.5);
+        let q = (self.f32_at(instrument_at::RESONANCE) as f64 + 0.7).clamp(0.7, 5.0);
+        let kind = match self.data[instrument_at::FILTER_TYPE] {
+            0 => FilterType::LowPass,
+            1 => FilterType::HighPass,
+            _ => FilterType::BandPass,
+        };
+        Some(Filter { kind, hz, q })
+    }
+
     /// Tune in semitones and finetune in cents.
     pub fn tune(&self) -> (i8, i8) {
         (
@@ -543,8 +604,7 @@ impl InstrumentFile {
 
     /// The volume as gain in decibels: 1 to 100 is -12 to +12 dB, 0 silence.
     pub fn volume_db(&self) -> Option<f64> {
-        let v = self.volume();
-        (v > 0).then(|| map(v as f64, 1.0, 100.0, -12.0, 12.0))
+        amp_db(self.volume())
     }
 
     /// Panning, 0 (left) to 100 (right), 50 the middle.
@@ -555,6 +615,33 @@ impl InstrumentFile {
         ])
     }
 
+    /// The slice a slice instrument plays.
+    pub fn selected_slice(&self) -> usize {
+        self.data[instrument_at::SELECTED_SLICE] as usize
+    }
+
+    /// Whether a slice plays on through the slices after it, to the sample's end.
+    pub fn slice_play_thru(&self) -> bool {
+        self.data[instrument_at::SLICE_PLAY_THRU] != 0
+    }
+
+    /// The span slice `i` plays, as 0..=65535 along the sample: from its start to the next
+    /// slice's, or to the end when it is the last or plays through (the firmware's
+    /// `playSlice`/`playBeatSlice`); the whole sample when there are none.
+    pub fn slice_span(&self, i: usize) -> (u16, u16) {
+        let slices = self.slices();
+        if slices.is_empty() {
+            return (0, u16::MAX);
+        }
+        let i = i.min(slices.len() - 1);
+        let end = if self.slice_play_thru() || i + 1 == slices.len() {
+            u16::MAX
+        } else {
+            slices[i + 1]
+        };
+        (slices[i], end)
+    }
+
     /// The slices' starts, 0 to 65535 along the sample, as many as are set.
     pub fn slices(&self) -> Vec<u16> {
         let n = (self.data[instrument_at::SLICE_COUNT] as usize).min(48);
@@ -562,11 +649,6 @@ impl InstrumentFile {
             .map(|i| self.u16_at(instrument_at::SLICES + 2 * i))
             .collect()
     }
-}
-
-/// The firmware's `map` on floats.
-fn map(x: f64, in_min: f64, in_max: f64, out_min: f64, out_max: f64) -> f64 {
-    (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 }
 
 /// The firmware's `ConvertOldFileVersionVolume::convertVolume`: a 1-to-100 value on one dB range
@@ -593,4 +675,70 @@ pub fn volume_1117_to_1118(v: u8) -> u8 {
 /// The same, from 1.3.0's scale to 1.3.2's.
 pub fn volume_1300_to_1302(v: u8) -> u8 {
     convert_volume(v, (-24.0, 24.0), (-12.0, 12.0))
+}
+
+/// An instrument's envelope: times in milliseconds; `mode` 0 an ADSR, others an LFO or a
+/// wavetable envelope.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Envelope {
+    pub amount: f32,
+    pub delay: u16,
+    pub attack: u16,
+    pub hold: u16,
+    pub decay: u16,
+    pub sustain: f32,
+    pub release: u16,
+    pub mode: u8,
+    pub enabled: bool,
+}
+
+impl Envelope {
+    /// An envelope that shapes the amplitude as an ADSR does.
+    pub fn is_adsr(&self) -> bool {
+        self.enabled && self.mode == 0
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FilterType {
+    LowPass,
+    HighPass,
+    BandPass,
+}
+
+/// A filter as the firmware plays it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Filter {
+    pub kind: FilterType,
+    pub hz: f64,
+    pub q: f64,
+}
+
+/// The gain in decibels an instrument's or a note's volume plays at, 0 to 100 (the firmware's
+/// `ampLogValues`): 0.48 dB a step, 0 dB at 50, -24 at 1 and +24 at 100; none at 0, silence.
+/// The firmware's own figures are ten times a logarithm, so it shows half these.
+pub fn amp_db(v: u8) -> Option<f64> {
+    let v = v.min(100) as f64;
+    match v {
+        0.0 => None,
+        _ if v < 50.0 => Some(0.48 * (v - 50.0) - 0.48),
+        _ => Some(0.48 * (v - 50.0)),
+    }
+}
+
+/// The gain in decibels a track's volume plays at, 0 to 100 (the firmware's `mixAmpLogValues`):
+/// 0.42 dB a step, -36 at 1, 0 dB at 86, +6 at 100; none at 0, silence.
+pub fn mix_db(v: u8) -> Option<f64> {
+    let v = v.min(100) as f64;
+    match v {
+        0.0 => None,
+        _ if v < 86.0 => Some(-36.0 + 0.42 * (v - 1.0)),
+        86.0 => Some(0.0),
+        _ => Some(6.0 - 0.42 * (100.0 - v)),
+    }
+}
+
+/// A track's volume from firmware 1.3.0's mixer scale to 1.3.2's.
+pub fn mixer_1300_to_1302(v: u8) -> u8 {
+    convert_volume(v, (-36.0, 6.0), (-18.0, 3.0))
 }

@@ -665,3 +665,202 @@ fn pattern_files_are_the_sizes_the_firmware_knows() {
         }
     }
 }
+
+// --- how the instruments sound -----------------------------------------------------------------
+
+fn put_f32(bytes: &mut [u8], at: usize, v: f32) {
+    bytes[16 + at..16 + at + 4].copy_from_slice(&v.to_le_bytes());
+}
+
+fn put_u16(bytes: &mut [u8], at: usize, v: u16) {
+    bytes[16 + at..16 + at + 2].copy_from_slice(&v.to_le_bytes());
+}
+
+fn ends_with<'a>(tracks: &'a [Track], name: &str) -> &'a Track {
+    tracks
+        .iter()
+        .find(|t| t.name.ends_with(name))
+        .unwrap_or_else(|| panic!("no track ending {name}"))
+}
+
+fn param(track: &Track, id: &str) -> f64 {
+    let clap = tutti_polyend::convert::clap_id(id);
+    track.devices[0]
+        .params
+        .iter()
+        .find(|p| p.id == clap)
+        .unwrap_or_else(|| panic!("no {id}"))
+        .value
+}
+
+fn db(gain: f64) -> f64 {
+    20.0 * gain.log10()
+}
+
+#[test]
+fn volumes_play_through_the_firmwares_tables() {
+    use tutti_polyend::files::{amp_db, mix_db};
+    assert_eq!(amp_db(0), None);
+    for (v, want) in [(1, -24.0), (49, -0.96), (50, 0.0), (51, 0.48), (100, 24.0)] {
+        assert!((amp_db(v).unwrap() - want).abs() < 1e-9, "{v}");
+    }
+    assert_eq!(mix_db(0), None);
+    for (v, want) in [(1, -36.0), (85, -0.72), (86, 0.0), (87, 0.54), (100, 6.0)] {
+        assert!((mix_db(v).unwrap() - want).abs() < 1e-9, "{v}");
+    }
+}
+
+/// A pad with an envelope and a high-pass filter; a beat-sliced loop, one step louder than its
+/// instrument; a sliced chop playing its selected slice.
+#[test]
+fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
+    let card = one_pattern(
+        6,
+        &[
+            (0, 0, note(60, 0)),
+            (1, 0, note(24, 1)),
+            (
+                1,
+                4,
+                Step {
+                    volume: 75,
+                    ..note(26, 1)
+                },
+            ),
+            (1, 8, note(40, 1)),
+            (2, 0, note(60, 2)),
+        ],
+        15,
+        &[1],
+    );
+    let mut pad = instrument(300, 1);
+    pad[16 + 256] = 25; // -12.48 dB
+    put_f32(&mut pad, 76, 1.0);
+    put_u16(&mut pad, 76 + 6, 100);
+    put_u16(&mut pad, 76 + 10, 250);
+    put_f32(&mut pad, 76 + 12, 0.5);
+    put_u16(&mut pad, 76 + 16, 400);
+    pad[16 + 76 + 19] = 1;
+    put_f32(&mut pad, 244, 0.5);
+    put_f32(&mut pad, 248, 1.0);
+    pad[16 + 252] = 1; // high pass
+    pad[16 + 253] = 1;
+    card.put("S", "instruments/1 Pad.pti", pad);
+    let mut loop_ = instrument(300, 1);
+    loop_[16 + 256] = 50; // 0 dB
+    loop_[16 + 60] = 5; // beat slice
+    loop_[16 + 360] = 3;
+    for (i, at) in [0u16, 21845, 43690].into_iter().enumerate() {
+        put_u16(&mut loop_, 264 + 2 * i, at);
+    }
+    card.put("S", "instruments/2 Loop.pti", loop_);
+    let mut chop = instrument(300, 1);
+    chop[16 + 256] = 50;
+    chop[16 + 60] = 4; // slice
+    chop[16 + 360] = 2;
+    chop[16 + 361] = 1;
+    put_u16(&mut chop, 264 + 2, 32768);
+    card.put("S", "instruments/3 Chop.pti", chop);
+
+    let found = card.found("S");
+    let conversion = PolyendTracker
+        .to_tutti(&card.store, &found, &mut Quiet)
+        .unwrap();
+    let out = MemoryStore::new();
+    let generator = Generator::new("made", "0", "https://example.org");
+    write(conversion, &card.store, out.clone(), &generator, &mut Quiet).unwrap();
+    let opened = Project::open(out.clone()).unwrap();
+    assert!(
+        opened.report.is_valid(),
+        "{:?}",
+        opened.report.errors().collect::<Vec<_>>()
+    );
+    let document = opened.project.document().clone();
+
+    // The pad: its envelope in seconds, its filter as the firmware plays it, its level its
+    // volume, the track's gain the mixer's +6 dB; the master full, velocity followed exactly.
+    let pad = ends_with(&document.tracks, ": Pad");
+    for (id, want) in [
+        ("attack", 0.1),
+        ("decay", 0.25),
+        ("sustain", 0.5),
+        ("release", 0.4),
+        ("filtermode", 3.0),
+        ("cutoff", 20.0 * 2f64.powf(238.0 / 50.0)),
+        ("resonance", 1.0 / 4.3),
+        ("master", 1.0),
+        ("mod_amp_vel", 1.0),
+        ("mod_amp_velon", 1.0),
+        ("mod_cutoff_envon", 0.0),
+        ("mod_cutoff_lfo2on", 0.0),
+    ] {
+        assert!(
+            (param(pad, id) - want).abs() < 1e-4,
+            "{id}: {}",
+            param(pad, id)
+        );
+    }
+    assert!((db(param(pad, "alevel")) + 12.48).abs() < 1e-6);
+    assert!((db(pad.channel.gain) - 6.0).abs() < 1e-6);
+
+    // The loop: each note its slice as an audio piece; the loud step (+12 dB) the loudest, so the
+    // track's gain carries it and the other notes' velocities are their share of it.
+    let loop_ = ends_with(&document.tracks, ": Loop");
+    assert!(
+        (db(loop_.channel.gain) - 18.0).abs() < 1e-6,
+        "{}",
+        db(loop_.channel.gain)
+    );
+    let mut notes: Vec<&tutti::Note> = loop_.patterns[0]
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            Event::Note(n) => Some(n),
+            _ => None,
+        })
+        .collect();
+    notes.sort_by_key(|n| n.at);
+    let pieces: Vec<(u64, u64, i64)> = notes
+        .iter()
+        .map(|n| {
+            let a = n.audio.as_ref().expect("a slice");
+            (a.from, a.to, a.map[0].tick)
+        })
+        .collect();
+    assert_eq!(
+        pieces,
+        [
+            (0, 100, 0),
+            (200, 300, 4 * TICKS_PER_STEP),
+            (200, 300, 8 * TICKS_PER_STEP)
+        ]
+    );
+    let velocities: Vec<f64> = notes.iter().map(|n| db(n.velocity)).collect();
+    assert!(
+        (velocities[0] + 12.0).abs() < 1e-6 && velocities[1].abs() < 1e-9,
+        "{velocities:?}"
+    );
+    let file = &notes[0].audio.as_ref().unwrap().file;
+    assert!(out.files().contains_key(file.as_str()), "{file}");
+
+    // The chop plays its selected slice, the second: from its start to the sample's end.
+    let chop = ends_with(&document.tracks, ": Chop");
+    assert!((param(chop, "astart") - 32768.0 / 65535.0).abs() < 1e-9);
+    assert_eq!(param(chop, "aend"), 1.0);
+}
+
+#[test]
+fn instrument_files_are_placed_by_number_or_refused() {
+    let card = one_pattern(6, &[(0, 0, note(60, 1))], 15, &[1]);
+    card.put("S", "instruments/instrument_02.pti", instrument(10, 1));
+    let (model, _) = read(&card.store, &card.found("S")).unwrap();
+    assert!(
+        model.instruments.contains_key(&1),
+        "the device's own name, read"
+    );
+    card.put("S", "instruments/Kick.pti", instrument(10, 1));
+    match read(&card.store, &card.found("S")) {
+        Err(Error::Unreadable { reference, .. }) => assert!(reference.ends_with("Kick.pti")),
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}

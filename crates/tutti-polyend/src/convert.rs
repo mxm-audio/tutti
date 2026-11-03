@@ -13,7 +13,12 @@
 //! - A sample instrument is an MXM Creative Sampler device, its sample a WAV in the device's own
 //!   files (tutti 7.8): a `.pti`'s samples written as one, an older instrument's WAV as it is. What
 //!   maps of its settings is the device's parameter snapshot ([`sampler_params`]); all of them are
-//!   kept under the extension.
+//!   kept under the extension. A slice instrument plays its selected slice; a beat-slice
+//!   instrument's notes play their slices as audio pieces of its sample (tutti 6.7).
+//! - Volumes play as the firmware's tables play them ([`crate::files::amp_db`], `mix_db`): a
+//!   Polyend track's volume is its track's gain, and a note sounds at its step's volume, or else its
+//!   instrument's, split into the sampler's level, the note's velocity and the instrument track's
+//!   gain ([`Levels`]), so a boost past unity sounds too.
 //! - Everything tutti does not hold is kept under [`NAMESPACE`] on the object it belongs to:
 //!   the project file and every step no note stands for, on the document; a note's step, on the
 //!   note; an instrument's header, on its device. [`to_model`] reads the model back from them,
@@ -43,7 +48,7 @@ use crate::song::{
 pub const NAMESPACE: &str = "dk.mxm.polyend-tracker";
 /// The conversion's version: raised whenever what it writes changes, so earlier outputs are out
 /// of date.
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 /// The instrument every sample instrument becomes.
 pub const SAMPLER: &str = "clap:dk.mxm.mxm-creative-sampler";
 const SAMPLER_NAME: &str = "MXM Creative Sampler";
@@ -91,6 +96,113 @@ fn wav(channels: u16, data: &[u8]) -> Vec<u8> {
 /// A slot's notes as a pattern variant tells them apart: each note's tick in the slot,
 /// length, pitch, velocity and the step of the pattern that played it.
 type Signature = Vec<(i64, i64, u8, u64, u32)>;
+
+/// How loud an instrument track's notes play, as the firmware plays them: a note sounds at its
+/// step's volume, or else its instrument's ([`crate::files::amp_db`]). The loudest of them,
+/// `loudest`, is split into the instrument's level (at most 1) times the track's gain (1 or
+/// more), and each note's velocity is its share of the loudest; so level × velocity × gain is
+/// every note's own gain, a boost past unity included.
+struct Levels {
+    own: f64,
+    loudest: f64,
+}
+
+fn gain(db: Option<f64>) -> f64 {
+    db.map_or(0.0, |db| 10f64.powf(db / 20.0))
+}
+
+impl Levels {
+    fn new<'a>(head: &InstrumentFile, notes: impl Iterator<Item = &'a Played>) -> Levels {
+        let own = gain(head.volume_db());
+        let loudest = notes
+            .map(|n| n.volume.map_or(own, |v| gain(crate::files::amp_db(v))))
+            .fold(own, f64::max);
+        Levels { own, loudest }
+    }
+
+    /// The track's gain: what of the loudest is past unity.
+    fn track(&self) -> f64 {
+        self.loudest.max(1.0)
+    }
+
+    /// The instrument's level.
+    fn level(&self) -> f64 {
+        self.loudest / self.track()
+    }
+
+    /// A note's velocity.
+    fn velocity(&self, n: &Played) -> f64 {
+        if self.loudest <= 0.0 {
+            return 1.0;
+        }
+        let own = n.volume.map_or(self.own, |v| gain(crate::files::amp_db(v)));
+        (own / self.loudest).clamp(0.0, 1.0)
+    }
+}
+
+/// A beat-slice instrument's sample in `audio/`, and the frames each slice plays.
+struct BeatSlices {
+    file: String,
+    wav: Vec<u8>,
+    sha256: String,
+    rate: u32,
+    channels: u32,
+    frames: u64,
+    spans: Vec<(u64, u64)>,
+}
+
+impl BeatSlices {
+    fn new(index: u8, instrument: &Instrument, pcm: &[u8]) -> Option<BeatSlices> {
+        let wav = match (&instrument.layout, &instrument.pcm) {
+            (Layout::Pti, Some(p)) => {
+                let data = if p.channels == 2 {
+                    interleave(pcm)
+                } else {
+                    pcm.to_vec()
+                };
+                wav(p.channels as u16, &data)
+            }
+            _ => pcm.to_vec(),
+        };
+        let (channels, frames, rate) = crate::model::wav_facts(&wav)?;
+        if frames == 0 || channels == 0 {
+            return None;
+        }
+        let head = &instrument.head;
+        let count = head.slices().len().max(1);
+        let at = |p: u16| (p as u64 * frames as u64 / 65535).min(frames as u64);
+        let spans = (0..count)
+            .map(|i| {
+                let (from, to) = head.slice_span(i);
+                (at(from), at(to).max(at(from) + 1).min(frames as u64))
+            })
+            .collect();
+        Some(BeatSlices {
+            file: format!("audio/instrument-{}.wav", index as u16 + 1),
+            sha256: sha256_hex(&wav),
+            wav,
+            rate,
+            channels: channels as u32,
+            frames: frames as u64,
+            spans,
+        })
+    }
+
+    /// The audio piece a note at `pitch`, at tick `at` of its pattern, plays, at the
+    /// instrument's level (its velocity applies too, tutti 6.7).
+    fn piece(&self, pitch: u8, at: i64, gain: f64) -> tutti::AudioPiece {
+        let slice = (pitch as usize)
+            .saturating_sub(24)
+            .min(self.spans.len() - 1);
+        let (from, to) = self.spans[slice];
+        serde_json::from_value(json!({
+            "file": self.file, "sha256": self.sha256, "sample_rate": self.rate,
+            "channels": self.channels, "frames": self.frames, "from": from, "to": to,
+            "map": [{"frame": from, "tick": at}], "bpm": null, "gain": gain,
+        }))
+        .expect("an audio piece")
+    }
+}
 
 /// Where [`wav`] puts the samples.
 const WAV_DATA: u64 = 44;
@@ -197,8 +309,11 @@ fn param(id: &str, name: &str, value: f64, range: (f64, f64), unit: &str) -> tut
 /// What of an instrument the sampler takes, as its parameter snapshot (tutti 7.3): layer A plays
 /// the sample; note 60 plays it at its own pitch, as on the Tracker; tune and finetune its
 /// transpose; start, end and the loop points its own; the play mode its loop (a backward loop
-/// plays forward) and its reader (granular its grain); volume its level, panning its pan.
-fn sampler_params(head: &InstrumentFile) -> Vec<tutti::Param> {
+/// plays forward) and its reader (granular its grain); `level` its level ([`Levels`]), panning its
+/// pan; the amplitude envelope its ADSR; the filter its filter. The master at full, the gain
+/// following velocity exactly, and Init's cutoff routes off, so the instrument sounds as the
+/// Tracker plays it.
+fn sampler_params(head: &InstrumentFile, level: f64) -> Vec<tutti::Param> {
     use crate::files::PlayMode as M;
     let (loop_mode, reader) = match head.play_mode() {
         M::LoopForward | M::LoopBackward => (1.0, 0.0),
@@ -207,15 +322,56 @@ fn sampler_params(head: &InstrumentFile) -> Vec<tutti::Param> {
         _ => (0.0, 0.0),
     };
     let [start, loop1, loop2, end] = head.points().map(|p| p as f64 / 65535.0);
+    // A slice instrument plays its selected slice, pitched by the note.
+    let (start, end) = if head.play_mode() == M::Slice && !head.slices().is_empty() {
+        let (from, to) = head.slice_span(head.selected_slice());
+        (from as f64 / 65535.0, to as f64 / 65535.0)
+    } else {
+        (start, end)
+    };
     let (tune, finetune) = head.tune();
     let transpose = (tune as f64 + finetune as f64 / 100.0).clamp(-24.0, 24.0);
-    // Volume is gain, -12 to +12 dB (0 silence); the sampler's level is amplitude, at most 1.
-    let level = head
-        .volume_db()
-        .map_or(0.0, |db| 10f64.powf(db / 20.0).min(1.0));
     let pan = ((head.panning() as f64 - 50.0) / 50.0).clamp(-1.0, 1.0);
     let unit = (0.0, 1.0);
+    // The amplitude envelope, an ADSR in seconds; with none, a gate: on at once, off at once.
+    let env = head.amp_envelope();
+    let (attack, decay, sustain, release) = if env.is_adsr() {
+        (
+            env.attack as f64 / 1000.0,
+            env.decay as f64 / 1000.0,
+            (env.sustain as f64).clamp(0.0, 1.0),
+            env.release as f64 / 1000.0,
+        )
+    } else {
+        (0.0, 0.0, 1.0, 0.0)
+    };
+    // The filter: off, low, band or high pass; cutoff in hertz; resonance from Q's 0.7..=5.
+    use crate::files::FilterType as F;
+    let (mode, cutoff, resonance) = match head.filter() {
+        None => (0.0, 22_000.0, 0.0),
+        Some(f) => {
+            let mode = match f.kind {
+                F::LowPass => 1.0,
+                F::BandPass => 2.0,
+                F::HighPass => 3.0,
+            };
+            (mode, f.hz.clamp(20.0, 22_000.0), (f.q - 0.7) / (5.0 - 0.7))
+        }
+    };
     let mut out = vec![
+        param("attack", "Attack", attack.min(10.0), (0.0, 10.0), "seconds"),
+        param("decay", "Decay", decay.min(10.0), (0.0, 10.0), "seconds"),
+        param("sustain", "Sustain", sustain, unit, "normalized"),
+        param(
+            "release",
+            "Release",
+            release.min(20.0),
+            (0.0, 20.0),
+            "seconds",
+        ),
+        param("filtermode", "Filter mode", mode, (0.0, 3.0), "enum"),
+        param("cutoff", "Cutoff", cutoff, (20.0, 22_000.0), "hertz"),
+        param("resonance", "Resonance", resonance, unit, "normalized"),
         param("areader", "A Playback mode", reader, (0.0, 2.0), "enum"),
         param("aroot", "A Root", 60.0, (0.0, 127.0), "other"),
         param(
@@ -230,7 +386,42 @@ fn sampler_params(head: &InstrumentFile) -> Vec<tutti::Param> {
         param("aloop", "A Loop", loop_mode, (0.0, 2.0), "enum"),
         param("aloopstart", "A Loop start", loop1, unit, "normalized"),
         param("aloopend", "A Loop end", loop2, unit, "normalized"),
-        param("alevel", "A Level", level, unit, "normalized"),
+        param(
+            "alevel",
+            "A Level",
+            level.clamp(0.0, 1.0),
+            unit,
+            "normalized",
+        ),
+        param("master", "Master", 1.0, unit, "normalized"),
+        param(
+            "mod_amp_velon",
+            "Amplitude from Velocity",
+            1.0,
+            unit,
+            "boolean",
+        ),
+        param(
+            "mod_amp_vel",
+            "Amplitude from Velocity amount",
+            1.0,
+            (-1.0, 1.0),
+            "linear",
+        ),
+        param(
+            "mod_cutoff_envon",
+            "Cutoff from Envelope",
+            0.0,
+            unit,
+            "boolean",
+        ),
+        param(
+            "mod_cutoff_lfo2on",
+            "Cutoff from LFO 2",
+            0.0,
+            unit,
+            "boolean",
+        ),
         param("apan", "A Pan", pan, (-1.0, 1.0), "linear"),
     ];
     out.sort_by(|a, b| a.id.cmp(&b.id));
@@ -245,10 +436,11 @@ fn sampler_device(
     instrument_index: u8,
     instrument: &Instrument,
     samples_bytes: Option<&[u8]>,
+    level: f64,
 ) -> (Device, Option<Put>) {
     let mut device = Device::new(id.clone(), "instrument", SAMPLER);
     device.name = format!("{SAMPLER_NAME}: {}", instrument.name());
-    device.params = sampler_params(&instrument.head);
+    device.params = sampler_params(&instrument.head, level);
     let (layout, wav_name) = match &instrument.layout {
         Layout::Pti => ("pti", None),
         Layout::Mti { wav } => ("mti", wav.clone()),
@@ -340,6 +532,8 @@ pub fn to_tutti(
     }
 
     let mut used_instruments = BTreeSet::new();
+    // The beat-slice samples put in audio/, each once.
+    let mut beat_files = BTreeSet::new();
     // Each Polyend track's instrument tracks, assembled after.
     let mut groups: BTreeMap<usize, Vec<Track>> = BTreeMap::new();
     for (&(track, instrument), slots) in &by_child {
@@ -353,6 +547,14 @@ pub fn to_tutti(
         child
             .extensions
             .insert(NAMESPACE.to_owned(), json!({ "instrument": instrument }));
+        let levels = model
+            .instruments
+            .get(&instrument)
+            .filter(|_| instrument < SAMPLE_INSTRUMENTS)
+            .map(|inst| Levels::new(&inst.head, slots.values().flatten().copied()));
+        if let Some(l) = &levels {
+            child.channel.gain = l.track();
+        }
         if instrument < SAMPLE_INSTRUMENTS {
             match (
                 model.instruments.get(&instrument),
@@ -360,8 +562,14 @@ pub fn to_tutti(
             ) {
                 (Some(inst), locator) => {
                     let pcm = locator.map(|l| samples(source, l)).transpose()?;
-                    let (device, put) =
-                        sampler_device(ids.id("dev", &[&t, &i]), instrument, inst, pcm.as_deref());
+                    let level = levels.as_ref().map_or(1.0, Levels::level);
+                    let (device, put) = sampler_device(
+                        ids.id("dev", &[&t, &i]),
+                        instrument,
+                        inst,
+                        pcm.as_deref(),
+                        level,
+                    );
                     child.devices.push(device);
                     match put {
                         Some(put) => files.push(put),
@@ -385,6 +593,20 @@ pub fn to_tutti(
             ));
         }
 
+        // A beat-slice instrument's notes play their slices as audio pieces of its sample, at the
+        // sample's own pitch (the firmware's `playBeatSlice`: slice `note - 24`, held to the
+        // slices there are).
+        let beat = match model.instruments.get(&instrument) {
+            Some(inst) if inst.head.play_mode() == crate::files::PlayMode::BeatSlice => locators
+                .get(&instrument)
+                .map(|l| samples(source, l))
+                .transpose()?
+                .and_then(|pcm| BeatSlices::new(instrument, inst, &pcm)),
+            _ => None,
+        };
+        let mut beat_used = false;
+        let velocity = |n: &Played| levels.as_ref().map_or(n.velocity, |l| l.velocity(n));
+
         // Each slot's notes, as a pattern of their own; identical slots of one pattern share it.
         let mut variants: BTreeMap<u8, Vec<Signature>> = BTreeMap::new();
         let mut patterns: BTreeMap<String, Pattern> = BTreeMap::new();
@@ -397,7 +619,7 @@ pub fn to_tutti(
                         n.at - slot.at,
                         n.length,
                         n.pitch,
-                        n.velocity.to_bits(),
+                        velocity(n).to_bits(),
                         n.global_step,
                     )
                 })
@@ -433,8 +655,13 @@ pub fn to_tutti(
                             n.at - slot.at,
                             n.length,
                             n.pitch,
-                            n.velocity,
+                            velocity(n),
                         );
+                        if let Some(b) = &beat {
+                            let level = levels.as_ref().map_or(1.0, Levels::level);
+                            note.audio = Some(b.piece(n.pitch, n.at - slot.at, level));
+                            beat_used = true;
+                        }
                         let step =
                             model.patterns[&slot.pattern].tracks[n.track].steps[n.step as usize];
                         note.extensions.insert(
@@ -467,6 +694,14 @@ pub fn to_tutti(
             ));
         }
         child.patterns = patterns.into_values().collect();
+        if let Some(b) = beat.filter(|b| beat_used && beat_files.insert(b.file.clone())) {
+            files.push(Put {
+                place: Place::Audio {
+                    file: b.file.trim_start_matches("audio/").to_owned(),
+                },
+                contents: Contents::Bytes(b.wav),
+            });
+        }
         child.parts.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
         groups.entry(track).or_default().push(child);
     }
@@ -474,11 +709,21 @@ pub fn to_tutti(
     // playing several is a folder of them. Its mute is the Polyend track's.
     for (track, mut children) in groups {
         let muted = track < SAMPLE_TRACKS && model.project.track_muted(track);
+        // The track's volume, as the mixer plays it: gain from its decibels.
+        let gain = if track < SAMPLE_TRACKS {
+            model
+                .project
+                .track_volume_db(track)
+                .map_or(0.0, |db| 10f64.powf(db / 20.0))
+        } else {
+            1.0
+        };
         let name = folder_name(&model, track);
         if children.len() == 1 {
             let mut only = children.pop().expect("one");
             only.name = format!("{name}: {}", only.name);
             only.channel.mute = muted;
+            only.channel.gain *= gain;
             if let Some(Value::Object(e)) = only.extensions.get_mut(NAMESPACE) {
                 e.insert("track".to_owned(), json!(track));
             }
@@ -487,6 +732,7 @@ pub fn to_tutti(
             let t = format!("t{}", track + 1);
             let mut folder = Track::new(ids.id("trk", &[&t]), &name);
             folder.channel.mute = muted;
+            folder.channel.gain = gain;
             folder
                 .extensions
                 .insert(NAMESPACE.to_owned(), json!({ "track": track }));
@@ -511,11 +757,14 @@ pub fn to_tutti(
             .get(&index)
             .map(|l| samples(source, l))
             .transpose()?;
+        let levels = Levels::new(&instrument.head, std::iter::empty());
+        child.channel.gain = levels.track();
         let (device, put) = sampler_device(
             ids.id("dev", &["unused", &i]),
             index,
             instrument,
             pcm.as_deref(),
+            levels.level(),
         );
         child.devices.push(device);
         files.extend(put);
@@ -601,13 +850,15 @@ fn remarks(model: &Model, song: &Song, report: &mut Report) {
     if !model.instruments.is_empty() {
         report.approximated(
             "The instruments are MXM Creative Samplers: their samples, play modes (a backward \
-             loop plays forward, granular as grain), start, end and loop points, tune, volume and \
-             panning carried over; their filters, envelopes, LFOs, slices and wavetable settings \
-             kept, not applied",
+             loop plays forward, granular as grain), start, end and loop points, tune, volume, \
+             panning, amplitude envelopes (attack, decay, sustain, release), filters and slices \
+             carried over (a slice instrument plays its selected slice; beat slices play as \
+             audio pieces of their slices, their points not snapped to zero crossings as the \
+             Tracker does); their LFOs, other envelopes, an envelope's delay and hold, \
+             wavetable and granular settings, glide, overdrive, bit depth and sends kept, not \
+             applied. Each note plays at its step's volume, or its instrument's, through the \
+             sampler's level, the note's velocity and the track's gain",
         );
-    }
-    if (0..SAMPLE_TRACKS).any(|t| model.project.track_volume(t) != 100) {
-        report.unplayed("The tracks' volumes are kept, not applied");
     }
 }
 

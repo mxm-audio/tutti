@@ -157,12 +157,13 @@ pub(crate) fn old_instrument_index(name: &str) -> Option<u8> {
     (1..=48).contains(&n).then(|| n - 1)
 }
 
-/// A WAV's channels and frames, from its `fmt ` and `data` chunks; none for what is not one.
-pub(crate) fn wav_facts(bytes: &[u8]) -> Option<(u8, u32)> {
+/// A WAV's channels, frames and rate, from its `fmt ` and `data` chunks; none for what is not
+/// one.
+pub fn wav_facts(bytes: &[u8]) -> Option<(u8, u32, u32)> {
     if bytes.len() < 12 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return None;
     }
-    let (mut at, mut channels, mut block) = (12usize, None, None);
+    let (mut at, mut channels, mut block, mut rate) = (12usize, None, None, None);
     while at + 8 <= bytes.len() {
         let id = &bytes[at..at + 4];
         let size = u32::from_le_bytes([bytes[at + 4], bytes[at + 5], bytes[at + 6], bytes[at + 7]])
@@ -171,10 +172,17 @@ pub(crate) fn wav_facts(bytes: &[u8]) -> Option<(u8, u32)> {
         if id == b"fmt " && body + 14 <= bytes.len() {
             channels = Some(u16::from_le_bytes([bytes[body + 2], bytes[body + 3]]) as u8);
             block = Some(u16::from_le_bytes([bytes[body + 12], bytes[body + 13]]) as u32);
+            rate = Some(u32::from_le_bytes([
+                bytes[body + 4],
+                bytes[body + 5],
+                bytes[body + 6],
+                bytes[body + 7],
+            ]));
         }
         if id == b"data" {
             let block = block?.max(1);
-            return Some((channels?, (size.min(bytes.len() - body) as u32) / block));
+            let frames = (size.min(bytes.len() - body) as u32) / block;
+            return Some((channels?, frames, rate?));
         }
         at = body + size + size % 2;
     }
@@ -182,9 +190,13 @@ pub(crate) fn wav_facts(bytes: &[u8]) -> Option<(u8, u32)> {
 }
 
 /// An instrument file's index, from `N name.pti` (`01 name.pti` too): N - 1.
+/// The device's own working copy names one `instrument_NN.pti`, which reads the same.
 pub(crate) fn instrument_index(name: &str) -> Option<u8> {
     let stem = name.strip_suffix(".pti")?;
-    let number = stem.split(' ').next()?;
+    let number = match stem.strip_prefix("instrument_") {
+        Some(n) => n,
+        None => stem.split(' ').next()?,
+    };
     let n: u8 = number.parse().ok()?;
     (1..=48).contains(&n).then(|| n - 1)
 }
@@ -249,6 +261,13 @@ pub fn read(source: &dyn Source, found: &Found) -> Result<(Model, Locators), Err
         let (index, older) = match (instrument_index(&name), old_instrument_index(&name)) {
             (Some(i), _) => (i, false),
             (None, Some(i)) => (i, true),
+            // An instrument file the converter cannot place would be left behind: refused.
+            _ if name.ends_with(".pti") || name.ends_with(".mti") => {
+                return Err(Error::Unreadable {
+                    reference: join(&instruments_dir, &name),
+                    why: "an instrument file whose name gives no instrument number".to_owned(),
+                });
+            }
             _ => continue,
         };
         let reference = join(&instruments_dir, &name);
@@ -278,7 +297,7 @@ pub fn read(source: &dyn Source, found: &Found) -> Result<(Model, Locators), Err
                     named_samples.push(file.clone());
                     let wav_ref = join(&samples_dir, file);
                     let data = read_file(source, &wav_ref)?;
-                    let (channels, frames) = wav_facts(&data).unwrap_or((0, 0));
+                    let (channels, frames, _) = wav_facts(&data).unwrap_or((0, 0, 0));
                     locators.insert(
                         index,
                         Locator {
