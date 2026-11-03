@@ -16,7 +16,8 @@
 //!   kept under the extension. A slice instrument plays its selected slice; a beat-slice
 //!   instrument's notes play their slices as audio pieces of its sample (tutti 6.7).
 //! - Volumes play as the firmware's tables play them ([`crate::files::amp_db`], `mix_db`): a
-//!   Polyend track's volume is its track's gain, and a note sounds at its step's volume, or else its
+//!   Polyend track's volume and the dry mix's are its track's gain, and a note sounds at its step's
+//!   volume, or else its
 //!   instrument's, split into the sampler's level, the note's velocity and the instrument track's
 //!   gain ([`Levels`]), so a boost past unity sounds too.
 //! - Everything tutti does not hold is kept under [`NAMESPACE`] on the object it belongs to:
@@ -48,7 +49,7 @@ use crate::song::{
 pub const NAMESPACE: &str = "dk.mxm.polyend-tracker";
 /// The conversion's version: raised whenever what it writes changes, so earlier outputs are out
 /// of date.
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 /// The instrument every sample instrument becomes.
 pub const SAMPLER: &str = "clap:dk.mxm.mxm-creative-sampler";
 const SAMPLER_NAME: &str = "MXM Creative Sampler";
@@ -310,9 +311,9 @@ fn param(id: &str, name: &str, value: f64, range: (f64, f64), unit: &str) -> tut
 /// the sample; note 60 plays it at its own pitch, as on the Tracker; tune and finetune its
 /// transpose; start, end and the loop points its own; the play mode its loop (a backward loop
 /// plays forward) and its reader (granular its grain); `level` its level ([`Levels`]), panning its
-/// pan; the amplitude envelope its ADSR; the filter its filter. The master at full, the gain
-/// following velocity exactly, and Init's cutoff routes off, so the instrument sounds as the
-/// Tracker plays it.
+/// pan; the amplitude envelope its ADSR; the filter its filter; the bit depth its converter's
+/// bits. The master at full, the gain following velocity exactly, and Init's cutoff routes off,
+/// so the instrument sounds as the Tracker plays it.
 fn sampler_params(head: &InstrumentFile, level: f64) -> Vec<tutti::Param> {
     use crate::files::PlayMode as M;
     let (loop_mode, reader) = match head.play_mode() {
@@ -358,7 +359,10 @@ fn sampler_params(head: &InstrumentFile, level: f64) -> Vec<tutti::Param> {
             (mode, f.hz.clamp(20.0, 22_000.0), (f.q - 0.7) / (5.0 - 0.7))
         }
     };
+    // The bit depth: the sampler's converter plays `16 - sqrt(c) * 11` bits, 5 the fewest.
+    let converter = ((16.0 - head.bit_depth().max(5) as f64) / 11.0).powi(2);
     let mut out = vec![
+        param("converter", "Bit depth", converter, unit, "normalized"),
         param("attack", "Attack", attack.min(10.0), (0.0, 10.0), "seconds"),
         param("decay", "Decay", decay.min(10.0), (0.0, 10.0), "seconds"),
         param("sustain", "Sustain", sustain, unit, "normalized"),
@@ -709,12 +713,10 @@ pub fn to_tutti(
     // playing several is a folder of them. Its mute is the Polyend track's.
     for (track, mut children) in groups {
         let muted = track < SAMPLE_TRACKS && model.project.track_muted(track);
-        // The track's volume, as the mixer plays it: gain from its decibels.
+        // The track's volume and the dry mix's, as the mixer plays them (`modVolume`).
         let gain = if track < SAMPLE_TRACKS {
-            model
-                .project
-                .track_volume_db(track)
-                .map_or(0.0, |db| 10f64.powf(db / 20.0))
+            self::gain(model.project.track_volume_db(track))
+                * self::gain(model.project.dry_mix_db())
         } else {
             1.0
         };
@@ -851,12 +853,13 @@ fn remarks(model: &Model, song: &Song, report: &mut Report) {
         report.approximated(
             "The instruments are MXM Creative Samplers: their samples, play modes (a backward \
              loop plays forward, granular as grain), start, end and loop points, tune, volume, \
-             panning, amplitude envelopes (attack, decay, sustain, release), filters and slices \
-             carried over (a slice instrument plays its selected slice; beat slices play as \
-             audio pieces of their slices, their points not snapped to zero crossings as the \
-             Tracker does); their LFOs, other envelopes, an envelope's delay and hold, \
-             wavetable and granular settings, glide, overdrive, bit depth and sends kept, not \
-             applied. Each note plays at its step's volume, or its instrument's, through the \
+             panning, amplitude envelopes (attack, decay, sustain, release), filters, bit \
+             depth (4 bits as 5, the sampler's fewest) and slices carried over (a slice \
+             instrument plays its selected slice; beat slices play as audio pieces of their \
+             slices, their points not snapped to zero crossings as the Tracker does); their \
+             LFOs, other envelopes, an envelope's delay and hold, wavetable and granular \
+             settings, glide (a time on the Tracker, per octave on the sampler), overdrive and \
+             sends kept, not applied, as are the master's EQ, boosts and limiter. Each note plays at its step's volume, or its instrument's, through the \
              sampler's level, the note's velocity and the track's gain",
         );
     }

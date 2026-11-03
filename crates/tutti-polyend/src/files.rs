@@ -128,8 +128,10 @@ mod project_at {
     pub const TRACK_NAMES: usize = 0x428;
     pub const TRACK_NAME_LEN: usize = 21;
     pub const TRACK_VOLUME: usize = 0x4D0;
+    pub const DRY_MIX_MUTE: usize = 0x4DC;
+    pub const DRY_MIX_VOLUME: usize = 0x4DD;
     /// The end of the last field read.
-    pub const END: usize = TRACK_VOLUME + 8;
+    pub const END: usize = DRY_MIX_VOLUME + 1;
 }
 
 impl ProjectFile {
@@ -193,6 +195,20 @@ impl ProjectFile {
     /// Sample track `t`'s volume, 0 to 100, as stored.
     pub fn track_volume(&self, t: usize) -> u8 {
         self.at(project_at::TRACK_VOLUME)[t]
+    }
+
+    /// The dry mix's volume, every sample track's, as the mixer plays it in decibels
+    /// ([`mix_db`], converted first as [`track_volume_db`](Self::track_volume_db)); none when
+    /// silent or muted.
+    pub fn dry_mix_db(&self) -> Option<f64> {
+        if self.at(project_at::DRY_MIX_MUTE)[0] != 0 {
+            return None;
+        }
+        let mut v = self.at(project_at::DRY_MIX_VOLUME)[0];
+        if self.header.version() <= 11 {
+            v = mixer_1300_to_1302(v);
+        }
+        mix_db(v)
     }
 
     /// Sample track `t`'s volume as the mixer plays it, in decibels ([`mix_db`]), a project up to
@@ -439,6 +455,7 @@ mod instrument_at {
     pub const SLICE_COUNT: usize = 360;
     pub const SELECTED_SLICE: usize = 361;
     pub const SLICE_PLAY_THRU: usize = 263;
+    pub const BIT_DEPTH: usize = 370;
 }
 
 impl InstrumentFile {
@@ -602,9 +619,21 @@ impl InstrumentFile {
         v
     }
 
-    /// The volume as gain in decibels: 1 to 100 is -12 to +12 dB, 0 silence.
+    /// The volume as gain in decibels, as it plays ([`amp_db`]); none for silence.
     pub fn volume_db(&self) -> Option<f64> {
         amp_db(self.volume())
+    }
+
+    /// The bits the sample plays at, 4 to 16, as the firmware plays them: an instrument up to
+    /// version 6 at 16 (its recovery sets it), a value outside held to 4..=16 (`setBitDepth`), a
+    /// struct too short to hold it at 16.
+    pub fn bit_depth(&self) -> u8 {
+        if self.header.version() <= 6 {
+            return 16;
+        }
+        self.data
+            .get(instrument_at::BIT_DEPTH)
+            .map_or(16, |&b| b.clamp(4, 16))
     }
 
     /// Panning, 0 (left) to 100 (right), 50 the middle.

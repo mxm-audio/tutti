@@ -207,7 +207,19 @@ designed from is `docs/research.md`.
   sampler's velocity route at full so velocity is exactly gain. Init's own colour (a master of
   0.8, its envelope and LFO on the cutoff) is turned off: a converted sound is the Tracker's.
   Measured on the card: 227 of 673 instruments filter, 634 shape their release, and 1,784 notes
-  are beat slices.
+  are beat slices. The dry mix's volume goes on each sample track, not the master, so effect
+  returns, should the sends ever be converted, are not scaled by it, as on the Tracker. Bit
+  depth is the sampler's converter (16 − √c · 11 bits, so 4 bits plays as its fewest, 5).
+  Glide is not mapped: the Tracker's is a time whatever the interval, the sampler's a time per
+  octave.
+- **2026-11-04:** **Version 6 patterns checked against CE's own definition**: no project saved
+  under CE was to hand (the card's `Workspace/` was saved by firmware 1.9.2), so CE's
+  `Sequencer::strPattern` and the enums it names were copied verbatim into a C++ program, built
+  with MSVC (CE's `static_assert` of 16 432 bytes holds on x86-64), filled by field name and
+  written as CE's `writePatternFile` writes it. Read in a copy of the card's working project:
+  every step volume, effect slot, micro-move, off and tempo as CE defines them, CE's effect
+  numbers equal to `song::fx`, the file written back byte for byte. The program lives outside the
+  repository: CE is GPL, this is MIT.
 
 ## Design choices and what they were weighed against
 

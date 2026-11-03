@@ -46,11 +46,13 @@ Owns `Cargo.toml`, `src/` and `tests/`.
   sample a WAV in the device's own files, what maps of it a parameter snapshot (tutti 7.3, by
   nice-plug's CLAP ids): the sample at its own pitch on note 60, transpose, start, end (a slice
   instrument's selected slice), loop mode and points, the reader, pan, the amplitude envelope's
-  ADSR, the filter (type, cutoff and Q as the firmware plays them); the master full, the gain
+  ADSR, the filter (type, cutoff and Q as the firmware plays them), the bit depth (the
+  sampler's converter); the master full, the gain
   following velocity exactly, and Init's cutoff routes off. The rest kept, and named in the
   report. A beat-slice instrument's notes play their slices as audio pieces of its sample in
   `audio/`. **Volumes are the firmware's tables** (`files::amp_db`, `files::mix_db`; its own
-  decibels are 10·log, half these): a Polyend track's volume its track's gain, and each note's
+  decibels are 10·log, half these): a Polyend track's volume and the dry mix's its track's gain
+  (on each track, not the master, so effect returns would not be scaled), and each note's
   gain, its step's volume or else its instrument's, split by `convert::Levels` into the
   sampler's level, the note's velocity and the instrument track's gain, so level × velocity ×
   gain is the note's gain, a boost past unity included. A program builds the sampler's state
@@ -87,7 +89,8 @@ and read back byte for byte; detection, the card's `Workspace/` left out; a step
 ends; micro-move and velocity's order; track 1's length and Break; tempo changes and version 4's
 cleared tracks; a missing pattern; the conversion's folders, devices, samples, variants and
 lengthened parts; the same document twice; the model read back byte for byte, samples included;
-the volume tables; levels, envelopes, filters, slices and beat slices as the Tracker plays them;
+the volume tables and the dry mix; levels, envelopes, filters, bit depth, slices and beat slices
+as the Tracker plays them;
 instrument files placed by number or refused.
 `tests/it/corpus.rs`: every real project read, written back, converted, valid, and read back (a
 Tracker Mini's card: all 28, and its `Workspace/` copied as a project, 2026-11-04).

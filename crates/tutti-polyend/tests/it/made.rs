@@ -43,6 +43,7 @@ fn project(version: u8, playlist: &[u8], tempo: f32) -> Vec<u8> {
     for t in 0..8 {
         bytes[0x4D0 + t] = 100;
     }
+    bytes[0x4DD] = 86; // the dry mix at 0 dB
     bytes[len - 4..].copy_from_slice(&[1, 2, 3, 4]);
     bytes
 }
@@ -83,6 +84,7 @@ fn instrument(frames: u32, channels: u8) -> Vec<u8> {
     bytes[16 + 44..16 + 48].copy_from_slice(&frames.to_le_bytes());
     bytes[16 + 256] = 100; // volume
     bytes[16 + 260] = 50; // panning
+    bytes[16 + 370] = 16; // bit depth
     bytes[PCM_OFFSET - 4..].copy_from_slice(&[5, 6, 7, 8]);
     for i in 0..frames as usize * channels as usize {
         bytes.extend_from_slice(&((i as i16).wrapping_mul(13)).to_le_bytes());
@@ -705,6 +707,14 @@ fn volumes_play_through_the_firmwares_tables() {
         assert!((amp_db(v).unwrap() - want).abs() < 1e-9, "{v}");
     }
     assert_eq!(mix_db(0), None);
+    // The dry mix: 0 dB at 86, +6 at 100, none when muted.
+    let mut bytes = project(16, &[1], 120.0);
+    let dry = |b: &[u8]| ProjectFile::parse(b).unwrap().dry_mix_db();
+    assert_eq!(dry(&bytes), Some(0.0));
+    bytes[0x4DD] = 100;
+    assert!((dry(&bytes).unwrap() - 6.0).abs() < 1e-9);
+    bytes[0x4DC] = 1;
+    assert_eq!(dry(&bytes), None);
     for (v, want) in [(1, -36.0), (85, -0.72), (86, 0.0), (87, 0.54), (100, 6.0)] {
         assert!((mix_db(v).unwrap() - want).abs() < 1e-9, "{v}");
     }
@@ -745,6 +755,7 @@ fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
     put_f32(&mut pad, 248, 1.0);
     pad[16 + 252] = 1; // high pass
     pad[16 + 253] = 1;
+    pad[16 + 370] = 12; // bits
     card.put("S", "instruments/1 Pad.pti", pad);
     let mut loop_ = instrument(300, 1);
     loop_[16 + 256] = 50; // 0 dB
@@ -793,6 +804,7 @@ fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
         ("mod_amp_velon", 1.0),
         ("mod_cutoff_envon", 0.0),
         ("mod_cutoff_lfo2on", 0.0),
+        ("converter", (4.0f64 / 11.0).powi(2)),
     ] {
         assert!(
             (param(pad, id) - want).abs() < 1e-4,
@@ -847,6 +859,7 @@ fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
     let chop = ends_with(&document.tracks, ": Chop");
     assert!((param(chop, "astart") - 32768.0 / 65535.0).abs() < 1e-9);
     assert_eq!(param(chop, "aend"), 1.0);
+    assert_eq!(param(chop, "converter"), 0.0, "16 bits: the converter off");
 }
 
 #[test]
