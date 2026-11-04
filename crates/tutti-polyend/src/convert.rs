@@ -57,7 +57,7 @@ pub const VERSION: u32 = 8;
 /// The slowest tempo written: the slowest most programs take.
 pub const SLOWEST_BPM: f64 = 20.0;
 /// The most gain a channel is written with, +12 dB: the most most programs take.
-pub const LOUDEST_GAIN: f64 = 3.981_071_705_534_973;
+pub const LOUDEST_GAIN: f64 = 3.981_071_705_534_972; // 10^(12/20), rounded down
 
 /// The reverb and delay the Tracker's sends go to.
 pub const REVERB: &str = "clap:dk.mxm.mxm-classic-verb";
@@ -437,7 +437,8 @@ fn within_reach(document: &mut Document, returns: &[&Id], report: &mut Report) {
     }
     let factor = worst / LOUDEST_GAIN;
     for t in played {
-        t.channel.gain /= factor;
+        // Held to it after the division too, which may round a hair over.
+        t.channel.gain = (t.channel.gain / factor).min(LOUDEST_GAIN);
         for send in t.channel.sends.iter_mut().filter(|s| s.pre_fader) {
             send.gain /= factor;
         }
