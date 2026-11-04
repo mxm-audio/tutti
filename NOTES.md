@@ -278,6 +278,16 @@ designed from is `docs/research.md`.
   every 16-bar render within 5e-7 of conversion 9's (the members' new order changes the mix's
   sums), no warnings; a folder note on its first key renders bit for bit as that member's own
   note at 60, and the next key struck chokes it.
+  **A render holds the chokes on its track's notes** (7.7; Pi's code review, 2026-11-04): another
+  member of its choke group changes when its notes stop, and with no folder notes the descriptor
+  held nothing of it. The chokes themselves, not the siblings' notes and zones: an edit that
+  moves no choke stales nothing, and the descriptor stays as small as what changes the sound.
+  A choke comes after note effects (what plays on a member is what its instruments are given),
+  so where one is on the way the chokes can't be worked out from the document: the descriptor
+  then holds the members that can choke the track, whole, their note effects standing for what
+  they play, as the folders above a track already stand for the notes they give it.
+  Each voice is choked alone (two parts over each other sound one event twice), and chokes at one
+  tick go by the choked note's start, then the track's place, as 6.12's order at one sample has it.
 
 ## Design choices and what they were weighed against
 

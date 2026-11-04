@@ -583,8 +583,10 @@ chromatically on its own track.
   member's own notes never pass its zone. Down a tree, each member's zone filters what its
   folder passes on, so a note from two folders up passes both zones, both transposes added.
 - **Choke**, worked out from the notes alone, so every reader gets the same:
-  - a member's notes are those that play on it, its own and those it receives; a member
-    folder's, every note that plays on an instrument inside it;
+  - a member's notes are those that play on it, its own and those it receives, as its
+    instruments are given them, after any note effect on the way (so where there is one, only a
+    player hosting it can work its chokes out; 7.7 says what a render's fingerprint holds then);
+    a member folder's, every note that plays on an instrument inside it;
   - a note sounds at tick *t* when it starts at or before *t* and ends after *t*: a note ending
     at *t* is over;
   - at each tick *t* where a note starts on a member in choke group *n* (not 0), every note
@@ -801,6 +803,16 @@ outermost of them, every folder with a zone (6.12), as it changes what passes. A
 only where it changes what reaches the track: the outermost folder's and, with no such folder,
 the track's own are left out, as is a zone at its defaults. With no such folder the key is left
 out, so moving a track into or out of folders that hold no notes never changes a fingerprint;
+and one key more for a track another member can choke (6.12: at a folder on its path, its member
+on that path in a choke group with others): where no enabled note effect stands on the track's
+path or inside those members, `"chokes"`, each choke on its notes as
+`{"event": <its note's id>, "pitch": <pitch>, "start": <its note's start>, "at": <the tick>}`, in
+the order 6.12 gives them, left out when there is none, so a change to another member that
+changes when its notes stop stales it, and one that doesn't, doesn't; where one does, what plays
+on those members can't be worked out from the document, and the key is `"choke_members"`
+instead: those members, the outermost folder's first, each folder's in its order, each with
+every track inside it as `children`, reduced as a track is with its enabled note effects and
+instruments standing for the listed devices;
 
 and for a pattern render:
 

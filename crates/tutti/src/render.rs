@@ -226,6 +226,48 @@ fn reduced_folders(doc: &Document, track: &Track) -> Vec<Track> {
         .collect()
 }
 
+/// What the chokes on a track's notes depend on (6.12, 7.7), when any member can choke them: the
+/// chokes themselves, as `"chokes"`, where the document alone says what plays on the members
+/// concerned; else, where an enabled note effect stands on the track's path or inside a member
+/// that can choke it, those members, as `"choke_members"`, each with every track inside it,
+/// reduced as a track is with its enabled note effects and instruments, as the folders above a
+/// track stand for the notes they give it.
+fn choke_dependencies(doc: &Document, track: &Track) -> Option<(&'static str, Value)> {
+    let members = crate::play::choking(doc, track);
+    if members.is_empty() {
+        return None;
+    }
+    fn any_note_effect(track: &Track) -> bool {
+        !listed(track, |role| role == Role::NoteEffect).is_empty()
+            || track.children.iter().any(any_note_effect)
+    }
+    let on_path = crate::play::path(doc, &track.id)
+        .iter()
+        .any(|t| !listed(t, |role| role == Role::NoteEffect).is_empty());
+    if !on_path && !members.iter().any(|m| any_note_effect(m)) {
+        let chokes: Vec<Value> = crate::play::chokes_on(doc, track)
+            .iter()
+            .map(|c| json!({"event": c.event, "pitch": c.pitch, "start": c.start, "at": c.at}))
+            .collect();
+        return (!chokes.is_empty()).then(|| ("chokes", Value::Array(chokes)));
+    }
+    fn whole(track: &Track) -> Track {
+        let mut reduced = reduced_track(
+            track,
+            &listed(track, |role| {
+                role == Role::NoteEffect || role == Role::Instrument
+            }),
+        );
+        reduced.children = track.children.iter().map(whole).collect();
+        reduced
+    }
+    let members: Vec<Track> = members.into_iter().map(whole).collect();
+    Some((
+        "choke_members",
+        serde_json::to_value(members).expect("a track always serialises"),
+    ))
+}
+
 /// A zone that changes something (6.12): not every key, velocity and none of the rest.
 fn has_zone(track: &Track) -> bool {
     track.zone.as_ref().is_some_and(|z| !z.is_default())
@@ -243,8 +285,9 @@ fn maps(doc: &Document) -> (Value, Value, Value) {
 }
 
 /// The descriptor a track render's fingerprint is over (spec 7.7): the track reduced to what a
-/// render of `devices` depends on; the folders above it whose notes reach it, when any; `from`
-/// and `to`; the document's `ppq`, `tempo`, `meter` and `key`.
+/// render of `devices` depends on; the folders above it whose notes reach it, when any; what the
+/// chokes on its notes depend on, when any member can choke them; `from` and `to`; the document's
+/// `ppq`, `tempo`, `meter` and `key`.
 pub fn render_descriptor(
     doc: &Document,
     track: &Track,
@@ -267,6 +310,10 @@ pub fn render_descriptor(
             "folders".to_owned(),
             serde_json::to_value(folders).expect("a track always serialises"),
         );
+    }
+    // What the other members of a choke group it's in do to its sound (6.12).
+    if let Some((key, value)) = choke_dependencies(doc, track) {
+        descriptor.insert(key.to_owned(), value);
     }
     descriptor.insert("from".to_owned(), json!(from));
     descriptor.insert("to".to_owned(), json!(to));
@@ -458,6 +505,105 @@ mod tests {
 
     fn doc() -> Document {
         read(DOC.as_bytes()).unwrap()
+    }
+
+    /// A folder Kit, holding `kit_notes`, with Open (choke group 1, a note of its own at 0, 960
+    /// long) and Snare (choke group `snare_group`, its own notes `snare_notes`, keys 38 alone).
+    fn choked(kit_notes: &str, snare_notes: &str, snare_group: u8) -> Document {
+        let pattern = |id: &str, notes: &str| {
+            format!(
+                r#""patterns": [{{"id": "{id}", "length": 3840, "events": [{notes}]}}],
+              "parts": [{{"id": "{id}_part", "pattern": "{id}", "at": 0, "length": 3840}}]"#
+            )
+        };
+        let note =
+            r#"{"type": "note", "id": "o", "at": 0, "length": 960, "pitch": 60, "velocity": 1}"#;
+        let json = format!(
+            r#"{{"format": "tutti", "version": "1.0", "generator": {{"name": "t"}}, "ppq": 960,
+            "tempo": [{{"at": 0, "bpm": 120}}], "meter": [{{"at": 0, "numerator": 4, "denominator": 4}}],
+            "tracks": [{{"id": "kit", "name": "Kit", {kit},
+              "children": [
+                {{"id": "open", "name": "Open", "zone": {{"keys": [36, 36], "choke": 1}},
+                  "devices": [{{"id": "oi", "role": "instrument", "plugin": "clap:a"}}], {open}}},
+                {{"id": "snare", "name": "Snare", "zone": {{"keys": [38, 38], "choke": {snare_group}}},
+                  "devices": [{{"id": "si", "role": "instrument", "plugin": "clap:a"}}], {snare}}}]}}]}}"#,
+            kit = pattern("kp", kit_notes),
+            open = pattern("op", note),
+            snare = pattern("sp", snare_notes),
+        );
+        read(json.as_bytes()).unwrap()
+    }
+
+    fn open_fingerprint(doc: &Document) -> String {
+        let open = doc.track(&Id::from("open")).unwrap();
+        render_fingerprint(doc, open, &ids(&["oi"]), 0, 3840)
+    }
+
+    /// A member's render holds the chokes on its notes (7.7): a sibling's note in its choke group
+    /// that moves where it chokes stales it, its own or one its folder gives it; a change that
+    /// leaves its notes' ends where they were doesn't.
+    #[test]
+    fn a_members_render_holds_what_chokes_its_notes() {
+        let snare = |at: i64, pitch: u8| {
+            format!(
+                r#"{{"type": "note", "id": "s", "at": {at}, "length": 100, "pitch": {pitch}, "velocity": 1}}"#
+            )
+        };
+        let base = open_fingerprint(&choked("", &snare(480, 50), 1));
+        // Snare's own note at 480 chokes Open's: at 240 it chokes it earlier.
+        assert_ne!(base, open_fingerprint(&choked("", &snare(240, 50), 1)));
+        // Its pitch (its own note passes no zone) changes nothing Open hears.
+        assert_eq!(base, open_fingerprint(&choked("", &snare(480, 51), 1)));
+        // Out of Open's choke group, it chokes nothing.
+        let apart = open_fingerprint(&choked("", &snare(480, 50), 2));
+        assert_ne!(base, apart);
+        // After Open's note has ended, it chokes nothing either: the same as apart.
+        assert_eq!(apart, open_fingerprint(&choked("", &snare(1200, 50), 1)));
+        // A note of the folder's on Snare's key, at 480, chokes Open there, as Snare's own did;
+        // moved to 300, it chokes it earlier.
+        let kit = |at: i64| {
+            format!(
+                r#"{{"type": "note", "id": "k", "at": {at}, "length": 100, "pitch": 38, "velocity": 1}}"#
+            )
+        };
+        let routed = open_fingerprint(&choked(&kit(480), "", 1));
+        assert_ne!(routed, open_fingerprint(&choked(&kit(300), "", 1)));
+    }
+
+    /// With a note effect on the way, what plays on the members can't be worked out from the
+    /// document (6.12): the descriptor holds the members that can choke the track instead, so any
+    /// edit to them stales it.
+    #[test]
+    fn with_a_note_effect_on_the_way_a_render_holds_the_members_that_can_choke_it() {
+        let snare = |pitch: u8| {
+            format!(
+                r#"{{"type": "note", "id": "s", "at": 480, "length": 100, "pitch": {pitch}, "velocity": 1}}"#
+            )
+        };
+        let with_effect = |mut doc: Document, on: &str| {
+            let effect: crate::model::Device = serde_json::from_str(
+                r#"{"id": "arp", "role": "note_effect", "plugin": "clap:arp"}"#,
+            )
+            .unwrap();
+            doc.track_mut(&Id::from(on))
+                .unwrap()
+                .devices
+                .insert(0, effect);
+            doc
+        };
+        for on in ["kit", "snare"] {
+            let base = with_effect(choked("", &snare(50), 1), on);
+            let open = base.track(&Id::from("open")).unwrap();
+            let descriptor = render_descriptor(&base, open, &ids(&["oi"]), 0, 3840);
+            assert!(descriptor.get("chokes").is_none(), "{on}");
+            assert!(descriptor.get("choke_members").is_some(), "{on}");
+            // Its pitch changes no choke the document shows, but the arpeggiator may play it so.
+            assert_ne!(
+                open_fingerprint(&base),
+                open_fingerprint(&with_effect(choked("", &snare(51), 1), on)),
+                "{on}"
+            );
+        }
     }
 
     fn ids(names: &[&str]) -> Vec<Id> {

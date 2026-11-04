@@ -35,6 +35,8 @@ pub struct Choke {
     /// The choked note's (or chord's) id.
     pub event: Id,
     pub pitch: u8,
+    /// Where the choked note started.
+    pub start: Ticks,
     pub at: Ticks,
 }
 
@@ -53,7 +55,7 @@ pub fn own(track: &Track) -> Vec<Sounding> {
         // start again, for the part's length.
         let mut spans: Vec<(Ticks, Ticks, Ticks)> = Vec::new(); // (pattern from, pattern to, track at)
         match &part.r#loop {
-            Some(l) if l.start < l.end && part.offset < l.end => {
+            Some(l) if l.start < l.end && part.offset <= l.end => {
                 let mut at = part.at;
                 let mut from = part.offset;
                 while at < part_end {
@@ -105,7 +107,7 @@ fn sort(notes: &mut [Sounding]) {
 }
 
 /// The path from the top to the track with `id`, that track last; empty when it isn't held.
-fn path<'a>(doc: &'a Document, id: &Id) -> Vec<&'a Track> {
+pub(crate) fn path<'a>(doc: &'a Document, id: &Id) -> Vec<&'a Track> {
     fn walk<'a>(tracks: &'a [Track], id: &Id, path: &mut Vec<&'a Track>) -> bool {
         for t in tracks {
             path.push(t);
@@ -189,12 +191,11 @@ fn places(doc: &Document) -> HashMap<String, usize> {
     out
 }
 
-/// Every choke in the document (6.12), sorted by tick, then the choked track's place in the
-/// document, then the note's id and pitch. A note is choked once, at the first start that chokes
-/// it; a note choked is over.
+/// Every choke in the document (6.12), in the order a player sends them: by tick, then the
+/// choked note's start, then its track's place in the document, then its id and pitch. Each note
+/// sounding is a voice of its own, so two parts playing one event over each other give two. A
+/// voice is choked once, at the first start that chokes it; a voice choked is over.
 pub fn chokes(doc: &Document) -> Vec<Choke> {
-    // The notes reaching each instrument, worked out once.
-    let mut reached: HashMap<String, Vec<Sounding>> = HashMap::new();
     fn all<'a>(tracks: &'a [Track], out: &mut Vec<&'a Track>) {
         for t in tracks {
             out.push(t);
@@ -203,22 +204,30 @@ pub fn chokes(doc: &Document) -> Vec<Choke> {
     }
     let mut every = Vec::new();
     all(&doc.tracks, &mut every);
-    for t in &every {
-        if has_instrument(t) {
-            reached.insert(t.id.as_str().to_owned(), reaching(doc, t));
-        }
-    }
-    // A member's notes: every note playing on an instrument at or inside it.
-    let member_notes = |member: &Track| -> Vec<&Sounding> {
+    // The voices reaching each instrument, worked out once, each known by its track and its place
+    // in that track's list.
+    let reached: HashMap<&str, Vec<Sounding>> = every
+        .iter()
+        .filter(|t| has_instrument(t))
+        .map(|t| (t.id.as_str(), reaching(doc, t)))
+        .collect();
+    // A member's voices: every one playing on an instrument at or inside it.
+    let member_voices = |member: &Track| -> Vec<(&str, usize, &Sounding)> {
         let mut inside = Vec::new();
         instruments(member, &mut inside);
         inside
             .iter()
-            .flat_map(|t| reached.get(t.id.as_str()).into_iter().flatten())
+            .filter_map(|t| reached.get_key_value(t.id.as_str()))
+            .flat_map(|(&track, voices)| {
+                voices
+                    .iter()
+                    .enumerate()
+                    .map(move |(place, voice)| (track, place, voice))
+            })
             .collect()
     };
-    // The first tick each note is choked at, by (track, event, pitch, start).
-    let mut first: HashMap<(String, String, u8, Ticks), Ticks> = HashMap::new();
+    // The first tick each voice is choked at.
+    let mut first: HashMap<(&str, usize), Ticks> = HashMap::new();
     for folder in every.iter().filter(|t| !t.children.is_empty()) {
         let members: Vec<(&Track, u8)> = folder
             .children
@@ -229,22 +238,23 @@ pub fn chokes(doc: &Document) -> Vec<Choke> {
             if group == 0 {
                 continue;
             }
-            let starts: Vec<Ticks> = member_notes(member).iter().map(|n| n.at).collect();
+            let starts: Vec<Ticks> = member_voices(member)
+                .iter()
+                .map(|(_, _, voice)| voice.at)
+                .collect();
             for (j, &(other, other_group)) in members.iter().enumerate() {
                 if i == j || other_group != group {
                     continue;
                 }
-                for n in member_notes(other) {
+                for (track, place, voice) in member_voices(other) {
                     // Sounding at t, and started before it: at < t < end.
-                    if let Some(&t) = starts.iter().filter(|&&t| n.at < t && t < n.end).min() {
-                        let key = (
-                            n.track.as_str().to_owned(),
-                            n.event.as_str().to_owned(),
-                            n.pitch,
-                            n.at,
-                        );
+                    if let Some(&t) = starts
+                        .iter()
+                        .filter(|&&t| voice.at < t && t < voice.end)
+                        .min()
+                    {
                         first
-                            .entry(key)
+                            .entry((track, place))
                             .and_modify(|e| *e = (*e).min(t))
                             .or_insert(t);
                     }
@@ -255,19 +265,60 @@ pub fn chokes(doc: &Document) -> Vec<Choke> {
     let place = places(doc);
     let mut out: Vec<Choke> = first
         .into_iter()
-        .map(|((track, event, pitch, _), at)| Choke {
-            track: Id::new(&track).expect("an id read from the document"),
-            event: Id::new(&event).expect("an id read from the document"),
-            pitch,
-            at,
+        .map(|((track, at_place), at)| {
+            let voice = &reached[track][at_place];
+            Choke {
+                track: voice.track.clone(),
+                event: voice.event.clone(),
+                pitch: voice.pitch,
+                start: voice.at,
+                at,
+            }
         })
         .collect();
     out.sort_by(|a, b| {
         let pa = place.get(a.track.as_str()).copied().unwrap_or(usize::MAX);
         let pb = place.get(b.track.as_str()).copied().unwrap_or(usize::MAX);
-        (a.at, pa, a.event.as_str(), a.pitch).cmp(&(b.at, pb, b.event.as_str(), b.pitch))
+        (a.at, a.start, pa, a.event.as_str(), a.pitch).cmp(&(
+            b.at,
+            b.start,
+            pb,
+            b.event.as_str(),
+            b.pitch,
+        ))
     });
     out
+}
+
+/// The members whose notes can choke a track's (6.12): at each folder on its path whose member on
+/// that path is in a choke group, the folder's other members in the group; the outermost folder's
+/// first, each folder's in its order.
+pub fn choking<'a>(doc: &'a Document, track: &Track) -> Vec<&'a Track> {
+    let line = path(doc, &track.id);
+    let mut out = Vec::new();
+    for pair in line.windows(2) {
+        let (folder, member) = (pair[0], pair[1]);
+        let group = member.zone.as_ref().map_or(0, |z| z.choke);
+        if group == 0 {
+            continue;
+        }
+        out.extend(folder.children.iter().filter(|other| {
+            other.id != member.id && other.zone.as_ref().is_some_and(|z| z.choke == group)
+        }));
+    }
+    out
+}
+
+/// The chokes on one track's notes (6.12), in [`chokes`]' order: what the other members of a
+/// choke group it's in do to its sound. None, and nothing worked out, when no member can choke it.
+pub fn chokes_on(doc: &Document, track: &Track) -> Vec<Choke> {
+    if choking(doc, track).is_empty() {
+        return Vec::new();
+    }
+    chokes(doc)
+        .into_iter()
+        .filter(|choke| choke.track == track.id)
+        .collect()
 }
 
 #[cfg(test)]
@@ -358,6 +409,32 @@ mod tests {
         assert!(own(&t).is_empty(), "a muted part plays nothing");
     }
 
+    /// A part starting at its loop's end reaches it at once and goes on from its start (6.6).
+    #[test]
+    fn a_part_starting_at_its_loops_end_plays_from_its_start() {
+        let mut t = holding(
+            "a",
+            vec![
+                note("evt_0", 0, 100, 60, 1.0),
+                note("evt_1", 480, 100, 62, 1.0),
+            ],
+            960,
+            960,
+        );
+        t.parts[0].offset = 480;
+        t.parts[0].r#loop = Some(LoopRange {
+            start: 0,
+            end: 480,
+            unknown: Default::default(),
+        });
+        let got: Vec<(Ticks, u8)> = own(&t).iter().map(|n| (n.at, n.pitch)).collect();
+        assert_eq!(
+            got,
+            [(0, 60), (480, 60)],
+            "the loop 0 to 480, twice; 480 never heard"
+        );
+    }
+
     #[test]
     fn a_zone_takes_its_keys_and_velocities_both_ends_in_and_drops_what_its_transpose_takes_past_the_ends()
      {
@@ -443,6 +520,48 @@ mod tests {
         // sound; the Ride (group 2) is never choked; Closed's first note ends at 80, before the
         // start at 100, so it isn't choked then.
         assert_eq!(got, [("trk_open".to_owned(), 50)]);
+    }
+
+    /// Two parts playing one pattern over each other sound its note twice: each voice is choked.
+    /// Choked at one tick, the voice that started first comes first, before the track's place.
+    #[test]
+    fn each_voice_is_choked_and_chokes_at_one_tick_go_by_their_notes_starts() {
+        // Kit: a note at 0 (36) for Open, one at 20 (37) for Low, both in Pair, a member folder in
+        // choke group 1 with Snare, struck at 50 (38); Low comes before Open in the document.
+        let mut kit = holding(
+            "kit",
+            vec![
+                note("evt_1", 0, 100, 36, 1.0),
+                note("evt_2", 20, 100, 37, 1.0),
+                note("evt_3", 50, 10, 38, 1.0),
+            ],
+            200,
+            200,
+        );
+        let mut pair = Track::new(id("trk_pair"), "pair");
+        pair.zone = zone([36, 37], 0, 1);
+        pair.children.push(instrument("low", zone([37, 37], 0, 0)));
+        pair.children.push(instrument("open", zone([36, 36], 0, 0)));
+        kit.children.push(pair);
+        kit.children.push(instrument("snare", zone([38, 38], 0, 1)));
+        // A second part playing the kit's pattern from 0 again: the notes twice.
+        kit.parts
+            .push(Part::new(id("prt_kit_2"), id("pat_kit"), 0, 200));
+        let d = doc(vec![kit]);
+        let got: Vec<(String, Ticks, Ticks)> = chokes(&d)
+            .iter()
+            .map(|c| (c.track.as_str().to_owned(), c.start, c.at))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("trk_open".to_owned(), 0, 50),
+                ("trk_open".to_owned(), 0, 50),
+                ("trk_low".to_owned(), 20, 50),
+                ("trk_low".to_owned(), 20, 50),
+            ],
+            "two voices each, Open's first: it started first"
+        );
     }
 
     #[test]

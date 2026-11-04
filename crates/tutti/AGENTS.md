@@ -10,8 +10,8 @@ an audio piece's placement and playback rate), renders (`render.rs`: the two fin
 what a render holds, the notes a track's folders give it among them (`folders_above`), the length its file must have, the signal order, what a render stands in
 for, the two device lists without and with effects, every render's state), what plays
 (`play.rs`: a track's notes from its parts, the notes reaching an instrument through its
-folders' members' zones, and the chokes, the reference a conformance fixture's expected notes are
-made with), and `Project`: a project
+folders' members' zones, and the chokes, each voice alone, the reference a conformance fixture's
+expected notes are made with; a track render's descriptor holds the chokes on its notes), and `Project`: a project
 in a store, opened, created, saved and filled by the one procedure every writer follows (spec
 10, conformance 2), written once over the `Store` trait so the disk (`tutti-fs`), a test's
 memory (`MemoryStore`) and a JavaScript host run the same one.
