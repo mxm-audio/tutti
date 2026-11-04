@@ -42,7 +42,13 @@ Owns `Cargo.toml`, `src/` and `tests/`.
   instrument in it, a part per slot, patterns shared only where a slot's notes are identical
   (else variants), a note outlasting its pattern keeping its length with its part lengthened
   over it (tutti 6.6). A Polyend track playing one instrument is that instrument's track; one
-  playing several, a folder of them. A sample instrument is an MXM Creative Sampler device: its
+  playing several, a folder of them, **played from its keys** (tutti 6.12; ops'
+  `plans/plan-group-zones.md`): its members in the order the track first plays them, sample
+  instruments first, each sample instrument a zone of one key from C1 (36) up, transposed to its
+  sample's own pitch (60), all in choke group 1, the Tracker's one voice per track, and the
+  folder's `drum_map` naming the keys; a MIDI or synth member takes none. The song's notes stay
+  on the members, so a note still ends where the track's next begins and its release rings on
+  past it, which the report says. A sample instrument is an MXM Creative Sampler device: its
   sample a WAV in the device's own files, what maps of it a parameter snapshot (tutti 7.3, by
   nice-plug's CLAP ids): the sample at its own pitch on note 60, transpose, start, end (a slice
   instrument's selected slice), loop mode and points, the reader, pan, the amplitude envelope's

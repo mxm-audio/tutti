@@ -271,6 +271,13 @@ designed from is `docs/research.md`.
   so every reader gets the same in any track order; the core's `play` is the reference a
   fixture's expected notes are made with. A zone's own extension keys are left out of the
   every-feature example, whose coverage test reads only keys the schema names.
+  **A Polyend track's folder** (tutti-polyend, conversion 10) takes zones of one key each from C1,
+  choke group 1, for playing the folder; the song's notes stay on its members, each ending where
+  the track's next begins, so none is choked (a note no longer sounds at its end) and a release
+  still rings on. Measured 2026-11-04 on the 30 copied corpus projects in newDAWn's zones build:
+  every 16-bar render within 5e-7 of conversion 9's (the members' new order changes the mix's
+  sums), no warnings; a folder note on its first key renders bit for bit as that member's own
+  note at 60, and the next key struck chokes it.
 
 ## Design choices and what they were weighed against
 

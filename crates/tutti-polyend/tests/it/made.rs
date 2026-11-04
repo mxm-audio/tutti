@@ -632,6 +632,72 @@ fn a_project_converts_into_folders_of_instrument_tracks() {
     );
 }
 
+/// A Polyend track's folder is played from its keys (tutti 6.12; ops' `plans/plan-group-zones.md`):
+/// its sample instruments on C1 up in the order the track first plays them, each transposed to its
+/// sample's own pitch, all in choke group 1, the folder's drum map naming the keys; a MIDI channel
+/// among them, which plays nowhere, takes no zone. The song's notes stay on the instruments.
+#[test]
+fn a_tracks_folder_plays_its_instruments_from_its_keys_one_voice_at_a_time() {
+    let card = Card::new();
+    card.put("Tune", "project.mt", project(16, &[1], 120.0));
+    let mut file = pattern(6, 16, 15, true);
+    file.tracks[0].steps[0] = note(48, 2); // Hat, played first
+    file.tracks[0].steps[2] = note(60, 0); // Kick
+    file.tracks[0].steps[4] = note(60, 49); // a MIDI channel
+    file.tracks[0].steps[6] = note(62, 1); // Snare
+    card.pattern("Tune", 1, &file);
+    for (n, name) in [(1, "Kick"), (2, "Snare"), (3, "Hat")] {
+        card.put(
+            "Tune",
+            &format!("instruments/{n} {name}.pti"),
+            instrument(100, 1),
+        );
+    }
+    let (_, document, report) = convert(&card);
+    let folder = named(&document.tracks, "Drums");
+    // Each member's name, and its zone's keys, transpose and choke group.
+    type Member<'a> = (&'a str, Option<([u8; 2], i32, u8)>);
+    let members: Vec<Member> = folder
+        .children
+        .iter()
+        .map(|c| {
+            let zone = c.zone.as_ref().map(|z| (z.keys, z.transpose, z.choke));
+            (c.name.as_str(), zone)
+        })
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("Hat", Some(([36, 36], 24, 1))),
+            ("Kick", Some(([37, 37], 23, 1))),
+            ("Snare", Some(([38, 38], 22, 1))),
+            ("MIDI channel 2", None),
+        ]
+    );
+    let lanes: Vec<(u8, &str)> = folder
+        .drum_map
+        .as_ref()
+        .expect("the keys named")
+        .iter()
+        .map(|l| (l.pitch, l.name.as_str()))
+        .collect();
+    assert_eq!(lanes, [(36, "Hat"), (37, "Kick"), (38, "Snare")]);
+    assert!(
+        folder.patterns.is_empty(),
+        "the notes stay on the instruments"
+    );
+    let kick = named(&folder.children, "Kick");
+    assert!(kick.patterns.iter().any(|p| !p.events.is_empty()));
+    assert!(
+        report
+            .remarks
+            .iter()
+            .any(|r| r.text.contains("choke group") && r.text.contains("rings on")),
+        "{:?}",
+        report.remarks
+    );
+}
+
 #[test]
 fn converting_again_writes_the_same_document() {
     let card = song_card();

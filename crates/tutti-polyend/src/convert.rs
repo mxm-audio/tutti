@@ -33,7 +33,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 use tutti::render::sha256_hex;
-use tutti::{Device, Document, Event, Generator, Id, Note, Part, Pattern, TempoPoint, Track};
+use tutti::{
+    Device, Document, Event, Generator, Id, Lane, Note, Part, Pattern, TempoPoint, Track, Unknown,
+    Zone,
+};
 use tutti_convert::{
     Contents, Conversion, Error, Found, Place, Progress, Put, Report, Source, derived_id,
 };
@@ -53,7 +56,7 @@ use crate::song::{
 pub const NAMESPACE: &str = "dk.mxm.polyend-tracker";
 /// The conversion's version: raised whenever what it writes changes, so earlier outputs are out
 /// of date.
-pub const VERSION: u32 = 9;
+pub const VERSION: u32 = 10;
 /// The slowest tempo written: the slowest most programs take.
 pub const SLOWEST_BPM: f64 = 20.0;
 /// The most gain a channel is written with, +12 dB: the most most programs take.
@@ -554,6 +557,20 @@ impl Ids {
     }
 }
 
+/// The key a Polyend track's folder plays its first sample instrument from: C1, so the Tracker's
+/// 48 sample instruments fit in MIDI's keys (36 to 83).
+const FOLDER_FIRST_KEY: u8 = 36;
+
+/// The instrument a folder's member plays, as its extension records it.
+fn instrument_of(child: &Track) -> Option<u8> {
+    child
+        .extensions
+        .get(NAMESPACE)
+        .and_then(|e| e.get("instrument"))
+        .and_then(Value::as_u64)
+        .and_then(|i| u8::try_from(i).ok())
+}
+
 /// An instrument's track inside a Polyend track's folder.
 fn instrument_track_name(model: &Model, instrument: u8) -> String {
     match instrument {
@@ -984,10 +1001,17 @@ pub fn to_tutti(
     let mut used_instruments = BTreeSet::new();
     // The beat-slice samples put in audio/, each once.
     let mut beat_files = BTreeSet::new();
-    // Each Polyend track's instrument tracks, assembled after.
-    let mut groups: BTreeMap<usize, Vec<Track>> = BTreeMap::new();
+    // Each Polyend track's instrument tracks, assembled after, with the tick each is first played
+    // at and its instrument.
+    let mut groups: BTreeMap<usize, Vec<(i64, u8, Track)>> = BTreeMap::new();
     for (&(track, instrument), slots) in &by_child {
         used_instruments.insert(instrument);
+        let first = slots
+            .values()
+            .flatten()
+            .map(|n| n.at)
+            .min()
+            .unwrap_or(i64::MAX);
         let t = format!("t{}", track + 1);
         let i = format!("i{}", instrument as u16 + 1);
         let mut child = Track::new(
@@ -1181,7 +1205,10 @@ pub fn to_tutti(
             });
         }
         child.parts.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-        groups.entry(track).or_default().push(child);
+        groups
+            .entry(track)
+            .or_default()
+            .push((first, instrument, child));
     }
     // The returns the sends go to, made when any track sends to them.
     let reverb_id = ids.id("trk", &["reverb"]);
@@ -1189,7 +1216,14 @@ pub fn to_tutti(
     let (mut reverb_used, mut delay_used) = (false, false);
     // A Polyend track playing one instrument is that instrument's track, named for both; one
     // playing several is a folder of them. Its mute is the Polyend track's.
-    for (track, mut children) in groups {
+    let mut zoned = false;
+    for (track, mut members) in groups {
+        // A folder's members in the order the track first plays them, its sample instruments
+        // first: the order its keys play them in.
+        members.sort_by_key(|&(first, instrument, _)| {
+            (instrument >= SAMPLE_INSTRUMENTS, first, instrument)
+        });
+        let mut children: Vec<Track> = members.into_iter().map(|(_, _, child)| child).collect();
         let muted = track < SAMPLE_TRACKS && model.project.track_muted(track);
         // The track's volume and the dry mix's, as the mixer plays them (`modVolume`).
         let gain = if track < SAMPLE_TRACKS {
@@ -1271,6 +1305,33 @@ pub fn to_tutti(
             folder
                 .extensions
                 .insert(NAMESPACE.to_owned(), json!({ "track": track }));
+            // Played from its keys (tutti 6.12): each sample instrument on its own key from C1
+            // on, at its sample's own pitch (note 60), all in one choke group, the Tracker's one
+            // voice per track; the drum map names the keys. A MIDI or synth member plays nowhere,
+            // and takes none.
+            let mut lanes = Vec::new();
+            for (place, child) in children
+                .iter_mut()
+                .filter(|child| instrument_of(child).is_some_and(|i| i < SAMPLE_INSTRUMENTS))
+                .enumerate()
+            {
+                let key = FOLDER_FIRST_KEY + place as u8;
+                child.zone = Some(Zone {
+                    keys: [key, key],
+                    transpose: 60 - i32::from(key),
+                    choke: 1,
+                    ..Zone::default()
+                });
+                lanes.push(Lane {
+                    pitch: key,
+                    name: child.name.clone(),
+                    unknown: Unknown::new(),
+                });
+            }
+            if !lanes.is_empty() {
+                folder.drum_map = Some(lanes);
+                zoned = true;
+            }
             folder.children = children;
             document.tracks.push(folder);
         }
@@ -1375,7 +1436,7 @@ pub fn to_tutti(
     );
     document.extensions_used = vec![NAMESPACE.to_owned()];
 
-    remarks(&model, &song, &mut report);
+    remarks(&model, &song, zoned, &mut report);
     progress.step(3, 4, "converted");
     Ok(Conversion {
         name: found.name.clone(),
@@ -1385,7 +1446,7 @@ pub fn to_tutti(
     })
 }
 
-fn remarks(model: &Model, song: &Song, report: &mut Report) {
+fn remarks(model: &Model, song: &Song, zoned: bool, report: &mut Report) {
     for number in &song.missing {
         report.approximated(format!(
             "The song plays pattern {number}, which has no file: played empty for {} steps",
@@ -1397,6 +1458,17 @@ fn remarks(model: &Model, song: &Song, report: &mut Report) {
             "{count} played steps use {}: kept, not played",
             fx::name(kind)
         ));
+    }
+    if zoned {
+        report.approximated(
+            "A Polyend track playing several instruments is a folder of them, played from its \
+             keys: each sample instrument on a key of its own from C1 up, in the order the track \
+             first plays them, at its sample's own pitch, all in one choke group, the Tracker's \
+             one voice per track, so a note played there stops the one before it in a host that \
+             chokes. The song's notes stay on the instruments, each ending where the track's \
+             next begins, so a note's release rings on past it in every host, where the Tracker \
+             cuts it",
+        );
     }
     if song.volume_changes > 0 {
         report.unplayed(format!(
