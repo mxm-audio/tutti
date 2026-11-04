@@ -137,6 +137,9 @@ Two canonical forms exist, both exact:
   array as `{}` or `[]`; numbers and strings rendered as JCS renders them
   (ECMAScript's Number-to-string, JCS's string escaping); a key whose value is its default left
   out, except a required key (4). Two writers given the same project produce the same bytes.
+  An array this text says is *sorted by* a string (an id, a file, a parameter's `id` or
+  `param`) is in that string's order as text, by UTF-16 code units as keys are, never as a
+  number: a CLAP parameter `"1317489605"` comes before `"3530753"`.
 - **JCS** (RFC 8785, the JSON Canonicalization Scheme) is what **equality and fingerprints** are
   over: keys sorted by UTF-16 code units, no whitespace, ECMAScript number rendering, JCS string
   escaping. Two documents are *equal* when their JCS bytes are equal after defaults are applied

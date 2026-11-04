@@ -243,7 +243,7 @@ designed from is `docs/research.md`.
   now fail on any warning. It also found newDAWn refusing a device's `overrides` that weren't in
   numeric order, where this crate's writer sorts them by `param` as text, as 7.3 reads; newDAWn's
   reader now puts them in its own order (its `document::read_device`). Whether 7.3 means text
-  or number for a CLAP id is the owner's to settle; text is how it reads, and the writer.
+  or number for a CLAP id was the owner's to settle, and they settled it (below).
 - **2026-11-04:** **Every converted project opens and renders in newDAWn** (`newdawn-cli
   render`, all 30), after three fixes it found: a gain past +12 dB, which newDAWn and most DAWs
   refuse (the level split put a loud instrument's boost on its track), now one factor off every
@@ -252,6 +252,13 @@ designed from is `docs/research.md`.
   most programs take, and said; and an older instrument's sample ending in part of a frame, which
   the sampler reads past and other programs refuse, written whole for a beat slice's audio. Also
   from the firmware: a Tempo effect of 4 or less stops the song (`TEMPO_FX_STP`).
+- **2026-11-04, the owner:** **"sorted by" a string is text order**, by UTF-16 code units as
+  keys are, never numeric, a CLAP id's decimal text included ("As text"): what the spec read
+  as and the writer did; a reader with its own order sorts what it reads (newDAWn now does).
+  The spec's canonical form says so in one sentence. And **the Tracker's settings with no
+  counterpart stay kept and reported**, not approximated with other plugins ("Keep them
+  reported"): overdrive, granular and wavetable settings, the other envelopes, glide, the
+  master's EQ and limiter, MIDI and synth tracks.
 
 ## Design choices and what they were weighed against
 
