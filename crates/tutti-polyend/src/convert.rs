@@ -53,7 +53,7 @@ use crate::song::{
 pub const NAMESPACE: &str = "dk.mxm.polyend-tracker";
 /// The conversion's version: raised whenever what it writes changes, so earlier outputs are out
 /// of date.
-pub const VERSION: u32 = 8;
+pub const VERSION: u32 = 9;
 /// The slowest tempo written: the slowest most programs take.
 pub const SLOWEST_BPM: f64 = 20.0;
 /// The most gain a channel is written with, +12 dB: the most most programs take.
