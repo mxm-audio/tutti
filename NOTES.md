@@ -219,7 +219,22 @@ designed from is `docs/research.md`.
   written as CE's `writePatternFile` writes it. Read in a copy of the card's working project:
   every step volume, effect slot, micro-move, off and tempo as CE defines them, CE's effect
   numbers equal to `song::fx`, the file written back byte for byte. The program lives outside the
-  repository: CE is GPL, this is MIT.
+  repository: CE is GPL, this is MIT. The project file's delay and reverb fields were placed the
+  same way: CE's `strSong` and `strMtValues` compiled verbatim, every offset already read
+  reproduced first.
+- **2026-11-04, the owner's choices:** **the sends go to returns of MXM's own effects** (MXM
+  Classic Verb, MXM FX Delay), the Tracker's reverb and delay settings mapped approximately;
+  **LFOs map where they fit** onto the sampler's two; and **the sampler loading its sample from
+  its own device files waits** for the owner's review of the sampler: MXM tutti Converter keeps
+  building its state. Reasons kept here: a send is post-fader as the firmware's default, its
+  level the send's table value times the return's volume, the dry mix not in it, so on a track
+  the send's gain is that over the dry mix, and in a folder that times the track's volume (the
+  folder's gain is after the child's send). The effects' values are CLAP values because MXM's
+  plugins are nice-plug's, whose CLAP values are normalized (a choice's, its index): a host sets
+  them as written. They go in `overrides` too, as newDAWn applies those to a device without a
+  state and not the snapshot. A pan LFO is automation rather than a sampler LFO because the
+  sampler has no pan target, and a lane restarted with each note is exactly the Tracker's (one
+  note at a time on a track); the sampler's LFOs run free, so the others' phase is approximate.
 
 ## Design choices and what they were weighed against
 

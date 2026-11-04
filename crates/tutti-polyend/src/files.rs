@@ -128,6 +128,16 @@ mod project_at {
     pub const TRACK_NAMES: usize = 0x428;
     pub const TRACK_NAME_LEN: usize = 21;
     pub const TRACK_VOLUME: usize = 0x4D0;
+    pub const DELAY_FEEDBACK: usize = 0x11A;
+    pub const DELAY_TIME: usize = 0x11C;
+    pub const DELAY_FLAGS: usize = 0x11E;
+    pub const REVERB: usize = 0x418;
+    pub const REVERB_VOLUME: usize = 0x4D8;
+    pub const DELAY_VOLUME: usize = 0x4D9;
+    pub const REVERB_MUTE: usize = 0x4DA;
+    pub const DELAY_MUTE: usize = 0x4DB;
+    pub const SENDS_MODE: usize = 0x4FC;
+    pub const DELAY_FILTER: usize = 0x5FE;
     pub const DRY_MIX_MUTE: usize = 0x4DC;
     pub const DRY_MIX_VOLUME: usize = 0x4DD;
     /// The end of the last field read.
@@ -195,6 +205,76 @@ impl ProjectFile {
     /// Sample track `t`'s volume, 0 to 100, as stored.
     pub fn track_volume(&self, t: usize) -> u8 {
         self.at(project_at::TRACK_VOLUME)[t]
+    }
+
+    fn byte(&self, offset: usize) -> Option<u8> {
+        self.body.get(offset - Header::LEN).copied()
+    }
+
+    fn f32_at(&self, offset: usize) -> f32 {
+        let b = self.at(offset);
+        f32::from_le_bytes([b[0], b[1], b[2], b[3]])
+    }
+
+    /// The reverb's settings (the firmware's `strReverbParams`): size (its tank's feedback),
+    /// damping, pre-delay, each 0 to 1, and diffusion 0 to 0.85.
+    pub fn reverb(&self) -> Reverb {
+        let at = project_at::REVERB;
+        Reverb {
+            size: self.f32_at(at),
+            damp: self.f32_at(at + 4),
+            predelay: self.f32_at(at + 8),
+            diffusion: self.f32_at(at + 12),
+        }
+    }
+
+    /// The delay's settings: feedback 0 to 99, time in milliseconds, ping-pong, sync and its rate,
+    /// and its filter's frequency (20 kHz before version 14, which the firmware sets).
+    pub fn delay(&self) -> Delay {
+        let flags = self.byte(project_at::DELAY_FLAGS).unwrap_or(0);
+        let time = self.at(project_at::DELAY_TIME);
+        let filter = match self.header.version() {
+            v if v <= 13 => 20_000,
+            _ => self
+                .body
+                .get(
+                    project_at::DELAY_FILTER - Header::LEN
+                        ..project_at::DELAY_FILTER - Header::LEN + 2,
+                )
+                .map_or(20_000, |b| u16::from_le_bytes([b[0], b[1]])),
+        };
+        Delay {
+            feedback: self.byte(project_at::DELAY_FEEDBACK).unwrap_or(0),
+            time_ms: u16::from_le_bytes([time[0], time[1]]),
+            ping_pong: flags & 0x80 != 0,
+            sync: flags & 0x40 != 0,
+            sync_rate: flags & 0x3F,
+            filter_hz: filter,
+        }
+    }
+
+    /// The reverb's or the delay's return volume as the mixer plays it in decibels
+    /// ([`mix_db`], a project up to version 11 converted first); none when silent or muted.
+    pub fn fx_volume_db(&self, reverb: bool) -> Option<f64> {
+        let (volume, mute) = if reverb {
+            (project_at::REVERB_VOLUME, project_at::REVERB_MUTE)
+        } else {
+            (project_at::DELAY_VOLUME, project_at::DELAY_MUTE)
+        };
+        if self.byte(mute).unwrap_or(0) != 0 {
+            return None;
+        }
+        let mut v = self.byte(volume).unwrap_or(100);
+        if self.header.version() <= 11 {
+            v = mixer_1300_to_1302(v);
+        }
+        mix_db(v)
+    }
+
+    /// Whether the sends are taken before the tracks' volumes (`sendsModePreFader`); a project up
+    /// to version 9 sends after them, as the firmware sets it.
+    pub fn sends_pre_fader(&self) -> bool {
+        self.header.version() > 9 && self.byte(project_at::SENDS_MODE) == Some(0)
     }
 
     /// The dry mix's volume, every sample track's, as the mixer plays it in decibels
@@ -443,6 +523,7 @@ mod instrument_at {
     pub const LOOP2: usize = 66;
     pub const END: usize = 68;
     pub const AMP_ENVELOPE: usize = 76;
+    pub const LFOS: usize = 196;
     pub const CUTOFF: usize = 244;
     pub const RESONANCE: usize = 248;
     pub const FILTER_TYPE: usize = 252;
@@ -456,6 +537,8 @@ mod instrument_at {
     pub const SELECTED_SLICE: usize = 361;
     pub const SLICE_PLAY_THRU: usize = 263;
     pub const BIT_DEPTH: usize = 370;
+    pub const DELAY_SEND: usize = 262;
+    pub const REVERB_SEND: usize = 368;
 }
 
 impl InstrumentFile {
@@ -566,7 +649,12 @@ impl InstrumentFile {
 
     /// The amplitude envelope (the firmware's `envelope[envAmp]`), in milliseconds.
     pub fn amp_envelope(&self) -> Envelope {
-        let at = instrument_at::AMP_ENVELOPE;
+        self.envelope(ENV_AMP)
+    }
+
+    /// Envelope `i`, by the firmware's `envelopesType` ([`ENV_AMP`], [`ENV_CUTOFF`], …).
+    pub fn envelope(&self, i: usize) -> Envelope {
+        let at = instrument_at::AMP_ENVELOPE + 20 * i;
         Envelope {
             amount: self.f32_at(at),
             delay: self.u16_at(at + 4),
@@ -578,6 +666,21 @@ impl InstrumentFile {
             mode: self.data[at + 18],
             enabled: self.data[at + 19] != 0,
         }
+    }
+
+    /// Target `i`'s LFO, where its envelope is one (on, and its mode 1): the firmware's
+    /// `strEnvBasedLfo`, its amount -1 to 1.
+    pub fn lfo(&self, i: usize) -> Option<Lfo> {
+        let env = self.envelope(i);
+        if !(env.enabled && env.mode == 1) {
+            return None;
+        }
+        let at = instrument_at::LFOS + 8 * i;
+        Some(Lfo {
+            shape: self.data[at],
+            speed: self.data[at + 1],
+            amount: self.f32_at(at + 4).clamp(-1.0, 1.0),
+        })
     }
 
     /// The filter, if on: its type and, as the firmware plays them, its cutoff in hertz
@@ -622,6 +725,19 @@ impl InstrumentFile {
     /// The volume as gain in decibels, as it plays ([`amp_db`]); none for silence.
     pub fn volume_db(&self) -> Option<f64> {
         amp_db(self.volume())
+    }
+
+    /// The reverb's send (0 to 100; 0 before version 4, as the firmware sets it) and the delay's.
+    pub fn sends(&self) -> (u8, u8) {
+        let reverb = if self.header.version() <= 3 {
+            0
+        } else {
+            self.data
+                .get(instrument_at::REVERB_SEND)
+                .copied()
+                .unwrap_or(0)
+        };
+        (reverb, self.data[instrument_at::DELAY_SEND])
     }
 
     /// The bits the sample plays at, 4 to 16, as the firmware plays them: an instrument up to
@@ -770,4 +886,99 @@ pub fn mix_db(v: u8) -> Option<f64> {
 /// A track's volume from firmware 1.3.0's mixer scale to 1.3.2's.
 pub fn mixer_1300_to_1302(v: u8) -> u8 {
     convert_volume(v, (-36.0, 6.0), (-18.0, 3.0))
+}
+
+/// The firmware's envelope targets (`envelopesType`): each has an envelope and an LFO.
+pub const ENV_AMP: usize = 0;
+pub const ENV_PAN: usize = 1;
+pub const ENV_CUTOFF: usize = 2;
+pub const ENV_FINETUNE: usize = 5;
+
+/// An instrument's LFO: `shape` the firmware's `lfoShapeType` (reverse saw, saw, triangle,
+/// square, random), `speed` an index into its tempo-synced rates, `amount` -1 to 1. It plays as a
+/// looping envelope from 0 to `amount` (`calcLfoBasedEnvelope`), restarted by each note.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lfo {
+    pub shape: u8,
+    pub speed: u8,
+    pub amount: f32,
+}
+
+impl Lfo {
+    /// Its period in steps (sixteenths), from the firmware's `tempoSyncRatesAmp` for the
+    /// amplitude's LFO or `tempoSyncRatesOthers`, a speed past the last held to it.
+    pub fn period_steps(&self, amplitude: bool) -> f64 {
+        const AMP: [f64; 24] = [
+            24.0, 16.0, 12.0, 8.0, 6.0, 4.0, 3.0, 2.0, 1.5, 1.0, 0.75, 0.5, 0.375, 0.333333, 0.25,
+            0.1875, 0.166667, 0.125, 0.083333, 0.0625, 0.041667, 0.03125, 0.020833, 0.015625,
+        ];
+        const OTHERS: [f64; 29] = [
+            128.0, 96.0, 64.0, 48.0, 32.0, 24.0, 16.0, 12.0, 8.0, 6.0, 4.0, 3.0, 2.0, 1.5, 1.0,
+            0.75, 0.5, 0.375, 0.333333, 0.25, 0.1875, 0.166667, 0.125, 0.083333, 0.0625, 0.041667,
+            0.03125, 0.020833, 0.015625,
+        ];
+        let table: &[f64] = if amplitude { &AMP } else { &OTHERS };
+        table[(self.speed as usize).min(table.len() - 1)]
+    }
+}
+
+/// The gain in decibels a send plays at, 0 to 100 (the firmware's `sendsAmpLogValues`): 0.4 dB a
+/// step, 0 dB at 100; none at 0, silence.
+pub fn send_db(v: u8) -> Option<f64> {
+    (v > 0).then(|| 0.4 * (v.min(100) as f64 - 100.0))
+}
+
+/// The project's reverb, as stored.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Reverb {
+    pub size: f32,
+    pub damp: f32,
+    pub predelay: f32,
+    pub diffusion: f32,
+}
+
+/// The project's delay, as stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Delay {
+    pub feedback: u8,
+    pub time_ms: u16,
+    pub ping_pong: bool,
+    pub sync: bool,
+    pub sync_rate: u8,
+    pub filter_hz: u16,
+}
+
+impl Reverb {
+    /// Its decay to −60 dB in seconds: the firmware's reverb (`Polyverb`) runs a figure-eight
+    /// tank of 20 306 samples a round at 44 117.6 Hz, its size the feedback applied twice a
+    /// round.
+    pub fn decay_s(&self) -> f64 {
+        let k = (self.size as f64).clamp(0.0, 0.9999);
+        if k <= 0.0 {
+            return 0.0;
+        }
+        let round = 20_306.0 / 44_117.647;
+        -3.0 * round / (2.0 * k.log10())
+    }
+
+    /// Its pre-delay in seconds: up to 5 000 samples.
+    pub fn predelay_s(&self) -> f64 {
+        (self.predelay as f64).clamp(0.0, 1.0) * 5_000.0 / 44_117.647
+    }
+}
+
+impl Delay {
+    /// Its time in seconds: synced, a number of steps of the firmware's
+    /// `tempoSyncRatesShortDelay` at `bpm`; else as set.
+    pub fn time_s(&self, bpm: f64) -> f64 {
+        const STEPS: [f64; 19] = [
+            8.0, 6.0, 4.0, 3.0, 2.0, 1.5, 1.0, 0.75, 0.5, 0.375, 0.333333, 0.25, 0.1875, 0.166667,
+            0.125, 0.083333, 0.0625, 0.041667, 0.03125,
+        ];
+        if self.sync {
+            STEPS[(self.sync_rate as usize).min(STEPS.len() - 1)] * 15.0 / bpm
+        } else {
+            self.time_ms.clamp(1, 3500) as f64 / 1000.0
+        }
+    }
 }

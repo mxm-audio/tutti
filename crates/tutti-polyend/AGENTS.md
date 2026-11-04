@@ -48,9 +48,17 @@ Owns `Cargo.toml`, `src/` and `tests/`.
   instrument's selected slice), loop mode and points, the reader, pan, the amplitude envelope's
   ADSR, the filter (type, cutoff and Q as the firmware plays them), the bit depth (the
   sampler's converter); the master full, the gain
-  following velocity exactly, and Init's cutoff routes off. The rest kept, and named in the
-  report. A beat-slice instrument's notes play their slices as audio pieces of its sample in
-  `audio/`. **Volumes are the firmware's tables** (`files::amp_db`, `files::mix_db`; its own
+  following velocity exactly, and Init's cutoff routes off; the first two LFOs on volume, cutoff
+  or finetune on the sampler's two (`convert::lfos`). Those values are in the sampler's own
+  units, as their `min`, `max` and `unit` say, for the program that builds its state to write as
+  CLAP values. The rest kept, and named in the report. A beat-slice instrument's notes play their
+  slices as audio pieces of its sample in `audio/`. **A pan LFO is the instrument track's pan
+  automation**, restarted with each note: a Polyend track plays one note at a time.
+  **The reverb and delay sends go to returns** of MXM Classic Verb and MXM FX Delay (the owner,
+  2026-11-04), as the firmware's `modReverbSend` and `modDelaySend` scale them; the effects'
+  settings mapped from the Tracker's as near as they allow, written as nice-plug's CLAP values
+  (normalized on each range, a choice's index), as the snapshot and as overrides, since newDAWn
+  applies overrides to a device without a state. **Volumes are the firmware's tables** (`files::amp_db`, `files::mix_db`; its own
   decibels are 10·log, half these): a Polyend track's volume and the dry mix's its track's gain
   (on each track, not the master, so effect returns would not be scaled), and each note's
   gain, its step's volume or else its instrument's, split by `convert::Levels` into the
@@ -90,7 +98,8 @@ ends; micro-move and velocity's order; track 1's length and Break; tempo changes
 cleared tracks; a missing pattern; the conversion's folders, devices, samples, variants and
 lengthened parts; the same document twice; the model read back byte for byte, samples included;
 the volume tables and the dry mix; levels, envelopes, filters, bit depth, slices and beat slices
-as the Tracker plays them;
+as the Tracker plays them; LFOs on the sampler's two and a pan LFO's lane; sends to MXM returns
+as CLAP values;
 instrument files placed by number or refused.
 `tests/it/corpus.rs`: every real project read, written back, converted, valid, and read back (a
 Tracker Mini's card: all 28, and its `Workspace/` copied as a project, 2026-11-04).

@@ -756,6 +756,15 @@ fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
     pad[16 + 252] = 1; // high pass
     pad[16 + 253] = 1;
     pad[16 + 370] = 12; // bits
+    // A cutoff LFO (envelope 2 an LFO): a triangle every 6 steps, amount 0.5; a finetune LFO
+    // (envelope 5): a square every 128 steps, amount 0.4.
+    for (env, shape, speed, amount) in [(2usize, 2u8, 9u8, 0.5f32), (5, 3, 0, 0.4)] {
+        pad[16 + 76 + 20 * env + 18] = 1;
+        pad[16 + 76 + 20 * env + 19] = 1;
+        pad[16 + 196 + 8 * env] = shape;
+        pad[16 + 196 + 8 * env + 1] = speed;
+        put_f32(&mut pad, 196 + 8 * env + 4, amount);
+    }
     card.put("S", "instruments/1 Pad.pti", pad);
     let mut loop_ = instrument(300, 1);
     loop_[16 + 256] = 50; // 0 dB
@@ -764,6 +773,12 @@ fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
     for (i, at) in [0u16, 21845, 43690].into_iter().enumerate() {
         put_u16(&mut loop_, 264 + 2 * i, at);
     }
+    // A pan LFO: a triangle every 4 steps, amount 0.25.
+    loop_[16 + 76 + 20 + 18] = 1;
+    loop_[16 + 76 + 20 + 19] = 1;
+    loop_[16 + 196 + 8] = 2;
+    loop_[16 + 196 + 8 + 1] = 10;
+    put_f32(&mut loop_, 196 + 8 + 4, 0.25);
     card.put("S", "instruments/2 Loop.pti", loop_);
     let mut chop = instrument(300, 1);
     chop[16 + 256] = 50;
@@ -797,7 +812,19 @@ fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
         ("sustain", 0.5),
         ("release", 0.4),
         ("filtermode", 3.0),
-        ("cutoff", 20.0 * 2f64.powf(238.0 / 50.0)),
+        (
+            "cutoff",
+            20.0 * 2f64.powf(238.0 / 50.0 + 0.5 * 477.0 / 100.0),
+        ),
+        ("lfo1shape", 1.0),
+        ("lforate", 120.0 / (15.0 * 6.0)),
+        ("mod_cutoff_lfo1on", 1.0),
+        ("mod_cutoff_lfo1", 0.5 * 477.0 / 100.0 / 4.0),
+        ("lfo2shape", 4.0),
+        ("lfo2rate", 120.0 / (15.0 * 128.0)),
+        ("mod_pitch_lfo2on", 1.0),
+        ("mod_pitch_lfo2", 0.2 / 12.0),
+        ("atranspose", 0.2),
         ("resonance", 1.0 / 4.3),
         ("master", 1.0),
         ("mod_amp_vel", 1.0),
@@ -852,6 +879,17 @@ fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
         (velocities[0] + 12.0).abs() < 1e-6 && velocities[1].abs() < 1e-9,
         "{velocities:?}"
     );
+    // Its pan LFO, the track's pan automation: restarted with each note, back to the middle at
+    // the end.
+    let lane = &loop_.automation[0];
+    assert_eq!(lane.target.channel.as_deref(), Some("pan"));
+    let points: Vec<(i64, f64)> = lane.points.iter().map(|p| (p.at, p.value)).collect();
+    let step = TICKS_PER_STEP;
+    assert_eq!(
+        points[..4],
+        [(0, 0.0), (2 * step, 0.5), (4 * step, 0.0), (6 * step, 0.5)]
+    );
+    assert_eq!(points.last(), Some(&(16 * step, 0.0)));
     let file = &notes[0].audio.as_ref().unwrap().file;
     assert!(out.files().contains_key(file.as_str()), "{file}");
 
@@ -876,4 +914,86 @@ fn instrument_files_are_placed_by_number_or_refused() {
         Err(Error::Unreadable { reference, .. }) => assert!(reference.ends_with("Kick.pti")),
         other => panic!("{:?}", other.map(|_| ())),
     }
+}
+
+#[test]
+fn sends_go_to_mxm_reverb_and_delay_returns() {
+    // Track 1 plays one instrument, track 2 two (a folder); the reverb at size 0.5, the delay
+    // ping-pong at 500 ms with 40 % feedback, both returns at 0 dB.
+    let card = Card::new();
+    let mut p = project(16, &[1], 120.0);
+    p[0x418..0x41C].copy_from_slice(&0.5f32.to_le_bytes());
+    p[0x11A] = 40;
+    p[0x11C..0x11E].copy_from_slice(&500u16.to_le_bytes());
+    p[0x11E] = 0x80;
+    p[0x4D8] = 86;
+    p[0x4D9] = 86;
+    card.put("Tune", "project.mt", p);
+    let mut file = pattern(6, 16, 15, true);
+    file.tracks[0].steps[0] = note(60, 0);
+    file.tracks[1].steps[0] = note(60, 1);
+    file.tracks[1].steps[4] = note(60, 2);
+    card.pattern("Tune", 1, &file);
+    for (n, name, reverb, delay) in [
+        (1, "Pad", 100u8, 50u8),
+        (2, "Kick", 100, 0),
+        (3, "Hat", 0, 100),
+    ] {
+        let mut b = instrument(100, 1);
+        b[16 + 256] = 50; // 0 dB
+        b[16 + 368] = reverb;
+        b[16 + 262] = delay;
+        card.put("Tune", &format!("instruments/{n} {name}.pti"), b);
+    }
+    let (_, document, _) = convert(&card);
+    let id = |name: &str| named(&document.tracks, name).id.clone();
+    let (reverb, delay) = (id("Reverb"), id("Delay"));
+    let sends = |t: &Track| -> Vec<(tutti::Id, f64)> {
+        t.channel
+            .sends
+            .iter()
+            .map(|s| (s.to.clone(), s.gain))
+            .collect()
+    };
+    // The single track: the send's level over the dry mix (0 dB); -20 dB for a send of 50.
+    let pad = named(&document.tracks, "Drums: Pad");
+    let got = sends(pad);
+    assert_eq!(got.len(), 2);
+    assert!(
+        got.iter()
+            .any(|(to, g)| *to == reverb && (g - 1.0).abs() < 1e-9)
+    );
+    assert!(
+        got.iter()
+            .any(|(to, g)| *to == delay && (g - 0.1).abs() < 1e-9),
+        "{got:?}"
+    );
+    // In the folder, the track's own volume (+6 dB) is in the send, as the folder's gain isn't.
+    let bass = named(&document.tracks, "Bass");
+    let kick = named(&bass.children, "Kick");
+    assert_eq!(sends(kick).len(), 1);
+    assert!((db(sends(kick)[0].1) - 6.0).abs() < 1e-6);
+    assert_eq!(sends(named(&bass.children, "Hat"))[0].0, delay);
+
+    // The returns: MXM's effects, fully wet, as CLAP values, the snapshot and the overrides.
+    let fx = |name: &str| named(&document.tracks, name).devices[0].clone();
+    let verb = fx("Reverb");
+    assert_eq!(verb.plugin, tutti_polyend::convert::REVERB);
+    let value = |d: &tutti::Device, id: &str| {
+        let clap = tutti_polyend::convert::clap_id(id);
+        let p = d.params.iter().find(|p| p.id == clap).unwrap().value;
+        let o = d.overrides.iter().find(|o| o.param == clap).unwrap().value;
+        assert_eq!(p, o, "{id}: the snapshot and the override agree");
+        p
+    };
+    assert_eq!(value(&verb, "mix"), 1.0);
+    // Size 0.5: a decay of 2.29 s, normalized on the plugin's range (0.1 to 60 s, 2 s centred).
+    let decay = -3.0 * (20_306.0 / 44_117.647) / (2.0 * 0.5f64.log10());
+    let factor = 0.5f64.ln() / ((2.0 - 0.1) / (60.0 - 0.1f64)).ln();
+    assert!((value(&verb, "decay") - ((decay - 0.1) / 59.9).powf(factor)).abs() < 1e-9);
+    let echo = fx("Delay");
+    assert_eq!(echo.plugin, tutti_polyend::convert::DELAY);
+    assert_eq!(value(&echo, "routing"), 2.0, "ping-pong");
+    assert!((value(&echo, "time") - ((0.5 - 0.005) / 7.995f64).powf(0.25)).abs() < 1e-9);
+    assert!((value(&echo, "feedback") - 0.4).abs() < 1e-9);
 }

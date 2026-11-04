@@ -20,6 +20,10 @@
 //!   volume, or else its
 //!   instrument's, split into the sampler's level, the note's velocity and the instrument track's
 //!   gain ([`Levels`]), so a boost past unity sounds too.
+//! - LFOs: the first two on volume, cutoff or finetune are the sampler's two ([`lfos`]); a pan
+//!   LFO is the track's pan automation, restarted with each note ([`pan_lfo`]).
+//! - The reverb and delay sends go to returns of MXM Classic Verb and MXM FX Delay
+//!   ([`reverb_device`], [`delay_device`]), their settings as CLAP values.
 //! - Everything tutti does not hold is kept under [`NAMESPACE`] on the object it belongs to:
 //!   the project file and every step no note stands for, on the document; a note's step, on the
 //!   note; an instrument's header, on its device. [`to_model`] reads the model back from them,
@@ -49,7 +53,10 @@ use crate::song::{
 pub const NAMESPACE: &str = "dk.mxm.polyend-tracker";
 /// The conversion's version: raised whenever what it writes changes, so earlier outputs are out
 /// of date.
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 6;
+/// The reverb and delay the Tracker's sends go to.
+pub const REVERB: &str = "clap:dk.mxm.mxm-classic-verb";
+pub const DELAY: &str = "clap:dk.mxm.mxm-fx-delay";
 /// The instrument every sample instrument becomes.
 pub const SAMPLER: &str = "clap:dk.mxm.mxm-creative-sampler";
 const SAMPLER_NAME: &str = "MXM Creative Sampler";
@@ -139,6 +146,218 @@ impl Levels {
         let own = n.volume.map_or(self.own, |v| gain(crate::files::amp_db(v)));
         (own / self.loudest).clamp(0.0, 1.0)
     }
+}
+
+/// A parameter of one of MXM's effects as a CLAP host sets it: nice-plug's normalized value of
+/// `plain` on its range (`Linear`, or `Skewed` with its factor), or a choice's index; written as
+/// the snapshot and as an override, so a host that loads the effect without a state sets it
+/// either way (tutti 7.3, 7.5).
+enum Range {
+    Linear(f64, f64),
+    Skewed(f64, f64, f64),
+    Choice(u32),
+}
+
+fn effect_param(id: &str, name: &str, plain: f64, range: Range, text: String) -> tutti::Param {
+    let (value, normalized, max) = match range {
+        Range::Linear(lo, hi) => {
+            let n = ((plain.clamp(lo, hi) - lo) / (hi - lo)).clamp(0.0, 1.0);
+            (n, n, 1.0)
+        }
+        Range::Skewed(lo, hi, factor) => {
+            let n = ((plain.clamp(lo, hi) - lo) / (hi - lo))
+                .powf(factor)
+                .clamp(0.0, 1.0);
+            (n, n, 1.0)
+        }
+        Range::Choice(steps) => (plain, plain / steps.max(1) as f64, steps as f64),
+    };
+    let mut p: tutti::Param =
+        serde_json::from_value(json!({"id": clap_id(id), "value": value})).expect("a parameter");
+    p.name = Some(name.to_owned());
+    p.normalized = Some(normalized);
+    p.min = Some(0.0);
+    p.max = Some(max);
+    p.unit = Some(if max > 1.0 { "enum" } else { "normalized" }.to_owned());
+    p.text = Some(text);
+    p
+}
+
+/// A return's device: its parameters as the snapshot and as overrides.
+fn effect_device(id: Id, plugin: &str, name: &str, params: Vec<tutti::Param>) -> Device {
+    let mut device = Device::new(id, "effect", plugin);
+    device.name = name.to_owned();
+    device.overrides = params
+        .iter()
+        .map(|p| {
+            serde_json::from_value(
+                json!({"param": p.id, "value": p.value, "normalized": p.normalized}),
+            )
+            .expect("an override")
+        })
+        .collect();
+    device.params = params;
+    device.params.sort_by(|a, b| a.id.cmp(&b.id));
+    device
+}
+
+/// MXM Classic Verb as the Tracker's reverb: fully wet; the decay its tank's, the size its
+/// longest delay, the pre-delay, the diffusion over the firmware's most, the treble's decay
+/// shortened as its damping darkens the tank. Approximate: another reverb.
+fn reverb_device(id: Id, r: &crate::files::Reverb) -> Device {
+    let centred = |lo: f64, hi: f64, c: f64| 0.5f64.ln() / ((c - lo) / (hi - lo)).ln();
+    let decay = r.decay_s().clamp(0.1, 60.0);
+    let treble = (1.0 - r.damp as f64).clamp(0.1, 1.0);
+    let size = 6_211.0 / 44_117.647;
+    let predelay = r.predelay_s();
+    let diffusion = (r.diffusion as f64 / 0.85).clamp(0.0, 1.0);
+    let params = vec![
+        effect_param("mix", "Mix", 1.0, Range::Linear(0.0, 1.0), "100 %".into()),
+        effect_param(
+            "decay",
+            "Decay",
+            decay,
+            Range::Skewed(0.1, 60.0, centred(0.1, 60.0, 2.0)),
+            format!("{decay:.2} s"),
+        ),
+        effect_param(
+            "treble",
+            "Treble decay",
+            treble,
+            Range::Skewed(0.1, 10.0, centred(0.1, 10.0, 1.0)),
+            format!("{treble:.2}x"),
+        ),
+        effect_param(
+            "size",
+            "Size",
+            size,
+            Range::Skewed(0.002, 0.3, centred(0.002, 0.3, 0.05)),
+            format!("{:.0} ms", size * 1000.0),
+        ),
+        effect_param(
+            "predelay",
+            "Pre-delay",
+            predelay,
+            Range::Skewed(0.0, 0.5, centred(0.0, 0.5, 0.05)),
+            format!("{:.0} ms", predelay * 1000.0),
+        ),
+        effect_param(
+            "diffusion",
+            "Diffusion",
+            diffusion,
+            Range::Linear(0.0, 1.0),
+            format!("{:.0} %", diffusion * 100.0),
+        ),
+    ];
+    effect_device(id, REVERB, "MXM Classic Verb: the Tracker's reverb", params)
+}
+
+/// MXM FX Delay as the Tracker's delay: fully wet, clean; its time (a synced one at `bpm`),
+/// feedback, ping-pong and filter, the low cut open.
+fn delay_device(id: Id, d: &crate::files::Delay, bpm: f64) -> Device {
+    let time = d.time_s(bpm).clamp(0.005, 8.0);
+    let feedback = (d.feedback.min(99) as f64 / 100.0).clamp(0.0, 1.0);
+    let high = (d.filter_hz as f64).clamp(200.0, 20_000.0);
+    let routing = if d.ping_pong { 2.0 } else { 0.0 };
+    let params = vec![
+        effect_param("mix", "Mix", 1.0, Range::Linear(0.0, 1.0), "100 %".into()),
+        effect_param(
+            "time",
+            "Time",
+            time,
+            Range::Skewed(0.005, 8.0, 0.25),
+            format!("{:.0} ms", time * 1000.0),
+        ),
+        effect_param("sync", "Time sync", 0.0, Range::Choice(1), "Off".into()),
+        effect_param(
+            "feedback",
+            "Feedback",
+            feedback,
+            Range::Linear(0.0, 1.0),
+            format!("{:.0} %", feedback * 100.0),
+        ),
+        effect_param(
+            "highcut",
+            "High cut",
+            high,
+            Range::Skewed(200.0, 20_000.0, 0.5),
+            format!("{high:.0} Hz"),
+        ),
+        effect_param(
+            "lowcut",
+            "Low cut",
+            10.0,
+            Range::Skewed(10.0, 8_000.0, 2f64.powf(-1.6)),
+            "10 Hz".into(),
+        ),
+        effect_param(
+            "routing",
+            "Routing",
+            routing,
+            Range::Choice(2),
+            if d.ping_pong { "Ping-pong" } else { "Standard" }.into(),
+        ),
+        effect_param("model", "Model", 0.0, Range::Choice(5), "Clean".into()),
+    ];
+    effect_device(id, DELAY, "MXM FX Delay: the Tracker's delay", params)
+}
+
+/// The fewest ticks a pan LFO's cycle takes in its lane (a sixteenth's twentieth): the Tracker's
+/// fastest, a 64th of a step, is held to it.
+const PAN_LFO_FASTEST: i64 = 12;
+
+/// A pan LFO's points over the notes it plays under: from each note's start, the firmware's
+/// shape (`calcLfoBasedEnvelope`) from 0 to its amount (pan's 100 the whole of tutti's −1 to 1
+/// twice over, so `2 × amount`, held to ±1), back to the middle when the note ends; random a
+/// value held each cycle, the same each conversion. True when a cycle had to be lengthened.
+fn pan_lfo(lfo: &crate::files::Lfo, notes: &[&Played]) -> (Vec<Value>, bool) {
+    let exact = (lfo.period_steps(false) * TICKS_PER_STEP as f64).round() as i64;
+    let period = exact.max(PAN_LFO_FASTEST);
+    let peak = (2.0 * lfo.amount as f64).clamp(-1.0, 1.0);
+    let mut points: Vec<(i64, f64, &str)> = Vec::new();
+    let mut push = |at: i64, value: f64, curve: &'static str| match points.last() {
+        Some(&(last, _, _)) if at < last => {}
+        Some(&(last, _, _)) if at == last => {
+            *points.last_mut().expect("one") = (at, value, curve);
+        }
+        _ => points.push((at, value, curve)),
+    };
+    let mut seed: u32 = 0x9E37_79B9;
+    for n in notes {
+        let end = n.at + n.length;
+        let mut s = n.at;
+        while s < end {
+            match lfo.shape {
+                0 => {
+                    push(s, peak, "linear");
+                    push(s + period - 1, 0.0, "hold");
+                }
+                1 => {
+                    push(s, 0.0, "linear");
+                    push(s + period - 1, peak, "hold");
+                }
+                2 => {
+                    push(s, 0.0, "linear");
+                    push(s + period / 2, peak, "linear");
+                }
+                3 => {
+                    push(s, peak, "hold");
+                    push(s + period / 2, 0.0, "hold");
+                }
+                _ => {
+                    seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                    push(s, peak * (seed >> 8) as f64 / (1u32 << 24) as f64, "hold");
+                }
+            }
+            s += period;
+        }
+        push(end, 0.0, "hold");
+    }
+    let points = points
+        .into_iter()
+        .map(|(at, value, curve)| json!({"at": at, "value": value, "curve": curve}))
+        .collect();
+    (points, period != exact)
 }
 
 /// A beat-slice instrument's sample in `audio/`, and the frames each slice plays.
@@ -313,8 +532,8 @@ fn param(id: &str, name: &str, value: f64, range: (f64, f64), unit: &str) -> tut
 /// plays forward) and its reader (granular its grain); `level` its level ([`Levels`]), panning its
 /// pan; the amplitude envelope its ADSR; the filter its filter; the bit depth its converter's
 /// bits. The master at full, the gain following velocity exactly, and Init's cutoff routes off,
-/// so the instrument sounds as the Tracker plays it.
-fn sampler_params(head: &InstrumentFile, level: f64) -> Vec<tutti::Param> {
+/// so the instrument sounds as the Tracker plays it; its LFOs as [`lfos`] puts them.
+fn sampler_params(head: &InstrumentFile, level: f64, bpm: f64) -> Vec<tutti::Param> {
     use crate::files::PlayMode as M;
     let (loop_mode, reader) = match head.play_mode() {
         M::LoopForward | M::LoopBackward => (1.0, 0.0),
@@ -428,8 +647,122 @@ fn sampler_params(head: &InstrumentFile, level: f64) -> Vec<tutti::Param> {
         ),
         param("apan", "A Pan", pan, (-1.0, 1.0), "linear"),
     ];
+    lfos(head, level, bpm, &mut out);
     out.sort_by(|a, b| a.id.cmp(&b.id));
     out
+}
+
+/// Replaces the parameter of `p`'s id in `out`, or adds it.
+fn set(out: &mut Vec<tutti::Param>, p: tutti::Param) {
+    match out.iter_mut().find(|q| q.id == p.id) {
+        Some(q) => *q = p,
+        None => out.push(p),
+    }
+}
+
+/// The instrument's LFOs on the sampler's two: the first of volume, cutoff (with the filter on)
+/// and finetune to have one, in that order. A Tracker LFO swings from 0 to its amount; the
+/// sampler's swing both ways, so each is its middle (the level halved, the cutoff raised, the
+/// pitch raised) and a route of half its reach: the cutoff's 0..=1 spans the firmware's 477 / 50
+/// octaves, finetune's 100 cents. The rate is the period's steps at the song's first tempo, the
+/// shape the nearest; the sampler's LFOs run free, where the Tracker's restart with each note.
+fn lfos(head: &InstrumentFile, level: f64, bpm: f64, out: &mut Vec<tutti::Param>) {
+    use crate::files::{ENV_AMP, ENV_CUTOFF, ENV_FINETUNE};
+    let unit = (0.0, 1.0);
+    let route = (-1.0, 1.0);
+    let mut slot = 0;
+    for target in [ENV_AMP, ENV_CUTOFF, ENV_FINETUNE] {
+        if slot == 2 {
+            break;
+        }
+        let Some(lfo) = head.lfo(target) else {
+            continue;
+        };
+        if lfo.amount == 0.0 || (target == ENV_CUTOFF && head.filter().is_none()) {
+            continue;
+        }
+        slot += 1;
+        let a = lfo.amount as f64;
+        let hz = (bpm / (15.0 * lfo.period_steps(target == ENV_AMP))).clamp(0.01, 40.0);
+        // The sampler's shapes: sine, triangle, ramp up, ramp down, square, sample and hold.
+        let shape = match lfo.shape {
+            0 => 3.0,
+            1 => 2.0,
+            2 => 1.0,
+            3 => 4.0,
+            _ => 5.0,
+        };
+        let (rate, shape_id, sync) = if slot == 1 {
+            ("lforate", "lfo1shape", "lfo1sync")
+        } else {
+            ("lfo2rate", "lfo2shape", "lfo2sync")
+        };
+        set(out, param(rate, "LFO rate", hz, (0.01, 40.0), "hertz"));
+        set(out, param(shape_id, "LFO shape", shape, (0.0, 5.0), "enum"));
+        set(out, param(sync, "LFO sync", 0.0, unit, "boolean"));
+        let n = slot;
+        let (name, amount) = match target {
+            ENV_AMP => {
+                set(
+                    out,
+                    param(
+                        "alevel",
+                        "A Level",
+                        (level * a.abs() / 2.0).clamp(0.0, 1.0),
+                        unit,
+                        "normalized",
+                    ),
+                );
+                ("amp", a.signum())
+            }
+            ENV_CUTOFF => {
+                let f = head.filter().expect("on");
+                let octaves = a * 477.0 / 50.0 / 2.0;
+                let hz = (f.hz * 2f64.powf(octaves)).clamp(20.0, 22_000.0);
+                set(
+                    out,
+                    param("cutoff", "Cutoff", hz, (20.0, 22_000.0), "hertz"),
+                );
+                ("cutoff", (octaves / 4.0).clamp(-1.0, 1.0))
+            }
+            _ => {
+                let (tune, finetune) = head.tune();
+                let transpose =
+                    (tune as f64 + finetune as f64 / 100.0 + a / 2.0).clamp(-24.0, 24.0);
+                set(
+                    out,
+                    param(
+                        "atranspose",
+                        "A Transpose",
+                        transpose,
+                        (-24.0, 24.0),
+                        "semitones",
+                    ),
+                );
+                ("pitch", (a / 2.0 / 12.0).clamp(-1.0, 1.0))
+            }
+        };
+        set(
+            out,
+            param(
+                &format!("mod_{name}_lfo{n}on"),
+                "LFO route",
+                1.0,
+                unit,
+                "boolean",
+            ),
+        );
+        set(
+            out,
+            param(
+                &format!("mod_{name}_lfo{n}"),
+                "LFO route amount",
+                amount,
+                route,
+                "linear",
+            ),
+        );
+    }
 }
 
 /// The sampler's device for an instrument, and its sample file to put in the device's own files:
@@ -441,10 +774,11 @@ fn sampler_device(
     instrument: &Instrument,
     samples_bytes: Option<&[u8]>,
     level: f64,
+    bpm: f64,
 ) -> (Device, Option<Put>) {
     let mut device = Device::new(id.clone(), "instrument", SAMPLER);
     device.name = format!("{SAMPLER_NAME}: {}", instrument.name());
-    device.params = sampler_params(&instrument.head, level);
+    device.params = sampler_params(&instrument.head, level, bpm);
     let (layout, wav_name) = match &instrument.layout {
         Layout::Pti => ("pti", None),
         Layout::Mti { wav } => ("mti", wav.clone()),
@@ -535,6 +869,8 @@ pub fn to_tutti(
             .push(note);
     }
 
+    // The song's first tempo, which an LFO's rate is worked out at.
+    let bpm = song.tempo.first().map_or(120.0, |&(_, b)| b);
     let mut used_instruments = BTreeSet::new();
     // The beat-slice samples put in audio/, each once.
     let mut beat_files = BTreeSet::new();
@@ -573,6 +909,7 @@ pub fn to_tutti(
                         inst,
                         pcm.as_deref(),
                         level,
+                        bpm,
                     );
                     child.devices.push(device);
                     match put {
@@ -698,6 +1035,33 @@ pub fn to_tutti(
             ));
         }
         child.patterns = patterns.into_values().collect();
+        // A pan LFO is the track's pan automation: a Polyend track plays one note at a time, so
+        // the lane restarts it with each note, as the Tracker does.
+        if let Some(lfo) = model
+            .instruments
+            .get(&instrument)
+            .and_then(|inst| inst.head.lfo(crate::files::ENV_PAN))
+            .filter(|l| l.amount != 0.0)
+        {
+            let mut notes: Vec<&Played> = slots.values().flatten().copied().collect();
+            notes.sort_by_key(|n| n.at);
+            let (points, held) = pan_lfo(&lfo, &notes);
+            if held {
+                report.approximated(format!(
+                    "{}: its pan LFO is faster than the lane's points can follow, so it runs at \
+                     {PAN_LFO_FASTEST} ticks a cycle",
+                    instrument_track_name(&model, instrument)
+                ));
+            }
+            child.automation.push(
+                serde_json::from_value(json!({
+                    "id": ids.id("aut", &[&t, &i, "pan"]),
+                    "target": {"channel": "pan"},
+                    "points": points,
+                }))
+                .expect("a lane"),
+            );
+        }
         if let Some(b) = beat.filter(|b| beat_used && beat_files.insert(b.file.clone())) {
             files.push(Put {
                 place: Place::Audio {
@@ -709,6 +1073,10 @@ pub fn to_tutti(
         child.parts.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
         groups.entry(track).or_default().push(child);
     }
+    // The returns the sends go to, made when any track sends to them.
+    let reverb_id = ids.id("trk", &["reverb"]);
+    let delay_id = ids.id("trk", &["delay"]);
+    let (mut reverb_used, mut delay_used) = (false, false);
     // A Polyend track playing one instrument is that instrument's track, named for both; one
     // playing several is a folder of them. Its mute is the Polyend track's.
     for (track, mut children) in groups {
@@ -721,6 +1089,61 @@ pub fn to_tutti(
             1.0
         };
         let name = folder_name(&model, track);
+        // The sends, as the firmware's `modReverbSend` and `modDelaySend` take them: after the
+        // volumes, the send's level times the return's volume, the dry mix not in it; before
+        // them where the project says so, the instrument's own volume taken out.
+        if track < SAMPLE_TRACKS {
+            let single = children.len() == 1;
+            for child in &mut children {
+                let Some(inst) = child
+                    .extensions
+                    .get(NAMESPACE)
+                    .and_then(|e| e.get("instrument"))
+                    .and_then(Value::as_u64)
+                    .and_then(|i| model.instruments.get(&(i as u8)))
+                else {
+                    continue;
+                };
+                let (reverb, delay) = inst.head.sends();
+                for (send, to, is_reverb) in [(reverb, &reverb_id, true), (delay, &delay_id, false)]
+                {
+                    let level = self::gain(crate::files::send_db(send))
+                        * self::gain(model.project.fx_volume_db(is_reverb));
+                    if level <= 0.0 {
+                        continue;
+                    }
+                    let pre = model.project.sends_pre_fader();
+                    let gain = if pre {
+                        let own = self::gain(inst.head.volume_db());
+                        if own > 0.0 {
+                            level * child.channel.gain / own
+                        } else {
+                            0.0
+                        }
+                    } else if single {
+                        let dry = self::gain(model.project.dry_mix_db());
+                        if dry > 0.0 { level / dry } else { 0.0 }
+                    } else {
+                        level * self::gain(model.project.track_volume_db(track))
+                    };
+                    child.channel.sends.push(
+                        serde_json::from_value(json!({
+                            "to": to, "gain": gain, "pre_fader": pre, "enabled": !muted || pre,
+                        }))
+                        .expect("a send"),
+                    );
+                    if is_reverb {
+                        reverb_used = true;
+                    } else {
+                        delay_used = true;
+                    }
+                }
+                child
+                    .channel
+                    .sends
+                    .sort_by(|a, b| a.to.as_str().cmp(b.to.as_str()));
+            }
+        }
         if children.len() == 1 {
             let mut only = children.pop().expect("one");
             only.name = format!("{name}: {}", only.name);
@@ -741,6 +1164,26 @@ pub fn to_tutti(
             folder.children = children;
             document.tracks.push(folder);
         }
+    }
+
+    if reverb_used {
+        let mut r = Track::new(reverb_id.clone(), "Reverb");
+        r.channel.mute = model.project.fx_volume_db(true).is_none();
+        r.devices.push(reverb_device(
+            ids.id("dev", &["reverb"]),
+            &model.project.reverb(),
+        ));
+        document.tracks.push(r);
+    }
+    if delay_used {
+        let mut d = Track::new(delay_id.clone(), "Delay");
+        d.channel.mute = model.project.fx_volume_db(false).is_none();
+        d.devices.push(delay_device(
+            ids.id("dev", &["delay"]),
+            &model.project.delay(),
+            bpm,
+        ));
+        document.tracks.push(d);
     }
 
     // The instruments the song never plays, so the project keeps every one.
@@ -767,6 +1210,7 @@ pub fn to_tutti(
             instrument,
             pcm.as_deref(),
             levels.level(),
+            bpm,
         );
         child.devices.push(device);
         files.extend(put);
@@ -856,10 +1300,15 @@ fn remarks(model: &Model, song: &Song, report: &mut Report) {
              panning, amplitude envelopes (attack, decay, sustain, release), filters, bit \
              depth (4 bits as 5, the sampler's fewest) and slices carried over (a slice \
              instrument plays its selected slice; beat slices play as audio pieces of their \
-             slices, their points not snapped to zero crossings as the Tracker does); their \
-             LFOs, other envelopes, an envelope's delay and hold, wavetable and granular \
-             settings, glide (a time on the Tracker, per octave on the sampler), overdrive and \
-             sends kept, not applied, as are the master's EQ, boosts and limiter. Each note plays at its step's volume, or its instrument's, through the \
+             slices, their points not snapped to zero crossings as the Tracker does) and the \
+             first two LFOs on volume, cutoff or finetune (the sampler's run free at the song's \
+             first tempo, the Tracker's restart with each note), and a pan LFO as the track's \
+             pan automation, restarted with each note; their wavetable and grain LFOs, other \
+             envelopes, an envelope's delay and hold, wavetable and granular \
+             settings, glide (a time on the Tracker, per octave on the sampler) and overdrive \
+             kept, not applied, as are the master's EQ, boosts and limiter. The reverb and \
+             delay sends go to returns of MXM Classic Verb and MXM FX Delay, their settings \
+             mapped as near as those effects allow (a synced delay at the song's first tempo) Each note plays at its step's volume, or its instrument's, through the \
              sampler's level, the note's velocity and the track's gain",
         );
     }
