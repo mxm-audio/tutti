@@ -36,7 +36,7 @@ Owns `Cargo.toml`, `src/` and `tests/`.
 - **The device's rules, as `song`'s module doc states them**: a step is a sixteenth; every track
   plays track 1's length; Break Pattern ends a pattern; a note rings to its track's next note,
   `OFF`, `CUT` or `FADE`, across patterns; micro-move and velocity, the first effect slot, then
-  the second, then the step's own field; Tempo sets the tempo map; version 4 clears the MIDI
+  the second, then the step's own field; Tempo sets the tempo map, and 4 or less stops the song after its step (`song::TEMPO_STOP`); version 4 clears the MIDI
   tracks. A rule changed here is a change of `convert::VERSION`.
 - **The conversion** (`convert`'s module doc): a folder track per Polyend track, a track per
   instrument in it, a part per slot, patterns shared only where a slot's notes are identical
@@ -65,7 +65,11 @@ Owns `Cargo.toml`, `src/` and `tests/`.
   sampler's level, the note's velocity and the instrument track's gain, so level × velocity ×
   gain is the note's gain, a boost past unity included. A program builds the sampler's state
   from the two until the sampler loads its own files (MXM tutti Converter does, with the
-  sampler's state crate). Ids are derived from the source with a token of the project's name.
+  sampler's state crate). **What most programs can't take is brought within reach, and said**: a
+  tempo under `convert::SLOWEST_BPM` is written as it, and where an instrument track would need
+  more than `convert::LOUDEST_GAIN`, every instrument track comes down by one factor and the
+  master goes up by it (`within_reach`), the mix as it was; a beat-slice sample is written in
+  whole frames. Ids are derived from the source with a token of the project's name.
 - **Nothing lost**: what tutti does not hold is kept under `dk.mxm.polyend-tracker` (registered
   in `spec/1.0/extensions.md`) on the object it belongs to, and `to_model(to_tutti(m))` is `m`,
   every sample's bytes too. Raise `convert::VERSION` whenever the output changes, so watchers

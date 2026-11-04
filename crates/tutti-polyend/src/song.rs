@@ -245,6 +245,10 @@ fn played_steps(tracks: &[(u8, Vec<Step>)]) -> u32 {
     full
 }
 
+/// The firmware's `TEMPO_FX_STP`: a Tempo effect of this value or less stops the song after its
+/// step instead of setting a tempo.
+pub const TEMPO_STOP: u8 = 4;
+
 /// The delay micro-move `m` gives a step, in ticks.
 pub fn micromove_ticks(m: u8) -> i64 {
     ((m.min(100) as i64 + 1) * 47 / 100) * TICKS_PER_MICROSTEP
@@ -280,7 +284,13 @@ pub fn song(model: &Model) -> Song {
         } else {
             played_steps(&tracks)
         };
+        let mut steps = steps;
+        let mut stop = false;
         for global in 0..steps {
+            if stop {
+                steps = global;
+                break;
+            }
             let step_tick = at + global as i64 * TICKS_PER_STEP;
             for (t, sounding) in open.iter_mut().enumerate() {
                 let (pos, step) = step_at(&tracks, t, global);
@@ -288,8 +298,12 @@ pub fn song(model: &Model) -> Song {
                     .map(|m| m as i64)
                     .or_else(|| (step.micromove >= 0).then_some(step.micromove as i64));
                 let tick = step_tick + micromove.map_or(0, |m| micromove_ticks(m as u8));
-                if let Some(bpm) = effect(&step, fx::TEMPO) {
-                    song.tempo.push((step_tick, bpm as f64 * 2.0));
+                // Tempo: twice the value; 4 or less stops the song after this step
+                // (`TEMPO_FX_STP`).
+                match effect(&step, fx::TEMPO) {
+                    Some(v) if v <= TEMPO_STOP => stop = true,
+                    Some(v) => song.tempo.push((step_tick, v as f64 * 2.0)),
+                    None => {}
                 }
                 for f in &step.fx {
                     if ![
@@ -344,12 +358,21 @@ pub fn song(model: &Model) -> Song {
                 }
             }
         }
+        // A stop on the slot's last step ends the song there too.
+        stop |= (0..TRACKS).any(|t| {
+            steps > 0
+                && effect(&step_at(&tracks, t, steps - 1).1, fx::TEMPO)
+                    .is_some_and(|v| v <= TEMPO_STOP)
+        });
         song.slots.push(Slot {
             pattern: number,
             at,
             steps,
         });
         at += steps as i64 * TICKS_PER_STEP;
+        if stop {
+            break;
+        }
     }
     song.end = at;
     for i in open.into_iter().flatten() {

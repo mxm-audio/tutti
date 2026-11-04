@@ -244,6 +244,14 @@ designed from is `docs/research.md`.
   numeric order, where this crate's writer sorts them by `param` as text, as 7.3 reads; newDAWn's
   reader now puts them in its own order (its `document::read_device`). Whether 7.3 means text
   or number for a CLAP id is the owner's to settle; text is how it reads, and the writer.
+- **2026-11-04:** **Every converted project opens and renders in newDAWn** (`newdawn-cli
+  render`, all 30), after three fixes it found: a gain past +12 dB, which newDAWn and most DAWs
+  refuse (the level split put a loud instrument's boost on its track), now one factor off every
+  instrument track and onto the master, so the mix and the loudness stay; a tempo of 16 BPM (a
+  real ritardando in an Artists song, the Tracker playing down to 10), written as 20, the slowest
+  most programs take, and said; and an older instrument's sample ending in part of a frame, which
+  the sampler reads past and other programs refuse, written whole for a beat slice's audio. Also
+  from the firmware: a Tempo effect of 4 or less stops the song (`TEMPO_FX_STP`).
 
 ## Design choices and what they were weighed against
 

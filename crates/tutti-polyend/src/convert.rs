@@ -53,7 +53,12 @@ use crate::song::{
 pub const NAMESPACE: &str = "dk.mxm.polyend-tracker";
 /// The conversion's version: raised whenever what it writes changes, so earlier outputs are out
 /// of date.
-pub const VERSION: u32 = 7;
+pub const VERSION: u32 = 8;
+/// The slowest tempo written: the slowest most programs take.
+pub const SLOWEST_BPM: f64 = 20.0;
+/// The most gain a channel is written with, +12 dB: the most most programs take.
+pub const LOUDEST_GAIN: f64 = 3.981_071_705_534_973;
+
 /// The reverb and delay the Tracker's sends go to.
 pub const REVERB: &str = "clap:dk.mxm.mxm-classic-verb";
 pub const DELAY: &str = "clap:dk.mxm.mxm-fx-delay";
@@ -363,6 +368,104 @@ fn pan_lfo(lfo: &crate::files::Lfo, notes: &[&Played]) -> (Vec<Value>, bool) {
     (points, period != exact)
 }
 
+/// A WAV with its `data` cut to whole frames, and nothing after it: an older instrument's sample
+/// may end in part of a frame, which the sampler reads past and other programs refuse.
+fn whole_frames(wav: Vec<u8>) -> Vec<u8> {
+    let le32 = |b: &[u8], at: usize| u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]);
+    let (mut at, mut block) = (12usize, None);
+    while at + 8 <= wav.len() {
+        let size = le32(&wav, at + 4) as usize;
+        let body = at + 8;
+        if &wav[at..at + 4] == b"fmt " && body + 14 <= wav.len() {
+            block = Some(u16::from_le_bytes([wav[body + 12], wav[body + 13]]) as usize);
+        }
+        if &wav[at..at + 4] == b"data" {
+            let Some(block) = block.filter(|&b| b > 0) else {
+                return wav;
+            };
+            let have = size.min(wav.len() - body);
+            let whole = have - have % block;
+            if whole == size && body + size + size % 2 == wav.len() {
+                return wav;
+            }
+            let mut out = wav[..body].to_vec();
+            out[at + 4..at + 8].copy_from_slice(&(whole as u32).to_le_bytes());
+            out.extend_from_slice(&wav[body..body + whole]);
+            if whole % 2 == 1 {
+                out.push(0);
+            }
+            let riff = (out.len() - 8) as u32;
+            out[4..8].copy_from_slice(&riff.to_le_bytes());
+            return out;
+        }
+        at = body + size + size % 2;
+    }
+    wav
+}
+
+/// Keeps every channel at or under [`LOUDEST_GAIN`] with the mix as it was: where an instrument
+/// track needs more, every instrument track is lowered by the same factor (a pre-fader send with
+/// it, as it is taken before the gain) and the master raised by it, as far as it goes; the
+/// instruments the song never plays, muted, are only held to it.
+fn within_reach(document: &mut Document, returns: &[&Id], report: &mut Report) {
+    fn leaves<'a>(tracks: &'a mut [Track], out: &mut Vec<&'a mut Track>) {
+        for t in tracks {
+            if t.children.is_empty() {
+                out.push(t);
+            } else {
+                leaves(&mut t.children, out);
+            }
+        }
+    }
+    let unused = document
+        .tracks
+        .iter()
+        .position(|t| t.id.as_str().ends_with("unused") || t.name == "Instruments not in the song");
+    let mut played = Vec::new();
+    for (i, t) in document.tracks.iter_mut().enumerate() {
+        if Some(i) == unused {
+            for child in &mut t.children {
+                child.channel.gain = child.channel.gain.min(LOUDEST_GAIN);
+            }
+        } else if !returns.contains(&&t.id) {
+            leaves(std::slice::from_mut(t), &mut played);
+        }
+    }
+    let worst = played.iter().map(|t| t.channel.gain).fold(0.0, f64::max);
+    if worst <= LOUDEST_GAIN {
+        return;
+    }
+    let factor = worst / LOUDEST_GAIN;
+    for t in played {
+        t.channel.gain /= factor;
+        for send in t.channel.sends.iter_mut().filter(|s| s.pre_fader) {
+            send.gain /= factor;
+        }
+    }
+    let master = factor.min(LOUDEST_GAIN);
+    document.master.gain *= master;
+    let db = |g: f64| 20.0 * g.log10();
+    report.approximated(if master < factor {
+        format!(
+            "A track's gain would be {:+.1} dB: every instrument track is {:.1} dB lower and the \
+             master {:+.1} dB, the most most programs take, so the song is {:.1} dB quieter than \
+             the Tracker plays it",
+            db(worst),
+            db(factor),
+            db(master),
+            db(factor / master)
+        )
+    } else {
+        format!(
+            "A track's gain would be {:+.1} dB, more than most programs take: every instrument \
+             track is {:.1} dB lower and the master {:+.1} dB, the mix as it was",
+            db(worst),
+            db(factor),
+            db(master)
+        )
+    });
+}
+
 /// A beat-slice instrument's sample in `audio/`, and the frames each slice plays.
 struct BeatSlices {
     file: String,
@@ -387,6 +490,7 @@ impl BeatSlices {
             }
             _ => pcm.to_vec(),
         };
+        let wav = whole_frames(wav);
         let (channels, frames, rate) = crate::model::wav_facts(&wav)?;
         if frames == 0 || channels == 0 {
             return None;
@@ -842,11 +946,19 @@ pub fn to_tutti(
     ));
     document.metadata.title = Some(found.name.clone());
     document.ppq = PPQ as u32;
+    // The Tracker plays down to 10 BPM; most programs, newDAWn among them, take 20 at the least.
     document.tempo = song
         .tempo
         .iter()
-        .map(|&(at, bpm)| TempoPoint::new(at, bpm))
+        .map(|&(at, bpm)| TempoPoint::new(at, bpm.clamp(SLOWEST_BPM, 999.0)))
         .collect();
+    for &(at, bpm) in song.tempo.iter().filter(|&&(_, b)| b < SLOWEST_BPM) {
+        report.approximated(format!(
+            "The Tracker's {bpm} BPM at step {} plays at {SLOWEST_BPM} BPM, the slowest most \
+             programs take",
+            at / TICKS_PER_STEP + 1
+        ));
+    }
 
     // The steps the notes stand for; every other step is kept on the document.
     let represented: BTreeSet<(u8, usize, u8)> = song
@@ -1216,6 +1328,7 @@ pub fn to_tutti(
     if !unused.children.is_empty() {
         document.tracks.push(unused);
     }
+    within_reach(&mut document, &[&reverb_id, &delay_id], &mut report);
 
     // The project's files, and every step no note stands for.
     let mut patterns = serde_json::Map::new();

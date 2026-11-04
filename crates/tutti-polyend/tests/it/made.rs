@@ -847,15 +847,17 @@ fn levels_envelopes_filters_and_slices_play_as_the_tracker_plays_them() {
         );
     }
     assert!((db(param(pad, "alevel")) + 12.48).abs() < 1e-6);
-    assert!((db(pad.channel.gain) - 6.0).abs() < 1e-6);
+    // Track gains are heard through the master, which carries what one would need past +12 dB.
+    let master = document.master.gain;
+    assert!((db(pad.channel.gain * master) - 6.0).abs() < 1e-6);
 
     // The loop: each note its slice as an audio piece; the loud step (+12 dB) the loudest, so the
     // track's gain carries it and the other notes' velocities are their share of it.
     let loop_ = ends_with(&document.tracks, ": Loop");
     assert!(
-        (db(loop_.channel.gain) - 18.0).abs() < 1e-6,
+        (db(loop_.channel.gain * master) - 18.0).abs() < 1e-6,
         "{}",
-        db(loop_.channel.gain)
+        db(loop_.channel.gain * master)
     );
     let mut notes: Vec<&tutti::Note> = loop_.patterns[0]
         .events
@@ -1004,4 +1006,75 @@ fn sends_go_to_mxm_reverb_and_delay_returns() {
     assert_eq!(value(&echo, "routing"), 2.0, "ping-pong");
     assert!((value(&echo, "time") - ((0.5 - 0.005) / 7.995f64).powf(0.25)).abs() < 1e-9);
     assert!((value(&echo, "feedback") - 0.4).abs() < 1e-9);
+}
+
+#[test]
+fn a_tempo_effect_of_four_or_less_stops_the_song_after_its_step() {
+    let card = one_pattern(
+        6,
+        &[
+            (0, 0, note(60, 0)),
+            (1, 3, with_fx(Step::EMPTY, 0, fx::TEMPO, 4)),
+            (0, 8, note(62, 0)),
+        ],
+        15,
+        &[1, 1],
+    );
+    card.put("S", "instruments/1 Lead.pti", instrument(100, 1));
+    let (model, _) = read(&card.store, &card.found("S")).unwrap();
+    let s = song(&model);
+    assert_eq!(
+        s.end,
+        4 * TICKS_PER_STEP,
+        "stopped after step 4, the second slot never played"
+    );
+    assert_eq!(s.notes.len(), 1);
+    assert_eq!(s.tempo.len(), 1, "a stop sets no tempo");
+}
+
+#[test]
+fn what_most_programs_cannot_take_is_brought_within_reach() {
+    // A loud step (+12 dB) on a loud track (+6 dB): the instrument track's gain would be +18 dB.
+    // And a tempo of 16 BPM.
+    let card = one_pattern(
+        6,
+        &[
+            (
+                0,
+                0,
+                Step {
+                    volume: 75,
+                    ..note(60, 0)
+                },
+            ),
+            (0, 4, with_fx(note(62, 0), 0, fx::TEMPO, 8)),
+        ],
+        15,
+        &[1],
+    );
+    let mut lead = instrument(100, 1);
+    lead[16 + 256] = 50;
+    card.put("S", "instruments/1 Lead.pti", lead);
+    let found = card.found("S");
+    let conversion = PolyendTracker
+        .to_tutti(&card.store, &found, &mut Quiet)
+        .unwrap();
+    let report = conversion.report.clone();
+    let out = MemoryStore::new();
+    let generator = Generator::new("made", "0", "https://example.org");
+    write(conversion, &card.store, out.clone(), &generator, &mut Quiet).unwrap();
+    let opened = Project::open(out).unwrap();
+    assert!(opened.report.is_valid());
+    assert_eq!(opened.report.warnings().count(), 0);
+    let document = opened.project.document().clone();
+    let lead = ends_with(&document.tracks, ": Lead");
+    assert!(lead.channel.gain <= tutti_polyend::convert::LOUDEST_GAIN + 1e-12);
+    // The path's gain is the Tracker's: +12 dB for the step, +6 for the track; the track at +12,
+    // the master at +6.
+    assert!((db(lead.channel.gain) - 12.0).abs() < 1e-6);
+    assert!((db(lead.channel.gain * document.master.gain) - 18.0).abs() < 1e-6);
+    assert!(document.tempo.iter().all(|p| p.bpm >= 20.0));
+    let texts: Vec<&str> = report.remarks.iter().map(|r| r.text.as_str()).collect();
+    assert!(texts.iter().any(|t| t.contains("16 BPM")), "{texts:?}");
+    assert!(texts.iter().any(|t| t.contains("master")), "{texts:?}");
 }
