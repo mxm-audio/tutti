@@ -53,7 +53,7 @@ use crate::song::{
 pub const NAMESPACE: &str = "dk.mxm.polyend-tracker";
 /// The conversion's version: raised whenever what it writes changes, so earlier outputs are out
 /// of date.
-pub const VERSION: u32 = 6;
+pub const VERSION: u32 = 7;
 /// The reverb and delay the Tracker's sends go to.
 pub const REVERB: &str = "clap:dk.mxm.mxm-classic-verb";
 pub const DELAY: &str = "clap:dk.mxm.mxm-fx-delay";
@@ -185,7 +185,8 @@ fn effect_param(id: &str, name: &str, plain: f64, range: Range, text: String) ->
 
 /// A return's device: its parameters as the snapshot and as overrides.
 fn effect_device(id: Id, plugin: &str, name: &str, params: Vec<tutti::Param>) -> Device {
-    let mut device = Device::new(id, "effect", plugin);
+    // tutti's role for an audio effect (6.4); any other is bypassed.
+    let mut device = Device::new(id, "audio_effect", plugin);
     device.name = name.to_owned();
     device.overrides = params
         .iter()
@@ -196,6 +197,8 @@ fn effect_device(id: Id, plugin: &str, name: &str, params: Vec<tutti::Param>) ->
             .expect("an override")
         })
         .collect();
+    // Sorted by parameter, as tutti's are (its writer puts them in that order anyway).
+    device.overrides.sort_by(|a, b| a.param.cmp(&b.param));
     device.params = params;
     device.params.sort_by(|a, b| a.id.cmp(&b.id));
     device
@@ -622,7 +625,7 @@ fn sampler_params(head: &InstrumentFile, level: f64, bpm: f64) -> Vec<tutti::Par
             "Amplitude from Velocity",
             1.0,
             unit,
-            "boolean",
+            "bool",
         ),
         param(
             "mod_amp_vel",
@@ -636,15 +639,9 @@ fn sampler_params(head: &InstrumentFile, level: f64, bpm: f64) -> Vec<tutti::Par
             "Cutoff from Envelope",
             0.0,
             unit,
-            "boolean",
+            "bool",
         ),
-        param(
-            "mod_cutoff_lfo2on",
-            "Cutoff from LFO 2",
-            0.0,
-            unit,
-            "boolean",
-        ),
+        param("mod_cutoff_lfo2on", "Cutoff from LFO 2", 0.0, unit, "bool"),
         param("apan", "A Pan", pan, (-1.0, 1.0), "linear"),
     ];
     lfos(head, level, bpm, &mut out);
@@ -699,7 +696,7 @@ fn lfos(head: &InstrumentFile, level: f64, bpm: f64, out: &mut Vec<tutti::Param>
         };
         set(out, param(rate, "LFO rate", hz, (0.01, 40.0), "hertz"));
         set(out, param(shape_id, "LFO shape", shape, (0.0, 5.0), "enum"));
-        set(out, param(sync, "LFO sync", 0.0, unit, "boolean"));
+        set(out, param(sync, "LFO sync", 0.0, unit, "bool"));
         let n = slot;
         let (name, amount) = match target {
             ENV_AMP => {
@@ -749,7 +746,7 @@ fn lfos(head: &InstrumentFile, level: f64, bpm: f64, out: &mut Vec<tutti::Param>
                 "LFO route",
                 1.0,
                 unit,
-                "boolean",
+                "bool",
             ),
         );
         set(

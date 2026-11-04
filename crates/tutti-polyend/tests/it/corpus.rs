@@ -75,6 +75,12 @@ fn every_real_project_round_trips_and_converts() {
             "{at}: {:?}",
             opened.report.errors().collect::<Vec<_>>()
         );
+        assert_eq!(
+            opened.report.warnings().count(),
+            0,
+            "{at}: {:?}",
+            opened.report.warnings().take(5).collect::<Vec<_>>()
+        );
         // Back to the model: equal, the samples' bytes too.
         let (back, back_locators) = to_model(opened.project.document(), &out).unwrap();
         assert!(back == model, "{at}: the model read back differs");

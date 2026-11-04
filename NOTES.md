@@ -235,6 +235,15 @@ designed from is `docs/research.md`.
   state and not the snapshot. A pan LFO is automation rather than a sampler LFO because the
   sampler has no pan target, and a lane restarted with each note is exactly the Tracker's (one
   note at a time on a track); the sampler's LFOs run free, so the others' phase is approximate.
+- **2026-11-04:** **The returns heard in newDAWn**, each alone from a click through its send
+  (`newdawn-cli render`): the delay's echoes at the synced time the Tracker's setting asks for,
+  ping-pong, each at about its feedback; the reverb's decay near the tank's. Rendering found two
+  faults the format's checks only warned of: the effects' role was `effect`, which every reader
+  bypasses (tutti's is `audio_effect`), and a unit was `boolean` (tutti's is `bool`); the tests
+  now fail on any warning. It also found newDAWn refusing a device's `overrides` that weren't in
+  numeric order, where this crate's writer sorts them by `param` as text, as 7.3 reads; newDAWn's
+  reader now puts them in its own order (its `document::read_device`). Whether 7.3 means text
+  or number for a CLAP id is the owner's to settle; text is how it reads, and the writer.
 
 ## Design choices and what they were weighed against
 

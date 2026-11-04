@@ -101,7 +101,9 @@ the volume tables and the dry mix; levels, envelopes, filters, bit depth, slices
 as the Tracker plays them; LFOs on the sampler's two and a pan LFO's lane; sends to MXM returns
 as CLAP values;
 instrument files placed by number or refused.
-`tests/it/corpus.rs`: every real project read, written back, converted, valid, and read back (a
+Every made conversion and every corpus one opens with no warning, not only no error (an unknown
+role or unit is a warning, and a reader bypasses it). `tests/it/corpus.rs`: every real project
+read, written back, converted, valid, and read back (a
 Tracker Mini's card: all 28, and its `Workspace/` copied as a project, 2026-11-04).
 
 # Child DOX Index

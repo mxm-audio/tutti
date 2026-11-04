@@ -543,6 +543,13 @@ fn convert(card: &Card) -> (MemoryStore, Document, tutti_convert::Report) {
         "{:?}",
         opened.report.errors().collect::<Vec<_>>()
     );
+    // Not a warning either: an unknown role, say, is bypassed by every reader.
+    assert_eq!(
+        opened.report.warnings().count(),
+        0,
+        "{:?}",
+        opened.report.warnings().collect::<Vec<_>>()
+    );
     let document = opened.project.document().clone();
     (out, document, report)
 }
@@ -979,6 +986,7 @@ fn sends_go_to_mxm_reverb_and_delay_returns() {
     let fx = |name: &str| named(&document.tracks, name).devices[0].clone();
     let verb = fx("Reverb");
     assert_eq!(verb.plugin, tutti_polyend::convert::REVERB);
+    assert_eq!(verb.role, "audio_effect");
     let value = |d: &tutti::Device, id: &str| {
         let clap = tutti_polyend::convert::clap_id(id);
         let p = d.params.iter().find(|p| p.id == clap).unwrap().value;
