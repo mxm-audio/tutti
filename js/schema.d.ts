@@ -364,6 +364,10 @@ export interface Track {
    */
   drum_map?: null | Lane[];
   /**
+   * Which of its folder's notes this track receives, transposed by how much, and its choke group (spec 6.12).
+   */
+  zone?: null | Zone;
+  /**
    * The track's own patterns, sorted by id.
    */
   patterns?: Pattern[];
@@ -433,6 +437,25 @@ export interface Promoted {
 export interface Lane {
   pitch: Pitch;
   name?: string;
+  [k: string]: unknown;
+}
+/**
+ * A member's zone (spec 6.12): low is at most high in both ranges.
+ */
+export interface Zone {
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  keys?: [Pitch, Pitch];
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  velocities?: [number, number];
+  transpose?: number;
+  choke?: number;
+  extensions?: Extensions;
   [k: string]: unknown;
 }
 export interface Pattern {

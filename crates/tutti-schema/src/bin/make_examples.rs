@@ -88,6 +88,11 @@ fn main() {
     let folder = l0.join(fixture.name);
     write_project(&folder, &title_case(fixture.name), fixture.project);
     write_json(&folder.join("expected.json"), &fixture.expected);
+    // A folder's members by key zone, transposed, with choke (the owner, 2026-11-04).
+    let fixture = folder_zones(&mut ids);
+    let folder = l1.join(fixture.name);
+    write_project(&folder, &title_case(fixture.name), fixture.project);
+    write_json(&folder.join("expected.json"), &fixture.expected);
     println!("examples written under {}", examples.display());
 }
 
@@ -993,6 +998,15 @@ fn every_feature(ids: &mut Ids) -> Project {
     r.name = "Verse bass, without effects, at 120 bpm".to_owned();
     bass.patterns[0].renders.push(r);
     stems.push(("renders/Verse-bass_120.wav", bytes));
+    // Drums, a member, takes a zone (6.12): every key set, so the example covers them.
+    drums.zone = Some(Zone {
+        keys: [24, 96],
+        velocities: [0.1, 1.0],
+        transpose: -12,
+        choke: 1,
+        extensions: Extensions::new(),
+        unknown: Unknown::new(),
+    });
     folder.children = vec![drums, bass];
 
     // The loop track gets a warped second piece, an unwarped pad, a reversed piece, every channel
@@ -2821,6 +2835,121 @@ fn folder_notes(ids: &mut Ids) -> Fixture {
             "fingerprints": fingerprints,
             "folder_note_edit": {"velocity": 0.5, "stale": stale(true, true, true)},
             "own_note_edit": {"velocity": 0.5, "stale": stale(false, true, false)},
+        }),
+    }
+}
+
+/// folder-zones (Level 1): a folder's notes reach its members through their zones (6.12): Kick and
+/// Snare a key each, transposed to pitch 60, in choke group 1; Hat a key and velocities from 0.5;
+/// Bass a range an octave down, and a note of its own its zone never filters. The notes each
+/// instrument is given and the chokes are worked out by `tutti::play`; Hat carries a render whose
+/// fingerprint holds its zone (7.7).
+fn folder_zones(ids: &mut Ids) -> Fixture {
+    let mut p = Project::new(generator());
+    p.document.dependencies.push(example_dependency(
+        MISSING,
+        "Missing synth",
+        "missing-synth",
+    ));
+    let member = |ids: &mut Ids, name: &str, zone: Zone| {
+        let mut t = Track::new(ids.next("trk"), name);
+        t.devices
+            .push(device(ids, "instrument", "Missing synth", MISSING));
+        t.zone = Some(zone);
+        t
+    };
+    let zone = |keys: [u8; 2], transpose: i32, choke: u8| Zone {
+        keys,
+        transpose,
+        choke,
+        ..Zone::default()
+    };
+    let kick = member(ids, "Kick", zone([36, 36], 24, 1));
+    let snare = member(ids, "Snare", zone([38, 38], 22, 1));
+    let hat = member(
+        ids,
+        "Hat",
+        Zone {
+            velocities: [0.5, 1.0],
+            ..zone([42, 42], 18, 0)
+        },
+    );
+    let mut bass = member(ids, "Bass", zone([48, 72], -12, 0));
+    let low = note(ids, 3360, 240, 45, 0.8);
+    let own = pattern(ids, "Low", 2 * SECOND, vec![low]);
+    let own_id = own.id.clone();
+    bass.patterns.push(own);
+    bass.parts.push(part(ids, &own_id, 0, 2 * SECOND));
+    let mut kit = Track::new(ids.next("trk"), "Kit");
+    let beat = vec![
+        note(ids, 0, 960, 36, 0.8),
+        note(ids, 480, 240, 38, 0.8),
+        note(ids, 960, 240, 42, 0.4),
+        note(ids, 1440, 240, 42, 0.9),
+        note(ids, 1920, 480, 36, 0.8),
+        note(ids, 1920, 480, 38, 0.8),
+        note(ids, 2400, 960, 52, 0.8),
+    ];
+    let beat = pattern(ids, "Beat", 2 * SECOND, beat);
+    let beat_id = beat.id.clone();
+    kit.patterns.push(beat);
+    kit.parts.push(part(ids, &beat_id, 0, 2 * SECOND));
+    kit.children = vec![kick, snare, hat, bass];
+    p.document.tracks.push(kit);
+    // Hat's render, its instrument alone, its fingerprint holding its zone.
+    let hat_id = p.document.tracks[0].children[2].id.clone();
+    let track = p.document.track(&hat_id).unwrap().clone();
+    let file = "renders/Hat.wav".to_owned();
+    let (r, bytes) = track_render(
+        &p.document,
+        &track,
+        &file,
+        "Hat, without effects",
+        render::without_effects(&track),
+        (0, 2 * SECOND),
+        0.3,
+    );
+    let fingerprint = r.fingerprint.clone();
+    p.document.track_mut(&hat_id).unwrap().renders.push(r);
+    p.add_file(&file, bytes);
+    let map = time::TempoMap::new(p.document.ppq, &p.document.tempo);
+    let at = |tick: i64| {
+        (
+            map.seconds_at(tick as f64),
+            map.samples_at(tick as f64, 48_000),
+        )
+    };
+    let mut given = Vec::new();
+    for member in &p.document.tracks[0].children {
+        let rows: Vec<Value> = tutti::play::reaching(&p.document, member)
+            .iter()
+            .map(|n| {
+                let (seconds, sample) = at(n.at);
+                json!({"pitch": n.pitch, "tick": n.at, "end": n.end, "velocity": n.velocity,
+                    "seconds": seconds, "sample_48000": sample})
+            })
+            .collect();
+        given.push(json!({"track": member.id.as_str(), "name": member.name,
+            "device": member.devices[0].id.as_str(), "notes": rows}));
+    }
+    let chokes: Vec<Value> = tutti::play::chokes(&p.document)
+        .iter()
+        .map(|c| {
+            let name = &p.document.track(&c.track).unwrap().name;
+            let (seconds, sample) = at(c.at);
+            json!({"track": c.track.as_str(), "name": name, "event": c.event.as_str(),
+                "pitch": c.pitch, "tick": c.at, "seconds": seconds, "sample_48000": sample})
+        })
+        .collect();
+    Fixture {
+        name: "folder-zones",
+        project: p,
+        expected: json!({
+            "what": "Kit, a folder, holds a beat, and four members with an instrument of a plugin no one has (fictitious), each with a zone (6.12): Kick receives key 36 and Snare key 38, each transposed to pitch 60, both in choke group 1; Hat receives key 42 at velocities from 0.5, transposed to 60; Bass receives keys 48 to 72 an octave down, and plays a note of its own its zone never filters. Each instrument is given the notes the table lists. At tick 480 Snare's note chokes Kick's, sounding since 0; at 1920 Kick and Snare start together and neither chokes the other; Hat's soft note at 960 never reaches it. Hat carries a render whose fingerprint holds its zone (7.7): an edit to its zone stales it. The fingerprint is a test vector.",
+            "given": given,
+            "chokes": chokes,
+            "fingerprints": {file.clone(): fingerprint},
+            "zone_edit": {"track": hat_id.as_str(), "velocities": [0.3, 1.0], "stale": {file: true}},
         }),
     }
 }

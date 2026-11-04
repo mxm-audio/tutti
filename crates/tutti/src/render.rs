@@ -200,16 +200,35 @@ pub fn folders_above<'a>(doc: &'a Document, id: &Id) -> Vec<&'a Track> {
 
 /// The folders above a track whose notes can reach it (spec 7.1), as a track render's descriptor
 /// holds them (spec 7.7): those with patterns or enabled note effects, the outermost first, each
-/// reduced as a track is, its enabled note effects standing for the listed devices.
+/// reduced as a track is, its enabled note effects standing for the listed devices; and, below the
+/// outermost of them, every folder with a zone (6.12), which changes what passes. The outermost's
+/// own zone changes nothing that reaches the track, so it is left out.
 fn reduced_folders(doc: &Document, track: &Track) -> Vec<Track> {
-    folders_above(doc, &track.id)
-        .into_iter()
-        .filter_map(|folder| {
-            let note_effects = listed(folder, |role| role == Role::NoteEffect);
-            (!folder.patterns.is_empty() || !note_effects.is_empty())
-                .then(|| reduced_track(folder, &note_effects))
+    let above = folders_above(doc, &track.id);
+    let reaches = |folder: &Track| {
+        !folder.patterns.is_empty() || !listed(folder, |role| role == Role::NoteEffect).is_empty()
+    };
+    let Some(first) = above.iter().position(|f| reaches(f)) else {
+        return Vec::new();
+    };
+    above[first..]
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| reaches(f) || has_zone(f))
+        .map(|(i, folder)| {
+            let mut reduced =
+                reduced_track(folder, &listed(folder, |role| role == Role::NoteEffect));
+            if i == 0 || !has_zone(folder) {
+                reduced.zone = None;
+            }
+            reduced
         })
         .collect()
+}
+
+/// A zone that changes something (6.12): not every key, velocity and none of the rest.
+fn has_zone(track: &Track) -> bool {
+    track.zone.as_ref().is_some_and(|z| !z.is_default())
 }
 
 fn maps(doc: &Document) -> (Value, Value, Value) {
@@ -233,12 +252,16 @@ pub fn render_descriptor(
     from: i64,
     to: i64,
 ) -> Value {
-    let track_value =
-        serde_json::to_value(reduced_track(track, devices)).expect("a track always serialises");
+    let folders = reduced_folders(doc, track);
+    // A track's zone changes what it is given only when a folder above gives it notes (6.12).
+    let mut reduced = reduced_track(track, devices);
+    if folders.is_empty() || !has_zone(track) {
+        reduced.zone = None;
+    }
+    let track_value = serde_json::to_value(reduced).expect("a track always serialises");
     let (tempo, meter, key) = maps(doc);
     let mut descriptor = Map::new();
     descriptor.insert("track".to_owned(), track_value);
-    let folders = reduced_folders(doc, track);
     if !folders.is_empty() {
         descriptor.insert(
             "folders".to_owned(),

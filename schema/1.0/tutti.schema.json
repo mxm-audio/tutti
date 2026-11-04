@@ -183,6 +183,7 @@
         "devices": { "type": "array", "items": { "$ref": "#/$defs/device" }, "default": [], "description": "The chain in signal order (spec 7.1)." },
         "parameters": { "type": "array", "items": { "$ref": "#/$defs/promoted" }, "default": [], "description": "Promoted parameters (spec 6.8)." },
         "drum_map": { "oneOf": [ { "type": "null" }, { "type": "array", "items": { "$ref": "#/$defs/lane" } } ], "default": null, "description": "A lane per drum in display order (spec 6.11)." },
+        "zone": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/zone" } ], "default": null, "description": "Which of its folder's notes this track receives, transposed by how much, and its choke group (spec 6.12)." },
         "patterns": { "type": "array", "items": { "$ref": "#/$defs/pattern" }, "default": [], "description": "The track's own patterns, sorted by id." },
         "parts": { "type": "array", "items": { "$ref": "#/$defs/part" }, "default": [], "description": "Where its patterns play, sorted by id." },
         "automation": { "type": "array", "items": { "$ref": "#/$defs/automation_lane" }, "default": [], "description": "Automation lanes, sorted by id (spec 6.8)." },
@@ -229,6 +230,17 @@
       "properties": {
         "pitch": { "$ref": "#/$defs/pitch" },
         "name": { "type": "string", "default": "" }
+      }
+    },
+    "zone": {
+      "type": "object",
+      "description": "A member's zone (spec 6.12): low is at most high in both ranges.",
+      "properties": {
+        "keys": { "type": "array", "items": { "$ref": "#/$defs/pitch" }, "minItems": 2, "maxItems": 2, "default": [0, 127] },
+        "velocities": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 2, "maxItems": 2, "default": [0, 1] },
+        "transpose": { "type": "integer", "minimum": -127, "maximum": 127, "default": 0 },
+        "choke": { "type": "integer", "minimum": 0, "maximum": 16, "default": 0 },
+        "extensions": { "$ref": "#/$defs/extensions" }
       }
     },
     "device": {

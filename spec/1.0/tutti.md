@@ -362,6 +362,7 @@ its channel: there are no separate channel objects or ids.
 | `devices` | array of device | no | `[]` | The device chain in signal order (7). |
 | `parameters` | array of object | no | `[]` | Promoted parameters (6.8). |
 | `drum_map` | array of object or null | no | `null` | `[{pitch, name}]`: a lane per drum, in display order (6.11). |
+| `zone` | object or null | no | `null` | Which of its folder's notes this track receives, transposed by how much, and its choke group (6.12). |
 | `patterns` | array of pattern | no | `[]` | The track's own patterns (6.5), sorted by id. |
 | `parts` | array of part | no | `[]` | Where its patterns play (6.6), sorted by id. |
 | `automation` | array of lane | no | `[]` | Automation lanes (6.8), sorted by id. |
@@ -559,6 +560,55 @@ A `drum_map` names a track's drum lanes: `[{pitch (0 to 127), name (string)}]` i
 order. It changes no note; a note's pitch picks its lane. An empty name means "as the instrument
 names the key, else the General MIDI name".
 
+### 6.12 Zones
+
+A folder's member says, in its `zone`, which of the folder's notes it receives and what it does
+with them, so a folder plays like a drum kit, a key per member, while each member plays
+chromatically on its own track.
+
+| Key | Type | Required | Default | Meaning |
+|---|---|---|---|---|
+| `keys` | `[low, high]`, integers 0 to 127 | no | `[0, 127]` | The pitches it receives, both ends in. |
+| `velocities` | `[low, high]`, numbers 0 to 1 | no | `[0, 1]` | The velocities it receives, both ends in. |
+| `transpose` | integer −127 to 127 | no | `0` | Semitones added to a received note's pitch. |
+| `choke` | integer 0 to 16 | no | `0` | Its choke group among its folder's members; 0 is none. |
+| `extensions` | object | no | `{}` | (8.1) |
+
+`low` is at most `high` in both. A zone with every key at its default is the same as none.
+
+- **What it receives.** A note of the folder's (its own, and what the folder itself receives,
+  after the folder's note effects; 7.1) reaches the member when its pitch is in `keys` and its
+  velocity in `velocities`, and arrives with `transpose` added to its pitch; a pitch taken past 0
+  or 127 is dropped. The note keeps its time, length, velocity, release and expressions. The
+  member's own notes never pass its zone. Down a tree, each member's zone filters what its
+  folder passes on, so a note from two folders up passes both zones, both transposes added.
+- **Choke**, worked out from the notes alone, so every reader gets the same:
+  - a member's notes are those that play on it, its own and those it receives; a member
+    folder's, every note that plays on an instrument inside it;
+  - a note sounds at tick *t* when it starts at or before *t* and ends after *t*: a note ending
+    at *t* is over;
+  - at each tick *t* where a note starts on a member in choke group *n* (not 0), every note
+    sounding on the folder's **other** members in group *n* that started **before** *t* is
+    choked at *t*: its voice stops at once, without its release (in CLAP, `CLAP_EVENT_NOTE_CHOKE`).
+    Notes starting at the same tick never choke each other. A note is choked once, at the
+    first such tick, and is then over;
+  - a member folder in a choke group is choked whole, every instrument inside it; its own
+    members' groups work the same among themselves. Choke never reaches past one folder's
+    members, and members in different groups, or in none, never choke each other.
+- **What a player sends** at a choke is the choke, then at once a note off for the same note: a
+  plugin that choked ignores the note off, and one that can't be choked ends the note there, its
+  release sounding. A choked note's own later note off is not sent. **At one sample**, in this
+  order: parameter changes; note offs; chokes, each with its note off; note ons; within each, by
+  the note's start, then the track's place in the document (depth first), then the note's id.
+- **A zone on a track that is no folder's member** receives nothing and chokes nothing; a reader
+  warns of it and keeps it, so a track put back into a folder has its zone again.
+
+Worked example: a folder Kit holds a note at tick 0, pitch 36, 960 long, and one at tick 480,
+pitch 38, 240 long. Its member Kick has `{"keys": [36, 36], "transpose": 24, "choke": 1}`, its
+member Snare `{"keys": [38, 38], "transpose": 22, "choke": 1}`. Kick plays pitch 60 from 0, Snare
+pitch 60 from 480, and at 480 Kick's note, sounding since 0, is choked
+(`conformance/l1/folder-zones`).
+
 ## 7. Devices, states and dependencies
 
 ### 7.1 The chain
@@ -569,7 +619,8 @@ Notes flow through the note effects into the instrument, in list order; audio fl
 audio effects in list order; an analyzer passes audio through unchanged.
 
 **A folder's notes.** A folder passes its notes, and the notes it receives, through its note
-effects to each of its members; a track plays its own notes and those it receives. Notes here
+effects to each of its members, each through its `zone` when it has one (6.12); a track plays its
+own notes and those it receives. Notes here
 are those without `audio` (6.7): an audio piece sounds on the track that holds it. Notes that
 reach no instrument sound nowhere. So the notes of a folder holding two instrument tracks play
 on both, layered, and reach the instruments of a folder inside it too.
@@ -745,9 +796,11 @@ as the pretty form has it (a key at its default left out, 4). For a track render
 
 with one key more for a track inside folders whose notes can reach it (7.1): `"folders"`, the
 folders above it that hold patterns or enabled note effects, the outermost first, each reduced
-as the track is (below), its enabled note effects standing for the listed devices. With no such
-folder the key is left out, so moving a track into or out of folders that hold no notes never
-changes a fingerprint;
+as the track is (below), its enabled note effects standing for the listed devices; and, below the
+outermost of them, every folder with a zone (6.12), as it changes what passes. A zone is kept
+only where it changes what reaches the track: the outermost folder's and, with no such folder,
+the track's own are left out, as is a zone at its defaults. With no such folder the key is left
+out, so moving a track into or out of folders that hold no notes never changes a fingerprint;
 
 and for a pattern render:
 

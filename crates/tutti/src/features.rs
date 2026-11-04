@@ -60,6 +60,9 @@ pub fn features(doc: &Document) -> Vec<Feature> {
                 add(feature("folder notes", 1));
             }
         }
+        if t.zone.as_ref().is_some_and(|z| !z.is_default()) {
+            add(feature("zones", 1));
+        }
         if !t.channel.sends.is_empty() {
             add(feature("sends", 1));
         }
@@ -127,6 +130,14 @@ mod tests {
             r#"{"type": "note", "id": "n", "at": 0, "length": 480, "pitch": 60, "velocity": 0.8}"#;
         assert_eq!(level_needed(&with_folder(note)), 1);
         assert!(features(&with_folder(note)).contains(&feature("folder notes", 1)));
+        let zoned = read(
+            r#"{"format": "tutti", "version": "1.0", "generator": {"name": "x"}, "ppq": 960,
+            "tempo": [{"at": 0, "bpm": 120}], "meter": [{"at": 0, "numerator": 4, "denominator": 4}],
+            "tracks": [{"id": "f", "children": [{"id": "m", "zone": {"keys": [36, 36]}}]}]}"#
+                .as_bytes(),
+        )
+        .unwrap();
+        assert!(features(&zoned).contains(&feature("zones", 1)));
         assert_eq!(
             level_needed(&with_folder("")),
             0,

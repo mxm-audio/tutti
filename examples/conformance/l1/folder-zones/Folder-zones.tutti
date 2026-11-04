@@ -1,0 +1,138 @@
+{
+  "format": "tutti",
+  "version": "1.0",
+  "about": "An open audio project (tutti 1.0): this folder holds every file it uses. Time is integer ticks, 'ppq' per quarter note, placed in seconds by 'tempo'. Audio is placed by (frame, tick) points. Keep what you don't understand.",
+  "spec": "https://github.com/mxm-audio/tutti/blob/main/spec/1.0/tutti.md",
+  "schema": "https://github.com/mxm-audio/tutti/blob/main/schema/1.0/tutti.schema.json",
+  "generator": {
+    "name": "tutti-examples",
+    "version": "1.0",
+    "url": "https://github.com/mxm-audio/tutti"
+  },
+  "files": [
+    {"path": "renders/Hat.wav", "sha256": "3be45e0b8fe1c5abf53964397532cf63baba6f5e84e1850c0a9d845735956a34", "bytes": 32044}
+  ],
+  "dependencies": [
+    {"id": "clap:org.example.missing-synth", "kind": "plugin", "name": "Missing synth", "vendor": "Example", "version": "1.0.0", "url": "https://example.org/missing-synth", "formats": ["clap"]}
+  ],
+  "metadata": {
+    "title": "Folder zones"
+  },
+  "ppq": 960,
+  "tempo": [
+    {"at": 0, "bpm": 120}
+  ],
+  "meter": [
+    {"at": 0, "numerator": 4, "denominator": 4}
+  ],
+  "tracks": [
+    {
+      "id": "trk_01K742SGFJB9D00000000000FJ",
+      "name": "Kit",
+      "children": [
+        {
+          "id": "trk_01K742SGF7B9D00000000000F7",
+          "name": "Kick",
+          "devices": [
+            {
+              "id": "dev_01K742SGF8B9D00000000000F8",
+              "role": "instrument",
+              "name": "Missing synth",
+              "plugin": "clap:org.example.missing-synth"
+            }
+          ],
+          "zone": {
+            "keys": [36, 36],
+            "transpose": 24,
+            "choke": 1
+          }
+        },
+        {
+          "id": "trk_01K742SGF9B9D00000000000F9",
+          "name": "Snare",
+          "devices": [
+            {
+              "id": "dev_01K742SGFAB9D00000000000FA",
+              "role": "instrument",
+              "name": "Missing synth",
+              "plugin": "clap:org.example.missing-synth"
+            }
+          ],
+          "zone": {
+            "keys": [38, 38],
+            "transpose": 22,
+            "choke": 1
+          }
+        },
+        {
+          "id": "trk_01K742SGFBB9D00000000000FB",
+          "name": "Hat",
+          "devices": [
+            {
+              "id": "dev_01K742SGFCB9D00000000000FC",
+              "role": "instrument",
+              "name": "Missing synth",
+              "plugin": "clap:org.example.missing-synth"
+            }
+          ],
+          "zone": {
+            "keys": [42, 42],
+            "velocities": [0.5, 1],
+            "transpose": 18
+          },
+          "renders": [
+            {"file": "renders/Hat.wav", "sha256": "3be45e0b8fe1c5abf53964397532cf63baba6f5e84e1850c0a9d845735956a34", "name": "Hat, without effects", "sample_rate": 8000, "channels": 1, "frames": 16000, "devices": ["dev_01K742SGFCB9D00000000000FC"], "from": 0, "to": 3840, "fingerprint": "e04acb944809c4cb62a36d31c975e00d299899fdc72fcd963ed42c8286a060ce"}
+          ]
+        },
+        {
+          "id": "trk_01K742SGFDB9D00000000000FD",
+          "name": "Bass",
+          "devices": [
+            {
+              "id": "dev_01K742SGFEB9D00000000000FE",
+              "role": "instrument",
+              "name": "Missing synth",
+              "plugin": "clap:org.example.missing-synth"
+            }
+          ],
+          "zone": {
+            "keys": [48, 72],
+            "transpose": -12
+          },
+          "patterns": [
+            {
+              "id": "pat_01K742SGFGB9D00000000000FG",
+              "name": "Low",
+              "length": 3840,
+              "events": [
+                {"type": "note", "id": "evt_01K742SGFFB9D00000000000FF", "at": 3360, "length": 240, "pitch": 45, "velocity": 0.8}
+              ]
+            }
+          ],
+          "parts": [
+            {"id": "prt_01K742SGFHB9D00000000000FH", "pattern": "pat_01K742SGFGB9D00000000000FG", "at": 0, "length": 3840}
+          ]
+        }
+      ],
+      "patterns": [
+        {
+          "id": "pat_01K742SGFTB9D00000000000FT",
+          "name": "Beat",
+          "length": 3840,
+          "events": [
+            {"type": "note", "id": "evt_01K742SGFKB9D00000000000FK", "at": 0, "length": 960, "pitch": 36, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGFMB9D00000000000FM", "at": 480, "length": 240, "pitch": 38, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGFNB9D00000000000FN", "at": 960, "length": 240, "pitch": 42, "velocity": 0.4},
+            {"type": "note", "id": "evt_01K742SGFPB9D00000000000FP", "at": 1440, "length": 240, "pitch": 42, "velocity": 0.9},
+            {"type": "note", "id": "evt_01K742SGFQB9D00000000000FQ", "at": 1920, "length": 480, "pitch": 36, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGFRB9D00000000000FR", "at": 1920, "length": 480, "pitch": 38, "velocity": 0.8},
+            {"type": "note", "id": "evt_01K742SGFSB9D00000000000FS", "at": 2400, "length": 960, "pitch": 52, "velocity": 0.8}
+          ]
+        }
+      ],
+      "parts": [
+        {"id": "prt_01K742SGFVB9D00000000000FV", "pattern": "pat_01K742SGFTB9D00000000000FT", "at": 0, "length": 3840}
+      ]
+    }
+  ]
+}

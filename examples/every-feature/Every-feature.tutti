@@ -98,6 +98,12 @@
             {"pitch": 38, "name": "Snare"},
             {"pitch": 42, "name": "Hat"}
           ],
+          "zone": {
+            "keys": [24, 96],
+            "velocities": [0.1, 1],
+            "transpose": -12,
+            "choke": 1
+          },
           "patterns": [
             {
               "id": "pat_01K742SG2GB9D000000000002G",

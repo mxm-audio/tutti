@@ -62,7 +62,7 @@ multi-point map played by its first point and `bpm`.
 Level 0, and: plugins by id for at least one scheme (7.2), states loaded by kind (7.4) and the
 authority order kept (7.5), device order honoured (7.1), the missing-plugin behaviour (7.6),
 sends and returns, solo through them (6.2), a folder's notes played on the instruments inside it
-(7.1), automation lanes with every target form (6.8), multi-point maps (warps)
+(7.1), through its members' zones, with their chokes (6.12), automation lanes with every target form (6.8), multi-point maps (warps)
 followed and audio following tempo ramps (5.5), per-note expressions (6.7), parameter events
 through promoted names (6.8), the meter and key maps (5.3, 5.4), markers (6.9), a plugin's own
 files given to it from its folder (7.8).
@@ -108,6 +108,7 @@ fixture is made (a sine, a click, noise), never taken from anywhere.
 | 1 | `plugin` | A tiny reference CLAP (a sine with one parameter and a state) in `fixtures/clap/`, built with the first Level 1 claimant. |
 | 1 | `return-solo` | A return soloed plays what is sent to it, not its senders' outputs; a post-fader send taps after the pan, a pre-fader one before the mute. |
 | 1 | `folder-notes` | A folder's notes given to the instruments (fictitious) of the tracks inside it, a nested folder's included, beside a track's own; each layer's render holds them, so a folder note edit stales all three and a layer's own note edit only its own. The fingerprints are test vectors. |
+| 1 | `folder-zones` | A folder's notes reach four members (fictitious instruments) through their zones: two keys transposed to pitch 60 in one choke group, one key with a velocity range, a range an octave down beside a member's own note; the notes each is given and the one choke, at tick 480, are listed, and an edit to a zone stales the render that holds it. The fingerprint is a test vector. |
 | 1 | `render-choice` | An instrument and an effect of fictitious plugins, a render without effects, one with effects and a pattern render: plays the one that stands in for both; an edit to the effect stales only the render that holds it, a note edit all three. The fingerprints are test vectors. |
 | 2 | `everything` | Every feature; read and written to an equal document. |
 | 2 | `merge-different-tracks` | Two branches editing different tracks (their documents in the case's `branches/`) merge in git without conflict and the result validates. |

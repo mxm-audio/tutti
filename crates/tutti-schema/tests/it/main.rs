@@ -438,25 +438,97 @@ fn level_1_render_choice_plays_the_render_that_stands_in_and_stales_only_what_ch
 
 /// The notes a track is given (spec 7.1): its own and every folder's above it, as their parts
 /// place them, by pitch and track tick, in time order.
+/// The notes an instrument is given, as the core works them out (`tutti::play`), by tick then
+/// pitch.
 fn notes_given(doc: &Document, track: &tutti::Track) -> Vec<(u8, i64)> {
-    let mut out = Vec::new();
-    let mut from = tutti::render::folders_above(doc, &track.id);
-    from.push(track);
-    for t in from {
-        for part in &t.parts {
-            let pattern = t.patterns.iter().find(|p| p.id == part.pattern).unwrap();
-            for e in &pattern.events {
-                if let Event::Note(n) = e {
-                    let inside = n.at >= part.offset && n.at < part.offset + part.length;
-                    if n.audio.is_none() && inside {
-                        out.push((n.pitch, part.at + n.at - part.offset));
-                    }
-                }
-            }
-        }
-    }
+    let mut out: Vec<(u8, i64)> = tutti::play::reaching(doc, track)
+        .iter()
+        .map(|n| (n.pitch, n.at))
+        .collect();
     out.sort_by_key(|&(pitch, tick)| (tick, pitch));
     out
+}
+
+#[test]
+fn level_1_folder_zones_route_keys_transposed_and_choke_within_a_group() {
+    let folder = level_case("l1/folder-zones");
+    let expected = expected_of(&folder);
+    let opened = tutti_fs::open(&folder).unwrap();
+    assert!(opened.report.is_valid(), "{:?}", opened.report.issues);
+    assert_eq!(opened.report.warnings().count(), 0);
+    let doc = opened.project.document().clone();
+    // Each instrument is given what the table lists, by the core's listing.
+    let mut by_name = std::collections::HashMap::new();
+    for row in expected["given"].as_array().unwrap() {
+        let track = doc.track(&row["track"].as_str().unwrap().into()).unwrap();
+        let listed: Vec<(u8, i64, i64)> = row["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| {
+                (
+                    n["pitch"].as_u64().unwrap() as u8,
+                    n["tick"].as_i64().unwrap(),
+                    n["end"].as_i64().unwrap(),
+                )
+            })
+            .collect();
+        let given: Vec<(u8, i64, i64)> = tutti::play::reaching(&doc, track)
+            .iter()
+            .map(|n| (n.pitch, n.at, n.end))
+            .collect();
+        assert_eq!(given, listed, "{}", track.name);
+        by_name.insert(track.name.clone(), listed);
+    }
+    // And by hand: Kick and Snare at pitch 60, Hat's soft note gone, Bass an octave down and its
+    // own note unfiltered.
+    assert_eq!(by_name["Kick"], [(60, 0, 960), (60, 1920, 2400)]);
+    assert_eq!(by_name["Snare"], [(60, 480, 720), (60, 1920, 2400)]);
+    assert_eq!(by_name["Hat"], [(60, 1440, 1680)]);
+    assert_eq!(by_name["Bass"], [(40, 2400, 3360), (45, 3360, 3600)]);
+    // The chokes: Kick's first note at 480, nothing at 1920.
+    let chokes: Vec<(String, i64)> = tutti::play::chokes(&doc)
+        .iter()
+        .map(|c| (doc.track(&c.track).unwrap().name.clone(), c.at))
+        .collect();
+    assert_eq!(chokes, [("Kick".to_owned(), 480)]);
+    let listed: Vec<(String, i64)> = expected["chokes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["name"].as_str().unwrap().to_owned(),
+                c["tick"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(chokes, listed);
+    // Hat's render current, its fingerprint the published one; an edit to its zone stales it.
+    for r in tutti::render::renders(&doc) {
+        assert!(r.current, "{}", r.file);
+        assert_eq!(
+            json!(doc.track(&r.track).unwrap().renders[0].fingerprint.clone()),
+            expected["fingerprints"][&r.file]
+        );
+    }
+    let mut edited = doc.clone();
+    let hat: tutti::Id = expected["zone_edit"]["track"].as_str().unwrap().into();
+    edited
+        .track_mut(&hat)
+        .unwrap()
+        .zone
+        .as_mut()
+        .unwrap()
+        .velocities = [0.3, 1.0];
+    for r in tutti::render::renders(&edited) {
+        assert_eq!(
+            json!(!r.current),
+            expected["zone_edit"]["stale"][&r.file],
+            "{}",
+            r.file
+        );
+    }
 }
 
 #[test]

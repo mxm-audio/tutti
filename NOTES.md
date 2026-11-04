@@ -259,6 +259,18 @@ designed from is `docs/research.md`.
   counterpart stay kept and reported**, not approximated with other plugins ("Keep them
   reported"): overdrive, granular and wavetable settings, the other envelopes, glide, the
   master's EQ and limiter, MIDI and synth tracks.
+- **2026-11-04, the owner's idea:** **a folder's member has a `zone`** (6.12): "If the group
+  defines what keys are routed to what subtracks perhaps with a transpose. That way you could play
+  the sample like drums on a group track, but as instruments on their sub tracks"; built from
+  ops' `plans/plan-group-zones.md`, reviewed by Pi to READY. Reasons kept here: the zone is the
+  member's, as newDAWn's groups plan had it ("a filter on a member"), so a member moved keeps it;
+  velocities with keys, the same filter, drum machines' velocity layers; choke per folder,
+  numbered 1 to 16 as drum machines number theirs, because a Polyend Tracker's one voice per
+  track is a choke among a track's instruments; choke worked out from the notes alone (a note
+  sounds from its start until before its end; notes starting together never choke each other),
+  so every reader gets the same in any track order; the core's `play` is the reference a
+  fixture's expected notes are made with. A zone's own extension keys are left out of the
+  every-feature example, whose coverage test reads only keys the schema names.
 
 ## Design choices and what they were weighed against
 

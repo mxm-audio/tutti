@@ -1,0 +1,113 @@
+{
+  "what": "Kit, a folder, holds a beat, and four members with an instrument of a plugin no one has (fictitious), each with a zone (6.12): Kick receives key 36 and Snare key 38, each transposed to pitch 60, both in choke group 1; Hat receives key 42 at velocities from 0.5, transposed to 60; Bass receives keys 48 to 72 an octave down, and plays a note of its own its zone never filters. Each instrument is given the notes the table lists. At tick 480 Snare's note chokes Kick's, sounding since 0; at 1920 Kick and Snare start together and neither chokes the other; Hat's soft note at 960 never reaches it. Hat carries a render whose fingerprint holds its zone (7.7): an edit to its zone stales it. The fingerprint is a test vector.",
+  "given": [
+    {
+      "track": "trk_01K742SGF7B9D00000000000F7",
+      "name": "Kick",
+      "device": "dev_01K742SGF8B9D00000000000F8",
+      "notes": [
+        {
+          "pitch": 60,
+          "tick": 0,
+          "end": 960,
+          "velocity": 0.8,
+          "seconds": 0.0,
+          "sample_48000": 0
+        },
+        {
+          "pitch": 60,
+          "tick": 1920,
+          "end": 2400,
+          "velocity": 0.8,
+          "seconds": 1.0,
+          "sample_48000": 48000
+        }
+      ]
+    },
+    {
+      "track": "trk_01K742SGF9B9D00000000000F9",
+      "name": "Snare",
+      "device": "dev_01K742SGFAB9D00000000000FA",
+      "notes": [
+        {
+          "pitch": 60,
+          "tick": 480,
+          "end": 720,
+          "velocity": 0.8,
+          "seconds": 0.25,
+          "sample_48000": 12000
+        },
+        {
+          "pitch": 60,
+          "tick": 1920,
+          "end": 2400,
+          "velocity": 0.8,
+          "seconds": 1.0,
+          "sample_48000": 48000
+        }
+      ]
+    },
+    {
+      "track": "trk_01K742SGFBB9D00000000000FB",
+      "name": "Hat",
+      "device": "dev_01K742SGFCB9D00000000000FC",
+      "notes": [
+        {
+          "pitch": 60,
+          "tick": 1440,
+          "end": 1680,
+          "velocity": 0.9,
+          "seconds": 0.75,
+          "sample_48000": 36000
+        }
+      ]
+    },
+    {
+      "track": "trk_01K742SGFDB9D00000000000FD",
+      "name": "Bass",
+      "device": "dev_01K742SGFEB9D00000000000FE",
+      "notes": [
+        {
+          "pitch": 40,
+          "tick": 2400,
+          "end": 3360,
+          "velocity": 0.8,
+          "seconds": 1.25,
+          "sample_48000": 60000
+        },
+        {
+          "pitch": 45,
+          "tick": 3360,
+          "end": 3600,
+          "velocity": 0.8,
+          "seconds": 1.75,
+          "sample_48000": 84000
+        }
+      ]
+    }
+  ],
+  "chokes": [
+    {
+      "track": "trk_01K742SGF7B9D00000000000F7",
+      "name": "Kick",
+      "event": "evt_01K742SGFKB9D00000000000FK",
+      "pitch": 60,
+      "tick": 480,
+      "seconds": 0.25,
+      "sample_48000": 12000
+    }
+  ],
+  "fingerprints": {
+    "renders/Hat.wav": "e04acb944809c4cb62a36d31c975e00d299899fdc72fcd963ed42c8286a060ce"
+  },
+  "zone_edit": {
+    "track": "trk_01K742SGFBB9D00000000000FB",
+    "velocities": [
+      0.3,
+      1.0
+    ],
+    "stale": {
+      "renders/Hat.wav": true
+    }
+  }
+}

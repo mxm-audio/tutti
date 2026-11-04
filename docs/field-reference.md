@@ -154,6 +154,7 @@ A track and its channel (spec 6.1); a track with children is a folder.
 | `devices` | array of `device` |  | `[]` | The chain in signal order (spec 7.1). |
 | `parameters` | array of `promoted` |  | `[]` | Promoted parameters (spec 6.8). |
 | `drum_map` | null or array of `lane` |  | `null` | A lane per drum in display order (spec 6.11). |
+| `zone` | null or `zone` |  | `null` | Which of its folder's notes this track receives, transposed by how much, and its choke group (spec 6.12). |
 | `patterns` | array of `pattern` |  | `[]` | The track's own patterns, sorted by id. |
 | `parts` | array of `part` |  | `[]` | Where its patterns play, sorted by id. |
 | `automation` | array of `automation_lane` |  | `[]` | Automation lanes, sorted by id (spec 6.8). |
@@ -198,6 +199,18 @@ The mixer strip (spec 6.2).
 |---|---|---|---|---|
 | `pitch` | `pitch` | yes |  |  |
 | `name` | string |  | `""` |  |
+
+## `zone`
+
+A member's zone (spec 6.12): low is at most high in both ranges.
+
+| Key | Type | Required | Default | Meaning |
+|---|---|---|---|---|
+| `keys` | array of `pitch` |  | `[0, 127]` |  |
+| `velocities` | array of number, ≥ 0, ≤ 1 |  | `[0, 1]` |  |
+| `transpose` | integer, ≥ -127, ≤ 127 |  | `0` |  |
+| `choke` | integer, ≥ 0, ≤ 16 |  | `0` |  |
+| `extensions` | `extensions` |  |  |  |
 
 ## `device`
 

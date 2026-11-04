@@ -20,6 +20,7 @@ pub mod folder;
 pub mod id;
 pub mod model;
 pub mod names;
+pub mod play;
 pub mod project;
 pub mod read;
 pub mod render;

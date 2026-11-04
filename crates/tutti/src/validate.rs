@@ -589,6 +589,31 @@ fn check_track(
             }
         }
     }
+    if let Some(z) = &t.zone {
+        let zp = format!("{p}/zone");
+        let [lo, hi] = z.keys;
+        if lo > 127 || hi > 127 {
+            r.error(&format!("{zp}/keys"), "a key above 127");
+        }
+        if lo > hi {
+            r.error(&format!("{zp}/keys"), "low above high");
+        }
+        let [vlo, vhi] = z.velocities;
+        if !(0.0..=1.0).contains(&vlo) || !(0.0..=1.0).contains(&vhi) {
+            r.error(&format!("{zp}/velocities"), "a velocity outside 0 to 1");
+        } else if vlo > vhi {
+            r.error(&format!("{zp}/velocities"), "low above high");
+        }
+        if !(-127..=127).contains(&z.transpose) {
+            r.error(&format!("{zp}/transpose"), "outside -127 to 127");
+        }
+        if z.choke > crate::model::CHOKE_GROUPS {
+            r.error(&format!("{zp}/choke"), "above 16");
+        }
+        if parent.is_none() && !z.is_default() {
+            r.warn(&zp, "has no folder: it receives nothing and chokes nothing");
+        }
+    }
     // Patterns.
     let mut pattern_ids: HashSet<&str> = HashSet::new();
     let mut pattern_lengths: HashMap<&str, i64> = HashMap::new();
@@ -1455,6 +1480,43 @@ mod tests {
         let d = doc(r#", "tracks": [{"id": "x"}, {"id": "x"}, {"id": "master"}, {"id": "a b"}]"#);
         let e = errors(&d);
         assert_eq!(e, ["/tracks/1/id", "/tracks/2/id", "/tracks/3/id"]);
+    }
+
+    #[test]
+    fn a_zone_out_of_range_is_an_error_and_one_without_a_folder_a_warning() {
+        let read = |zone: &str, nested: bool| {
+            let member = format!(r#"{{"id": "trk_m", "zone": {zone}}}"#);
+            let tracks = if nested {
+                format!(r#"[{{"id": "trk_f", "children": [{member}]}}]"#)
+            } else {
+                format!("[{member}]")
+            };
+            let text = format!(
+                r#"{{"format": "tutti", "version": "1.0", "generator": {{"name": "x"}},
+                "ppq": 960, "tempo": [{{"at": 0, "bpm": 120}}],
+                "meter": [{{"at": 0, "numerator": 4, "denominator": 4}}], "tracks": {tracks}}}"#
+            );
+            validate(&crate::read(text.as_bytes()).unwrap())
+        };
+        assert!(read(r#"{"keys": [36, 48], "transpose": -12, "choke": 16}"#, true).is_valid());
+        for bad in [
+            r#"{"keys": [48, 36]}"#,
+            r#"{"keys": [0, 200]}"#,
+            r#"{"velocities": [0.5, 0.2]}"#,
+            r#"{"velocities": [0.0, 1.5]}"#,
+            r#"{"transpose": 128}"#,
+            r#"{"choke": 17}"#,
+        ] {
+            assert!(!read(bad, true).is_valid(), "{bad}");
+        }
+        let top = read(r#"{"keys": [36, 36]}"#, false);
+        assert!(top.is_valid());
+        assert!(top.warnings().any(|w| w.message.contains("has no folder")));
+        assert_eq!(
+            read("{}", false).warnings().count(),
+            0,
+            "a default zone is no zone"
+        );
     }
 
     #[test]

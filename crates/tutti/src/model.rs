@@ -561,6 +561,8 @@ pub struct Track {
     pub parameters: Vec<Promoted>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drum_map: Option<Vec<Lane>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zone: Option<Zone>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub patterns: Vec<Pattern>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -589,6 +591,7 @@ impl Track {
             devices: Vec::new(),
             parameters: Vec::new(),
             drum_map: None,
+            zone: None,
             patterns: Vec::new(),
             parts: Vec::new(),
             automation: Vec::new(),
@@ -700,6 +703,88 @@ pub struct Lane {
     pub name: String,
     #[serde(flatten)]
     pub unknown: Unknown,
+}
+
+/// Which of its folder's notes a member receives, transposed by how much, and its choke group
+/// (spec 6.12).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Zone {
+    /// The pitches received, both ends in.
+    #[serde(default = "all_keys", skip_serializing_if = "is_all_keys")]
+    pub keys: [u8; 2],
+    /// The velocities received, both ends in.
+    #[serde(default = "all_velocities", skip_serializing_if = "is_all_velocities")]
+    pub velocities: [f64; 2],
+    /// Semitones added to a received note's pitch.
+    #[serde(default, skip_serializing_if = "is_zero_i32")]
+    pub transpose: i32,
+    /// The choke group among the folder's members; 0 is none.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub choke: u8,
+    #[serde(default, skip_serializing_if = "Extensions::is_empty")]
+    pub extensions: Extensions,
+    #[serde(flatten)]
+    pub unknown: Unknown,
+}
+
+/// The most choke groups a folder's members take (spec 6.12).
+pub const CHOKE_GROUPS: u8 = 16;
+
+fn all_keys() -> [u8; 2] {
+    [0, 127]
+}
+
+fn is_all_keys(k: &[u8; 2]) -> bool {
+    *k == [0, 127]
+}
+
+fn all_velocities() -> [f64; 2] {
+    [0.0, 1.0]
+}
+
+fn is_all_velocities(v: &[f64; 2]) -> bool {
+    *v == [0.0, 1.0]
+}
+
+fn is_zero_i32(v: &i32) -> bool {
+    *v == 0
+}
+
+fn is_zero_u8(v: &u8) -> bool {
+    *v == 0
+}
+
+impl Default for Zone {
+    fn default() -> Self {
+        Self {
+            keys: all_keys(),
+            velocities: all_velocities(),
+            transpose: 0,
+            choke: 0,
+            extensions: Extensions::new(),
+            unknown: Unknown::new(),
+        }
+    }
+}
+
+impl Zone {
+    /// Every key, every velocity, no transpose, no choke: the same as no zone.
+    pub fn is_default(&self) -> bool {
+        *self == Zone::default()
+    }
+
+    /// The pitch a note of the folder's at `pitch` and `velocity` arrives at, or none when this
+    /// zone doesn't receive it or its transpose takes it past 0 or 127.
+    pub fn pass(&self, pitch: u8, velocity: f64) -> Option<u8> {
+        let [lo, hi] = self.keys;
+        let [vlo, vhi] = self.velocities;
+        if pitch < lo || pitch > hi || velocity < vlo || velocity > vhi {
+            return None;
+        }
+        u8::try_from(pitch as i32 + self.transpose)
+            .ok()
+            .filter(|p| *p <= 127)
+    }
 }
 
 // --- devices -----------------------------------------------------------------------------------
